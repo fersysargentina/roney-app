@@ -16,13 +16,17 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import * as Clipboard from 'expo-clipboard';
 
+// Importa tu LicenseManager
 import LicenseManager from './src/utils/LicenseManager';
 
+// Importa tus pantallas
 import OperacionesScreen from './src/screens/OperacionesScreen';
 import MuestrasScreen from './src/screens/MuestrasScreen';
+import LotesScreen from './src/screens/LotesScreen';
 
 const Stack = createStackNavigator();
 
+// Componente para la aplicación principal (una vez activada)
 function MainApp() {
   return (
     <NavigationContainer>
@@ -37,6 +41,13 @@ function MainApp() {
           component={MuestrasScreen}
           options={({ route }) => ({ 
             title: route.params?.roney_op || 'Muestras'
+          })}
+        />
+        <Stack.Screen 
+          name="Lotes" 
+          component={LotesScreen}
+          options={({ route }) => ({ 
+            title: `Lotes - ${route.params?.roney_op || 'Operación'}`
           })}
         />
       </Stack.Navigator>
@@ -107,6 +118,7 @@ export default function App() {
     setValidating(false);
   };
 
+  // Loader de carga
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -118,6 +130,7 @@ export default function App() {
     );
   }
 
+  // Pantalla de activación
   if (!isActivated) {
     return (
       <SafeAreaView style={styles.container}>
@@ -128,6 +141,7 @@ export default function App() {
           <ScrollView contentContainerStyle={styles.scrollContainer}>
             <View style={styles.activationContainer}>
               
+              {/* Header */}
               <View style={styles.header}>
                 <Text style={styles.headerIcon}>🔐</Text>
                 <Text style={styles.title}>Activación de Licencia</Text>
@@ -136,6 +150,7 @@ export default function App() {
                 </Text>
               </View>
 
+              {/* Paso 1: Device ID */}
               <View style={styles.section}>
                 <Text style={styles.stepNumber}>Paso 1</Text>
                 <Text style={styles.sectionTitle}>Tu ID de Dispositivo</Text>
@@ -166,8 +181,10 @@ export default function App() {
                 </View>
               </View>
 
+              {/* Divider */}
               <View style={styles.divider} />
 
+              {/* Paso 2: Ingresar clave */}
               <View style={styles.section}>
                 <Text style={styles.stepNumber}>Paso 2</Text>
                 <Text style={styles.sectionTitle}>Ingresa tu Clave</Text>
@@ -205,6 +222,7 @@ export default function App() {
                 </TouchableOpacity>
               </View>
 
+              {/* Footer */}
               <Text style={styles.footer}>
                 ℹ️ La activación es permanente y funciona sin conexión a internet
               </Text>
@@ -229,6 +247,7 @@ export default function App() {
     );
   }
 
+  // App principal - Ya está activada
   return (
     <SafeAreaView style={styles.container}>
       <MainApp />

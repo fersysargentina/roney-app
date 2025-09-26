@@ -93,9 +93,6 @@ export default function CerrarLoteModal({
                 <Text style={styles.infoText}>
                   📊 Muestras seleccionadas: {muestrasSeleccionadas.length}
                 </Text>
-                <Text style={styles.infoText}>
-                  📈 Daño promedio: {Math.round(dañoRealCalculado * 100) / 100}%
-                </Text>
               </View>
 
               <View style={styles.inputContainer}>
@@ -134,7 +131,7 @@ export default function CerrarLoteModal({
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Daño Pactado (Opcional)</Text>
+                <Text style={styles.label}>Daño Pactado</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Ej: 15.5"
@@ -143,9 +140,6 @@ export default function CerrarLoteModal({
                   keyboardType="numeric"
                   maxLength={10}
                 />
-                <Text style={styles.helpText}>
-                  Puede completarse después desde la pantalla de lotes
-                </Text>
               </View>
             </View>
 

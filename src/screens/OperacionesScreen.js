@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, Alert, Button, Image, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Alert, Image, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CrearOperacionModal from '../components/modals/CrearOperacionModal';
 import OperacionItem from '../components/OperacionItem';

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, TextInput, Button, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 
 export default function CrearOperacionModal({
   visible,
@@ -65,14 +66,19 @@ export default function CrearOperacionModal({
                 returnKeyType="next"
                 editable
               />
-              <TextInput
-                style={styles.input}
-                placeholder="Cultivo"
-                value={cultivo}
-                onChangeText={setCultivo}
-                returnKeyType="done"
-                editable
-              />
+              <View style={styles.input}>
+                <Picker
+                  selectedValue={cultivo}
+                  onValueChange={setCultivo}
+                  style={{ width: '100%' }}
+                >
+                  <Picker.Item label="Selecciona un cultivo..." value="" />
+                  <Picker.Item label="Soja" value="soja" />
+                  <Picker.Item label="Trigo" value="trigo" />
+                  <Picker.Item label="Cebada" value="cebada" />
+                  <Picker.Item label="Maíz" value="maiz" />
+                </Picker>
+              </View>
               <View style={styles.botones}>
                 <Button title="Cancelar" onPress={handleCerrar} color="#888" />
                 <Button

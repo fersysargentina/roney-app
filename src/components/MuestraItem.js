@@ -1,117 +1,256 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+} from 'react-native';
 
-export default function MuestraItem({ item, isSelected = false, onPress, onDelete }) {
+export default function MuestraItem({ item, isSelected, onPress, onDelete, isInLote = false }) {
+  
+  const handleDelete = () => {
+    if (isInLote) {
+      Alert.alert(
+        'Muestra en Lote',
+        'Esta muestra está asignada a un lote. Debe liberarla desde la pantalla de lotes para poder eliminarla.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    onDelete();
+  };
+
+  const handlePress = () => {
+    if (isInLote) {
+      Alert.alert(
+        'Muestra en Lote',
+        'Esta muestra ya está asignada a un lote',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    onPress();
+  };
+
+  const getContainerStyle = () => {
+    if (isInLote) {
+      return [styles.container, styles.containerInLote];
+    }
+    if (isSelected) {
+      return [styles.container, styles.containerSelected];
+    }
+    return styles.container;
+  };
+
+  const formatearDatos = () => {
+    const { datos } = item;
+    if (!datos) return 'Sin datos';
+    
+    const valores = Object.entries(datos)
+      .filter(([key, value]) => key !== 'porcentajeDaño' && value !== '' && value !== null)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(', ');
+    
+    return valores || 'Sin datos específicos';
+  };
+
   return (
-    <TouchableOpacity 
-      style={[styles.container, isSelected && styles.selectedContainer]} 
-      onPress={onPress}
+    <TouchableOpacity
+      style={getContainerStyle()}
+      onPress={handlePress}
+      activeOpacity={isInLote ? 1 : 0.7}
+      disabled={isInLote}
     >
-      <View style={styles.content}>
-        <View style={styles.row}>
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
           <Text style={styles.nombre}>{item.nombre}</Text>
-          <View style={styles.rightSection}>
-            {isSelected && <Text style={styles.selectedText}>✓</Text>}
-          </View>
+          <Text style={styles.fecha}>{item.fecha}</Text>
         </View>
         
-        {/* Mostrar un número aleatorio y un % */}
-        <Text>{`${Math.floor(Math.random() * 100)}%`}</Text>
+        <View style={styles.headerRight}>
+          {isInLote && (
+            <View style={styles.loteIndicator}>
+              <Text style={styles.loteText}>EN LOTE</Text>
+            </View>
+          )}
+          
+          <TouchableOpacity
+            style={[
+              styles.deleteButton,
+              isInLote && styles.deleteButtonDisabled
+            ]}
+            onPress={handleDelete}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.deleteButtonText}>
+              {isInLote ? '🔒' : '🗑️'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
-      
-      <TouchableOpacity 
-        style={styles.deleteButton} 
-        onPress={(e) => {
-          e.stopPropagation(); // Evita que se active onPress del contenedor
-          onDelete();
-        }}
-      >
-        <Text style={styles.deleteText}>🗑️</Text>
-      </TouchableOpacity>
+
+      <View style={styles.content}>
+        <Text style={styles.tipo}>Tipo {item.tipo}</Text>
+        
+        {/* Mostrar porcentaje de daño */}
+        <View style={styles.dañoContainer}>
+          <Text style={styles.dañoLabel}>Daño:</Text>
+          <Text style={styles.dañoValue}>
+            {item.datos?.porcentajeDaño || 0}%
+          </Text>
+        </View>
+        
+        <Text style={styles.datos} numberOfLines={2}>
+          {formatearDatos()}
+        </Text>
+      </View>
+
+      {/* Indicador de selección */}
+      {isSelected && !isInLote && (
+        <View style={styles.selectionIndicator}>
+          <Text style={styles.selectionText}>✓ SELECCIONADA</Text>
+        </View>
+      )}
+
+      {/* Mensaje para muestras en lote */}
+      {isInLote && (
+        <View style={styles.loteMessage}>
+          <Text style={styles.loteMessageText}>
+            📦 Esta muestra está asignada a un lote
+          </Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    paddingRight: 40,
-  },
-  selectedContainer: {
-    backgroundColor: '#e3f2fd',
-    borderColor: '#2196f3',
-  },
-  content: {
+    backgroundColor: '#fff',
+    marginVertical: 8,
+    marginHorizontal: 4,
+    borderRadius: 12,
     padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
   },
-  row: {
+  containerSelected: {
+    borderColor: '#007bff',
+    borderWidth: 2,
+    backgroundColor: '#f0f8ff',
+  },
+  containerInLote: {
+    borderColor: '#ffc107',
+    backgroundColor: '#fffbf0',
+    opacity: 0.8,
+  },
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
-  rightSection: {
+  headerLeft: {
+    flex: 1,
+  },
+  headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
   nombre: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
-    flex: 1,
+    color: '#333',
+    marginBottom: 4,
+  },
+  fecha: {
+    fontSize: 12,
+    color: '#666',
+  },
+  loteIndicator: {
+    backgroundColor: '#ffc107',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  loteText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  deleteButton: {
+    padding: 4,
+  },
+  deleteButtonDisabled: {
+    opacity: 0.5,
+  },
+  deleteButtonText: {
+    fontSize: 16,
+  },
+  content: {
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 12,
   },
   tipo: {
     fontSize: 14,
-    color: '#666',
-  },
-  selectedText: {
-    fontSize: 18,
-    color: '#2196f3',
-    fontWeight: 'bold',
-  },
-  fecha: {
-    fontSize: 14,
-    color: '#666',
+    fontWeight: '600',
+    color: '#007bff',
     marginBottom: 8,
   },
-  datosContainer: {
-    marginTop: 8,
-    padding: 8,
-    backgroundColor: '#ffffff',
-    borderRadius: 4,
-  },
-  datosTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    color: '#333',
-  },
-  datosGrid: {
+  dañoContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  dato: {
-    fontSize: 12,
+  dañoLabel: {
+    fontSize: 14,
     color: '#666',
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    marginRight: 8,
   },
-  deleteButton: {
+  dañoValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#dc3545',
+  },
+  datos: {
+    fontSize: 12,
+    color: '#999',
+    lineHeight: 16,
+  },
+  selectionIndicator: {
     position: 'absolute',
     top: 8,
-    right: 8,
-    padding: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    left: 8,
+    backgroundColor: '#007bff',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  deleteText: {
-    fontSize: 16,
+  selectionText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  loteMessage: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: '#fff3cd',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#ffeaa7',
+  },
+  loteMessageText: {
+    fontSize: 11,
+    color: '#856404',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });
