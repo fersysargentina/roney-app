@@ -12,6 +12,8 @@ export default function MuestrasScreen({ route, navigation }) {
   const { roney_op, operacionId } = route.params || {};
   const [muestras, setMuestras] = useState([]);
   const [fenologicoSeleccionado, setFenologicoSeleccionado] = useState('1');
+  const [subFenologicoSeleccionado, setSubFenologicoSeleccionado] = useState('1');
+
   const [modalTipo, setModalTipo] = useState(null);
   const [muestrasSeleccionadas, setMuestrasSeleccionadas] = useState(new Set());
 
@@ -192,12 +194,14 @@ export default function MuestrasScreen({ route, navigation }) {
       />
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          Muestras Tipo {fenologicoSeleccionado}: {muestrasFiltradas.length}
-        </Text>
-        <Text style={styles.footerText}>
-          Seleccionadas: {muestrasSeleccionadas.size}
-        </Text>
+        <View style={styles.muestrasFooter}>
+          <Text style={styles.footerText}>
+            Total {fenologicoSeleccionado}: {muestrasFiltradas.length}
+          </Text>
+          <Text style={styles.footerText}>
+            Seleccionadas: {muestrasSeleccionadas.size}
+          </Text>
+        </View>
         {muestrasSeleccionadas.size > 0 && (
           <TouchableOpacity 
             style={styles.limpiarSeleccionBtn}
@@ -206,6 +210,21 @@ export default function MuestrasScreen({ route, navigation }) {
             <Text style={styles.limpiarSeleccionText}>Limpiar Selección</Text>
           </TouchableOpacity>
         )}
+      </View>
+      <View style={styles.pickerContainer}>
+        <Text style={styles.pickerLabel}>Sub categoria fenológico:</Text>
+        <Picker
+          selectedValue={subFenologicoSeleccionado}
+          style={styles.picker}
+          onValueChange={(itemValue) => {
+            setSubFenologicoSeleccionado(itemValue);
+          }}
+        >
+          <Picker.Item label="Sub Tipo 1" value="1" />
+          <Picker.Item label="Sub Tipo 2" value="2" />
+          <Picker.Item label="Sub Tipo 3" value="3" />
+          <Picker.Item label="Sub Tipo 4" value="4" />
+        </Picker>
       </View>
     </View>
   );
@@ -295,6 +314,11 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#eee',
+  },
+  muestrasFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   footerText: {
     fontSize: 16,

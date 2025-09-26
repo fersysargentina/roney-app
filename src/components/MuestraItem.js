@@ -11,25 +11,12 @@ export default function MuestraItem({ item, isSelected = false, onPress, onDelet
         <View style={styles.row}>
           <Text style={styles.nombre}>{item.nombre}</Text>
           <View style={styles.rightSection}>
-            {item.tipo && <Text style={styles.tipo}>Tipo {item.tipo}</Text>}
             {isSelected && <Text style={styles.selectedText}>✓</Text>}
           </View>
         </View>
-        <Text style={styles.fecha}>Fecha: {item.fecha}</Text>
         
-        {/* Mostrar datos si existen */}
-        {item.datos && (
-          <View style={styles.datosContainer}>
-            <Text style={styles.datosTitle}>Datos:</Text>
-            <View style={styles.datosGrid}>
-              {Object.entries(item.datos).map(([key, value]) => (
-                <Text key={key} style={styles.dato}>
-                  {key.replace('_', ' ')}: {value}
-                </Text>
-              ))}
-            </View>
-          </View>
-        )}
+        {/* Mostrar un número aleatorio y un % */}
+        <Text>{`${Math.floor(Math.random() * 100)}%`}</Text>
       </View>
       
       <TouchableOpacity 
@@ -52,6 +39,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 2,
     borderColor: 'transparent',
+    paddingRight: 40,
   },
   selectedContainer: {
     backgroundColor: '#e3f2fd',
