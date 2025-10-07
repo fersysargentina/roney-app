@@ -84,6 +84,11 @@ export default function LoteItem({ lote, onPress, onDelete }) {
         </View>
 
         <View style={styles.statItem}>
+          <Text style={styles.statLabel}>Fenológico</Text>
+          <Text style={styles.statValue}>{lote.tipoFenologico ?? '-'}</Text>
+        </View>
+
+        <View style={styles.statItem}>
           <Text style={styles.statLabel}>Daño Real</Text>
           <Text style={[styles.statValue, styles.dañoReal]}>
             {lote.dañoReal}%
@@ -91,17 +96,11 @@ export default function LoteItem({ lote, onPress, onDelete }) {
         </View>
 
         <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Daño Pactado</Text>
+          <Text style={styles.statLabel}>Pactado</Text>
           <Text style={[styles.statValue, getDañoPactadoStyle()]}>
             {getDañoPactadoDisplay()}
           </Text>
         </View>
-      </View>
-
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          👆 Toca para editar o ver detalles
-        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -151,8 +150,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   statItem: {
     flex: 1,

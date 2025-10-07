@@ -18,6 +18,7 @@ import * as Clipboard from 'expo-clipboard';
 
 // Importa tu LicenseManager
 import LicenseManager from './src/utils/LicenseManager';
+import { CrashHandler } from './src/utils/CrashHandler';
 
 // Importa tus pantallas
 import OperacionesScreen from './src/screens/OperacionesScreen';
@@ -63,6 +64,12 @@ export default function App() {
   const [validating, setValidating] = useState(false);
 
   useEffect(() => {
+    // Inicializar manejo de crashes
+    CrashHandler.initialize();
+    
+    // Verificar crashes recientes
+    CrashHandler.checkRecentCrashes();
+    
     checkActivation();
   }, []);
 

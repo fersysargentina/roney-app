@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Alert, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import MuestraItem from '../components/MuestraItem';
@@ -8,28 +8,38 @@ import MuestraTipo3Modal from '../components/modals/MuestraTipo3Modal';
 import MuestraTipo4Modal from '../components/modals/MuestraTipo4Modal';
 import CerrarLoteModal from '../components/modals/CerrarLoteModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ErrorHandler } from '../utils/ErrorHandler';
 import { 
-  calculoDeDaño, 
-  getSubFenologicosPorTipo, 
-  existeSubFenologico, 
-  getPrimerSubFenologico 
+  calculoDeDaño
 } from '../utils/calculoDeDaño';
 
 export default function MuestrasScreen({ route, navigation }) {
   const { roney_op, operacionId } = route.params || {};
   const [muestras, setMuestras] = useState([]);
   const [fenologicoSeleccionado, setFenologicoSeleccionado] = useState('1');
-  const [subFenologicoSeleccionado, setSubFenologicoSeleccionado] = useState('sub1');
-  const [subFenologicosPorTipo, setSubFenologicosPorTipo] = useState({});
+  // Subfenológicos ya no se usan
   
   const [modalTipo, setModalTipo] = useState(null);
+  const [muestraEnEdicion, setMuestraEnEdicion] = useState(null);
   const [muestrasSeleccionadas, setMuestrasSeleccionadas] = useState(new Set());
   const [cerrarLoteModalVisible, setCerrarLoteModalVisible] = useState(false);
   const [recalculando, setRecalculando] = useState(false);
 
+  const mapSeleccionToTipo = useCallback((valorSeleccion) => {
+    const v = parseInt(valorSeleccion, 10);
+    if (v >= 1 && v <= 3) return '1';
+    if (v == 4) return '2';
+    if (v == 5) return '3';
+    return '4'; 
+  }, []);
+
   useEffect(() => {
     if (!roney_op || !operacionId) {
-      Alert.alert('Error', 'No se recibieron los datos de la operación');
+      ErrorHandler.handleError(
+        new Error('Missing operation parameters'),
+        'Error de Navegación',
+        'No se recibieron los datos de la operación'
+      );
       navigation.goBack();
       return;
     }
@@ -46,113 +56,99 @@ export default function MuestrasScreen({ route, navigation }) {
 
   const inicializarDatos = async () => {
     await cargarMuestras();
-    await cargarSubFenologicosGuardados();
   };
 
-  const cargarMuestras = async () => {
+  const cargarMuestras = useCallback(async () => {
     try {
-      const data = await AsyncStorage.getItem(`muestras_${operacionId}`);
-      if (data) {
-        setMuestras(JSON.parse(data));
-      }
+      const data = await ErrorHandler.getStorageData(`muestras_${operacionId}`);
+      const muestrasCargadas = ErrorHandler.safeJsonParse(data, []);
+      const muestrasValidadas = ErrorHandler.sanitizeData(muestrasCargadas, 'muestras');
+      setMuestras(muestrasValidadas);
     } catch (e) {
-      Alert.alert('Error', 'No se pudieron cargar las muestras');
+      ErrorHandler.handleError(e, 'Error de Carga', 'No se pudieron cargar las muestras');
     }
-  };
+  }, [operacionId]);
 
-  const cargarSubFenologicosGuardados = async () => {
+  // Subfenológicos eliminados
+
+  // Sin persistencia de subfenológicos
+
+  const guardarMuestras = useCallback(async (nuevasMuestras) => {
     try {
-      const data = await AsyncStorage.getItem(`subFenologicos_${operacionId}`);
-      const savedSubs = data ? JSON.parse(data) : {};
-      
-      // Inicializar con valores por defecto si no existen
-      const subsPorTipo = {
-        '1': savedSubs['1'] || 'sub1',
-        '2': savedSubs['2'] || 'sub1',
-        '3': savedSubs['3'] || 'sub1',
-        '4': savedSubs['4'] || 'sub2'
-      };
-
-      setSubFenologicosPorTipo(subsPorTipo);
-      
-      // Establecer el subFenológico actual
-      setSubFenologicoSeleccionado(subsPorTipo[fenologicoSeleccionado]);
-      
+      const sanitized = ErrorHandler.sanitizeData(nuevasMuestras, 'muestras');
+      await ErrorHandler.setStorageData(`muestras_${operacionId}`, sanitized);
+      setMuestras(sanitized);
     } catch (e) {
-      console.warn('Error cargando subFenológicos:', e);
-      // Valores por defecto
-      const defaultSubs = {
-        '1': 'sub1',
-        '2': 'sub1', 
-        '3': 'sub1',
-        '4': 'sub2'
-      };
-      setSubFenologicosPorTipo(defaultSubs);
-      setSubFenologicoSeleccionado(defaultSubs[fenologicoSeleccionado]);
+      ErrorHandler.handleError(e, 'Error de Guardado', 'No se pudieron guardar las muestras');
     }
-  };
-
-  const guardarSubFenologicos = async (nuevosSubFenologicos) => {
-    try {
-      await AsyncStorage.setItem(`subFenologicos_${operacionId}`, JSON.stringify(nuevosSubFenologicos));
-      setSubFenologicosPorTipo(nuevosSubFenologicos);
-    } catch (e) {
-      console.warn('Error guardando subFenológicos:', e);
-    }
-  };
-
-  const guardarMuestras = async (nuevasMuestras) => {
-    try {
-      await AsyncStorage.setItem(`muestras_${operacionId}`, JSON.stringify(nuevasMuestras));
-      setMuestras(nuevasMuestras);
-    } catch (e) {
-      Alert.alert('Error', 'No se pudieron guardar las muestras');
-    }
-  };
+  }, [operacionId]);
 
   const abrirModalSegunTipo = () => {
-    setModalTipo(fenologicoSeleccionado);
+    setMuestraEnEdicion(null);
+    const tipoMapeado = mapSeleccionToTipo(fenologicoSeleccionado);
+    setModalTipo(tipoMapeado);
   };
 
   const cerrarModal = () => {
     setModalTipo(null);
+    setMuestraEnEdicion(null);
+  };
+
+  const abrirModalEdicion = (muestra) => {
+    setMuestraEnEdicion(muestra);
+    setModalTipo(muestra.tipo);
   };
 
   const agregarMuestraDesdeModal = (tipo, datos) => {
-    // Calcular porcentaje de daño usando la nueva función
-    const porcentajeDaño = calculoDeDaño(datos, tipo, subFenologicosPorTipo[tipo]);
+    // Calcular daño usando el estado fenológico seleccionado (no el tipo mapeado)
+    const porcentajeDaño = calculoDeDaño(datos, fenologicoSeleccionado, null);
 
-    const datosConDaño = {
-      ...datos,
-      porcentajeDaño
-    };
-
-    const muestrasDelTipo = muestras.filter(m => m.tipo === tipo && !m.loteId);
-    const nuevaMuestra = {
-      id: Date.now().toString(),
+    console.log('🔍 Debug agregarMuestra:', {
+      fenologicoSeleccionado,
       tipo,
-      datos: datosConDaño,
-      nombre: `Muestra Tipo ${tipo} - ${muestrasDelTipo.length + 1}`,
-      fecha: new Date().toLocaleDateString(),
-      operacionId: operacionId,
-      loteId: null,
-    };
-    const nuevasMuestras = [...muestras, nuevaMuestra];
-    guardarMuestras(nuevasMuestras);
+      datos,
+      porcentajeDaño
+    });
+    
+    const datosConDaño = { ...datos, porcentajeDaño };
+
+    if (muestraEnEdicion) {
+      const nuevasMuestras = muestras.map((m) =>
+        m.id === muestraEnEdicion.id
+          ? { ...m, datos: { ...datosConDaño, coordenada: m.datos?.coordenada } }
+          : m
+      );
+      guardarMuestras(nuevasMuestras);
+    } else {
+      const muestrasDelTipo = muestras.filter(m => m.tipo === tipo && !m.loteId);
+      const nuevaMuestra = {
+        id: Date.now().toString(),
+        tipo,
+        datos: { ...datosConDaño },
+        nombre: `Muestra ${muestrasDelTipo.length + 1}`,
+        fecha: new Date().toLocaleDateString(),
+        operacionId: operacionId,
+        loteId: null,
+      };
+      const nuevasMuestras = [...muestras, nuevaMuestra];
+      guardarMuestras(nuevasMuestras);
+    }
     cerrarModal();
   };
 
-  const recalcularDañoMuestrasActuales = async () => {
+  const recalcularDañoMuestrasActuales = async (fenologicoParam = null) => {
     setRecalculando(true);
     
     try {
+      const fenologicoParaCalculo = fenologicoParam ?? fenologicoSeleccionado;
+      const tipoMapeado = mapSeleccionToTipo(fenologicoParaCalculo);
       const muestrasActualizadas = muestras.map(muestra => {
         // Solo recalcular muestras del tipo fenológico actual y que no estén en lotes
-        if (muestra.tipo === fenologicoSeleccionado && !muestra.loteId) {
+        if (muestra.tipo === tipoMapeado && !muestra.loteId) {
           const nuevoPorcentajeDaño = calculoDeDaño(
-            muestra.datos, 
-            muestra.tipo, 
-            subFenologicoSeleccionado
+            muestra.datos,
+            fenologicoParaCalculo,
+            null
           );
           
           return {
@@ -175,43 +171,32 @@ export default function MuestrasScreen({ route, navigation }) {
     }
   };
 
+  const calcularPromedioSeleccionadas = () => {
+    if (muestrasSeleccionadas.size === 0) return 0;
+    
+    const muestrasArray = muestras.filter(m => muestrasSeleccionadas.has(m.id));
+    const sumaDanos = muestrasArray.reduce((sum, m) => sum + (m.datos.porcentajeDaño || 0), 0);
+    const promedio = sumaDanos / muestrasArray.length;
+    const trunc = Math.trunc(promedio * 10) / 10; // truncar a 1 decimal, no redondear
+    return trunc.toFixed(1).replace('.', ',');
+  };
+
   const handleCambioFenologico = async (nuevoFenologico) => {
     setFenologicoSeleccionado(nuevoFenologico);
     setMuestrasSeleccionadas(new Set()); // Limpiar selección
-    
-    // Establecer el subFenológico guardado para este tipo
-    const subFenologicoParaEste = subFenologicosPorTipo[nuevoFenologico] || getPrimerSubFenologico(nuevoFenologico);
-    
-    // Verificar que el subFenológico existe para este tipo
-    if (!existeSubFenologico(nuevoFenologico, subFenologicoParaEste)) {
-      const primerSub = getPrimerSubFenologico(nuevoFenologico);
-      setSubFenologicoSeleccionado(primerSub);
-      
-      // Actualizar en la persistencia
-      const nuevosSubFenologicos = {
-        ...subFenologicosPorTipo,
-        [nuevoFenologico]: primerSub
-      };
-      await guardarSubFenologicos(nuevosSubFenologicos);
-    } else {
-      setSubFenologicoSeleccionado(subFenologicoParaEste);
-    }
-    
-    // Recalcular después de cambiar
-    setTimeout(recalcularDañoMuestrasActuales, 100);
+    // Recalcular inmediatamente usando el nuevo valor
+    await recalcularDañoMuestrasActuales(nuevoFenologico);
   };
 
   const handleCambioSubFenologico = async (nuevoSubFenologico) => {
     setSubFenologicoSeleccionado(nuevoSubFenologico);
     
-    // Guardar la selección para este tipo fenológico
     const nuevosSubFenologicos = {
       ...subFenologicosPorTipo,
       [fenologicoSeleccionado]: nuevoSubFenologico
     };
     await guardarSubFenologicos(nuevosSubFenologicos);
     
-    // Recalcular daño de muestras actuales
     setTimeout(recalcularDañoMuestrasActuales, 100);
   };
 
@@ -264,9 +249,10 @@ export default function MuestrasScreen({ route, navigation }) {
   };
 
   const abrirCerrarLoteModal = () => {
+    const tipoMapeado = mapSeleccionToTipo(fenologicoSeleccionado);
     const muestrasSeleccionadasArray = muestras.filter(m => 
       muestrasSeleccionadas.has(m.id) && 
-      m.tipo === fenologicoSeleccionado &&
+      m.tipo === tipoMapeado &&
       !m.loteId
     );
     
@@ -289,6 +275,7 @@ export default function MuestrasScreen({ route, navigation }) {
         muestrasIds: datosLote.muestrasIds,
         operacionId: operacionId,
         fecha: new Date().toISOString(),
+        tipoFenologico: datosLote.tipoFenologico,
       };
 
       const lotesData = await AsyncStorage.getItem(`lotes_${operacionId}`);
@@ -320,26 +307,26 @@ export default function MuestrasScreen({ route, navigation }) {
     }
   };
 
-  // Filtrar muestras por tipo fenológico seleccionado Y que no estén en lotes
-  const muestrasFiltradas = muestras.filter(m => 
-    m.tipo === fenologicoSeleccionado && !m.loteId
-  );
+  // Filtrar muestras por tipo mapeado a partir de la selección 1-10 y que no estén en lotes
+  const tipoActual = mapSeleccionToTipo(fenologicoSeleccionado);
+  const muestrasFiltradas = muestras.filter(m => m.tipo === tipoActual && !m.loteId);
 
   // Obtener muestras seleccionadas para el modal
   const muestrasSeleccionadasArray = muestras.filter(m => 
     muestrasSeleccionadas.has(m.id) && 
-    m.tipo === fenologicoSeleccionado &&
+    m.tipo === tipoActual &&
     !m.loteId
   );
 
   // Obtener subFenológicos disponibles para el tipo actual
-  const subFenologicosDisponibles = getSubFenologicosPorTipo(fenologicoSeleccionado);
+  // Subfenológicos eliminados
 
   const renderMuestra = ({ item }) => (
     <MuestraItem 
       item={item} 
       isSelected={muestrasSeleccionadas.has(item.id)}
-      onPress={() => toggleSeleccionMuestra(item.id)}
+      onOpenModal={abrirModalEdicion}
+      onToggleSelect={toggleSeleccionMuestra}
       onDelete={() => borrarMuestra(item.id)}
       isInLote={!!item.loteId}
     />
@@ -357,33 +344,35 @@ export default function MuestrasScreen({ route, navigation }) {
         >
           <Text style={styles.btnText}>Lotes</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.cerrarBtn,
-            muestrasSeleccionadas.size === 0 && styles.cerrarBtnDisabled
-          ]}
-          onPress={abrirCerrarLoteModal}
-          disabled={muestrasSeleccionadas.size === 0}
-        >
-          <Text style={styles.btnText}>Cerrar Lote</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.pickerContainer}>
-        <Text style={styles.pickerLabel}>Tipo Fenológico:</Text>
         <Picker
           selectedValue={fenologicoSeleccionado}
           style={styles.picker}
-          onValueChange={handleCambioFenologico}
+          onValueChange={(value) => handleCambioFenologico(value)}
         >
-          <Picker.Item label="Tipo 1" value="1" />
-          <Picker.Item label="Tipo 2" value="2" />
-          <Picker.Item label="Tipo 3" value="3" />
-          <Picker.Item label="Tipo 4" value="4" />
+          <Picker.Item label="V1-V5" value="1" />
+          <Picker.Item label="V6-V8" value="2" />
+          <Picker.Item label="V9-VN" value="3" />
+          <Picker.Item label="R1-R3,5" value="4" />
+          <Picker.Item label="R4-R7" value="5" />
+          <Picker.Item label="R8" value="6" />
         </Picker>
       </View>
 
-      <View style={styles.pickerContainer}>
+        {/* <View style={styles.pickerContainer}>
+          <Text style={styles.pickerLabel}>Tipo Fenológico:</Text>
+          <Picker
+            selectedValue={fenologicoSeleccionado}
+            style={styles.picker}
+            onValueChange={handleCambioFenologico}
+          >
+            <Picker.Item label="Tipo 1" value="1" />
+            <Picker.Item label="Tipo 2" value="2" />
+            <Picker.Item label="Tipo 3" value="3" />
+            <Picker.Item label="Tipo 4" value="4" />
+          </Picker>
+        </View> */}
+
+      {/* <View style={styles.pickerContainer}>
         <View style={styles.subPickerHeader}>
           <Text style={styles.pickerLabel}>Sub categoría fenológico:</Text>
           {recalculando && (
@@ -403,16 +392,14 @@ export default function MuestrasScreen({ route, navigation }) {
             <Picker.Item key={sub.value} label={sub.label} value={sub.value} />
           ))}
         </Picker>
-      </View>
+      </View> */}
 
       <FlatList
         data={muestrasFiltradas}
         keyExtractor={(item) => item.id}
         renderItem={renderMuestra}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>
-            No hay muestras disponibles del Tipo {fenologicoSeleccionado}
-          </Text>
+          <Text style={styles.emptyText}>No hay muestras disponibles del Tipo {tipoActual}</Text>
         }
       />
 
@@ -421,6 +408,14 @@ export default function MuestrasScreen({ route, navigation }) {
         visible={!!modalTipo}
         onCerrar={cerrarModal}
         onGuardar={agregarMuestraDesdeModal}
+        valoresIniciales={muestraEnEdicion?.datos || { 
+          dato_1: '', 
+          dato_2: '', 
+          dato_3: '', 
+          dato_4: '',
+          coordenada: ''
+        }}
+        esEdicion={!!muestraEnEdicion}  // Agregar esta prop
       />
 
       <CerrarLoteModal
@@ -428,39 +423,55 @@ export default function MuestrasScreen({ route, navigation }) {
         onClose={() => setCerrarLoteModalVisible(false)}
         onConfirmar={handleCerrarLote}
         muestrasSeleccionadas={muestrasSeleccionadasArray}
+        tipoFenologicoSeleccionado={fenologicoSeleccionado}
       />
 
       <View style={styles.footer}>
         <View style={styles.muestrasFooter}>
           <Text style={styles.footerText}>
-            Disponibles {fenologicoSeleccionado}: {muestrasFiltradas.length}
-          </Text>
-          <Text style={styles.footerText}>
             Seleccionadas: {muestrasSeleccionadas.size}
           </Text>
+          <Text style={styles.footerText}>% {calcularPromedioSeleccionadas()}</Text>
         </View>
-        {muestrasSeleccionadas.size > 0 && (
+        <View style={styles.footerButtons}>
           <TouchableOpacity 
             style={styles.limpiarSeleccionBtn}
             onPress={() => setMuestrasSeleccionadas(new Set())}
           >
             <Text style={styles.limpiarSeleccionText}>Limpiar Selección</Text>
           </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={[
+            styles.cerrarBtn,
+            muestrasSeleccionadas.size === 0 && styles.cerrarBtnDisabled
+          ]}
+          onPress={abrirCerrarLoteModal}
+          disabled={muestrasSeleccionadas.size === 0}
+        >
+          <Text style={styles.btnText}>Cerrar Lote</Text>
+        </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 }
 
 // Componente para manejar los diferentes modales
-function ModalesSegunTipo({ tipo, visible, onCerrar, onGuardar }) {
+function ModalesSegunTipo({ tipo, visible, onCerrar, onGuardar, valoresIniciales, esEdicion }) {
   if (!visible || !tipo) return null;
 
   const props = {
     visible: true,
     onClose: onCerrar,
-    onGuardar: (d1, d2, d3, d4) => onGuardar(tipo, { dato_1: d1, dato_2: d2, dato_3: d3, dato_4: d4 }),
-    valoresIniciales: { dato_1: '', dato_2: '', dato_3: '', dato_4: '' }
+    onGuardar: (d1, d2, d3, d4, coordenada) => onGuardar(tipo, { dato_1: d1, dato_2: d2, dato_3: d3, dato_4: d4, coordenada }),
+    valoresIniciales: valoresIniciales || { 
+      dato_1: '', 
+      dato_2: '', 
+      dato_3: '', 
+      dato_4: '',
+      coordenada: ''
+    },
+    esEdicion: esEdicion
   };
 
   switch (tipo) {
@@ -482,6 +493,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 50,
     marginBottom: 20,
     paddingBottom: 10,
     borderBottomWidth: 1,
@@ -542,6 +554,8 @@ const styles = StyleSheet.create({
     height: 50,
     backgroundColor: '#f8f9fa',
     borderRadius: 8,
+    flex: 1,
+    minWidth: 140,
   },
   emptyText: {
     textAlign: 'center',
@@ -575,5 +589,10 @@ const styles = StyleSheet.create({
   limpiarSeleccionText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  footerButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
 });

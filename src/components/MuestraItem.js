@@ -7,7 +7,12 @@ import {
   Alert,
 } from 'react-native';
 
-export default function MuestraItem({ item, isSelected, onPress, onDelete, isInLote = false }) {
+export default function MuestraItem({ item, isSelected, onOpenModal, onToggleSelect, onDelete, isInLote = false }) {
+  const formatPorcentaje = (n) => {
+    const num = Number(n) || 0;
+    const trunc = Math.trunc(num * 10) / 10; // sin redondeo, truncado a 1 decimal
+    return trunc.toFixed(1).replace('.', ',');
+  };
   
   const handleDelete = () => {
     if (isInLote) {
@@ -30,7 +35,7 @@ export default function MuestraItem({ item, isSelected, onPress, onDelete, isInL
       );
       return;
     }
-    onPress();
+    onOpenModal(item);
   };
 
   const getContainerStyle = () => {
@@ -63,18 +68,34 @@ export default function MuestraItem({ item, isSelected, onPress, onDelete, isInL
       disabled={isInLote}
     >
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.nombre}>{item.nombre}</Text>
-          <Text style={styles.fecha}>{item.fecha}</Text>
-        </View>
-        
         <View style={styles.headerRight}>
           {isInLote && (
             <View style={styles.loteIndicator}>
               <Text style={styles.loteText}>EN LOTE</Text>
             </View>
           )}
-          
+          <View style={styles.headerLeft}>
+          </View>
+    
+          <TouchableOpacity
+            style={[styles.selectButton, isInLote && styles.deleteButtonDisabled]}
+            onPress={() => !isInLote && onToggleSelect(item.id)}
+            disabled={isInLote}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.selectButtonText}>
+              {isSelected ? 'Quitar' : 'Seleccionar'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.content}>
+        {/* Mostrar porcentaje de daño */}
+        <View style={styles.dañoContainer}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.nombre}>{item.nombre}</Text>
+          </View>
           <TouchableOpacity
             style={[
               styles.deleteButton,
@@ -83,27 +104,15 @@ export default function MuestraItem({ item, isSelected, onPress, onDelete, isInL
             onPress={handleDelete}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Text style={styles.deleteButtonText}>
+          <Text style={styles.deleteButtonText}>
               {isInLote ? '🔒' : '🗑️'}
             </Text>
           </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.content}>
-        <Text style={styles.tipo}>Tipo {item.tipo}</Text>
-        
-        {/* Mostrar porcentaje de daño */}
-        <View style={styles.dañoContainer}>
-          <Text style={styles.dañoLabel}>Daño:</Text>
           <Text style={styles.dañoValue}>
-            {item.datos?.porcentajeDaño || 0}%
+            {item.datos?.porcentajeDaño}%
           </Text>
+          
         </View>
-        
-        <Text style={styles.datos} numberOfLines={2}>
-          {formatearDatos()}
-        </Text>
       </View>
 
       {/* Indicador de selección */}
@@ -193,6 +202,19 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     fontSize: 16,
+    marginRight: 20,
+  },
+  selectButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#007bff',
+    marginLeft: 8,
+  },
+  selectButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   content: {
     borderTopWidth: 1,

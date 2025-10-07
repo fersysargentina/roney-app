@@ -11,6 +11,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LoteItem from '../components/LoteItem';
 import EditarLoteModal from '../components/modals/EditarLoteModal';
+import { ErrorHandler } from '../utils/ErrorHandler';
 
 export default function LotesScreen({ route, navigation }) {
   const { operacionId, roney_op } = route.params || {};
@@ -20,8 +21,13 @@ export default function LotesScreen({ route, navigation }) {
   const [loteSeleccionado, setLoteSeleccionado] = useState(null);
 
   useEffect(() => {
+    console.log('🔧 LotesScreen: Inicializando...', { operacionId, roney_op });
     if (!operacionId) {
-      Alert.alert('Error', 'No se recibieron los datos de la operación');
+      ErrorHandler.handleError(
+        new Error('Missing operation parameters'),
+        'Error de Navegación',
+        'No se recibieron los datos de la operación'
+      );
       navigation.goBack();
       return;
     }
@@ -36,16 +42,19 @@ export default function LotesScreen({ route, navigation }) {
     return unsubscribe;
   }, [navigation]);
 
-  const cargarLotes = async () => {
+  const cargarLotes = useCallback(async () => {
+    console.log('📂 LotesScreen: Cargando lotes...', operacionId);
     try {
-      const data = await AsyncStorage.getItem(`lotes_${operacionId}`);
-      if (data) {
-        setLotes(JSON.parse(data));
-      }
+      const data = await ErrorHandler.getStorageData(`lotes_${operacionId}`);
+      const lotesCargados = ErrorHandler.safeJsonParse(data, []);
+      const lotesValidados = ErrorHandler.sanitizeData(lotesCargados, 'lotes');
+      console.log('✅ LotesScreen: Lotes cargados:', lotesValidados.length);
+      setLotes(lotesValidados);
     } catch (e) {
-      Alert.alert('Error', 'No se pudieron cargar los lotes');
+      console.error('❌ LotesScreen: Error cargando lotes:', e);
+      ErrorHandler.handleError(e, 'Error de Carga', 'No se pudieron cargar los lotes');
     }
-  };
+  }, [operacionId]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -172,7 +181,7 @@ export default function LotesScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      {/* <View style={styles.header}>
         <Text style={styles.headerTitle}>Lotes - {roney_op}</Text>
         <TouchableOpacity
           style={styles.muestrasBtn}
@@ -180,7 +189,7 @@ export default function LotesScreen({ route, navigation }) {
         >
           <Text style={styles.btnText}>Ver Muestras</Text>
         </TouchableOpacity>
-      </View>
+      </View> */}
 
       {lotes.length > 0 && (
         <View style={styles.statsContainer}>

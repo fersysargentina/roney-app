@@ -16,7 +16,8 @@ export default function CerrarLoteModal({
   visible, 
   onClose, 
   onConfirmar, 
-  muestrasSeleccionadas = [] 
+  muestrasSeleccionadas = [],
+  tipoFenologicoSeleccionado,
 }) {
   const [nombreLote, setNombreLote] = useState('');
   const [hectareas, setHectareas] = useState('');
@@ -50,7 +51,8 @@ export default function CerrarLoteModal({
       hectareas: hectareasNumero,
       dañoReal: Math.round(dañoReal * 100) / 100, // Redondear a 2 decimales
       dañoPactado: dañoPactado.trim() ? parseFloat(dañoPactado) : null,
-      muestrasIds: muestrasSeleccionadas.map(m => m.id)
+      muestrasIds: muestrasSeleccionadas.map(m => m.id),
+      tipoFenologico: tipoFenologicoSeleccionado,
     };
 
     onConfirmar(datosLote);
@@ -93,6 +95,9 @@ export default function CerrarLoteModal({
                 <Text style={styles.infoText}>
                   📊 Muestras seleccionadas: {muestrasSeleccionadas.length}
                 </Text>
+              <Text style={styles.infoText}>
+                🧬 Tipo fenológico: {tipoFenologicoSeleccionado}
+              </Text>
               </View>
 
               <View style={styles.inputContainer}>

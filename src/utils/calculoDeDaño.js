@@ -27,57 +27,92 @@ export const SUBFENOLOGICOS_POR_TIPO = {
     ]
   };
   
+  import { danPorReduccion, danPorNudos, danPorDesfo } from './tablas';
+  
   /**
    * Calcula el porcentaje de daño basado en los parámetros de entrada
    * @param {Object} datos - Datos del modal (dato_1, dato_2, dato_3, dato_4)
-   * @param {string} fenologico - Tipo fenológico ('1', '2', '3', '4')
-   * @param {string} subFenologico - Subtipo fenológico ('sub1', 'sub2', etc.)
+   * @param {string} fenologico - Valor del Picker ('1','2','3','4','5','6')
+   * @param {string|null} subFenologico - No usado actualmente
    * @returns {number} Porcentaje de daño (0-100)
    */
   export function calculoDeDaño(datos, fenologico, subFenologico) {
     try {
-      // Por ahora, generar un número aleatorio basado en los parámetros
-      // Esta función se puede modificar en el futuro con la lógica real
-      
-      // Usar los parámetros como semilla para generar un número "determinista"
-      const semilla = generarSemilla(datos, fenologico, subFenologico);
-      
-      // Generar un porcentaje entre 5% y 35% basado en la semilla
-      const porcentaje = 5 + (semilla % 31); // 31 para tener rango de 0-30, + 5 = 5-35
-      
-      // Redondear a 1 decimal
-      return Math.round(porcentaje * 10) / 10;
-      
+      // Cálculos base solicitados
+      const d1 = parseFloat(datos?.dato_1) || 0;
+      const d2 = parseFloat(datos?.dato_2) || 0;
+      const d3 = parseFloat(datos?.dato_3) || 0; // nudos perdidos
+      const d4 = parseFloat(datos?.dato_4) || 0; // defoliación
+  
+      const totalD = d1 + d2;
+      const porcePlantasPerdidas = totalD > 0 ? (d1 / totalD) * 100 : 0;
+  
+      // Mapeo del valor del Picker a etiqueta de tabla
+      const fenologicoNum = parseInt(fenologico, 10);
+      let fenologicoLabel = 'v9-vn';
+      if (!isNaN(fenologicoNum)) {
+        if (fenologicoNum === 1) {
+          fenologicoLabel = 'v1-v5';
+        } else if (fenologicoNum === 2) {
+          fenologicoLabel = 'v6-v8';
+        } else if (fenologicoNum === 3) {
+          fenologicoLabel = 'v9-vn';
+        } else {
+          // Por ahora, los valores 4,5,6 (R1-R8) usan v9-vn
+          fenologicoLabel = 'v9-vn';
+        }
+        console.log(fenologicoLabel);
+      }
+  
+      // Selección de coeficientes según fenológico
+      let coefi;
+      if (fenologicoLabel === 'v1-v5') {
+        coefi = danPorReduccion['v1-v5'].dan;
+      } else if (fenologicoLabel === 'v6-v8') {
+        coefi = danPorReduccion['v6-v8'].dan;
+      } else {
+        coefi = danPorReduccion['v9-vn'].dan;
+      }
+  
+      let coefi2;
+      if (fenologicoLabel === 'v1-v5') {
+        coefi2 = danPorNudos['v1-v5'].dan;
+      } else if (fenologicoLabel === 'v6-v8') {
+        coefi2 = danPorNudos['v6-v8'].dan;
+      } else {
+        coefi2 = danPorNudos['v9-vn'].dan;
+      }
+  
+      let coefi3;
+      if (fenologicoLabel === 'v1-v5') {
+        coefi3 = danPorDesfo['v1-v5'].dan;
+      } else if (fenologicoLabel === 'v6-v8') {
+        coefi3 = danPorDesfo['v6-v8'].dan;
+      } else {
+        coefi3 = danPorDesfo['v9-vn'].dan;
+      }
+  
+      // Índices de tablas
+      const indiceA = Math.floor(porcePlantasPerdidas);
+      const porcentajeA = parseFloat(coefi?.[indiceA] ?? 0) || 0;
+      const cpr = 100 - porcentajeA;
+  
+      const indiceC = Math.floor(d3);
+      const porcentajeC = parseFloat(coefi2?.[indiceC] ?? 0) || 0;
+      const porcentajeE = parseFloat(((porcentajeC * cpr) / 100));
+  
+      const cprf = 100 - porcentajeA - porcentajeE;
+      const indiceD = Math.floor(d4);
+      const porcentajeD = parseFloat(coefi3?.[indiceD] ?? 0) || 0;
+      const porcentajeG = parseFloat(((porcentajeD * cprf) / 100));
+  
+      const porcentaje = porcentajeG + porcentajeE + porcentajeA;
+      return porcentaje.toFixed(1);
+  
     } catch (error) {
       console.warn('Error en calculoDeDaño:', error);
-      // Valor por defecto en caso de error
-      return Math.round((Math.random() * 30 + 5) * 10) / 10;
+      return 0;
     }
-  }
-  
-  /**
-   * Genera una semilla numérica basada en los parámetros de entrada
-   * para hacer que el cálculo sea "determinista" con los mismos datos
-   * @param {Object} datos - Datos del modal
-   * @param {string} fenologico - Tipo fenológico
-   * @param {string} subFenologico - Subtipo fenológico
-   * @returns {number} Semilla numérica
-   */
-  function generarSemilla(datos, fenologico, subFenologico) {
-    // Convertir todos los valores a string y concatenar
-    const datosString = Object.values(datos || {}).join('');
-    const parametrosString = `${fenologico}_${subFenologico}_${datosString}`;
-    
-    // Generar hash simple de la string
-    let hash = 0;
-    for (let i = 0; i < parametrosString.length; i++) {
-      const char = parametrosString.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convertir a entero de 32 bits
-    }
-    
-    // Asegurar que sea positivo
-    return Math.abs(hash);
   }
   
   /**

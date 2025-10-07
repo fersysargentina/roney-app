@@ -209,6 +209,15 @@ export default function EditarLoteModal({
                 </View>
 
                 <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Tipo fenológico</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: '#f0f0f0', color: '#666' }]}
+                    value={String(lote.tipoFenologico ?? '')}
+                    editable={false}
+                  />
+                </View>
+
+                <View style={styles.inputContainer}>
                   <Text style={styles.label}>Daño Real (Calculado)</Text>
                   <View style={styles.calculatedContainer}>
                     <Text style={styles.calculatedValue}>
@@ -281,13 +290,7 @@ export default function EditarLoteModal({
                 </TouchableOpacity>
               </View>
             </View>
-
-            {/* Footer con información */}
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>
-                📏 Total de muestras: {totalHectareasMuestras}
-              </Text>
-            </View>
+        
           </ScrollView>
         </View>
       </KeyboardAvoidingView>

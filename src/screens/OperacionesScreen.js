@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, Alert, Image, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CrearOperacionModal from '../components/modals/CrearOperacionModal';
 import OperacionItem from '../components/OperacionItem';
+import { ErrorHandler } from '../utils/ErrorHandler';
 import logo from '../../assets/roney.png';
 
 export default function OperacionesScreen({ navigation }) {
@@ -12,52 +13,68 @@ export default function OperacionesScreen({ navigation }) {
   const [modoEdicion, setModoEdicion] = useState(false);
 
   useEffect(() => {
+    console.log('🔧 OperacionesScreen: Inicializando...');
     cargarOperaciones();
   }, []);
 
-  const cargarOperaciones = async () => {
+  const cargarOperaciones = useCallback(async () => {
+    console.log('📂 OperacionesScreen: Cargando operaciones...');
     try {
-      const data = await AsyncStorage.getItem('operaciones');
-      if (data) {
-        setOperaciones(JSON.parse(data));
+      const data = await ErrorHandler.getStorageData('operaciones');
+      const operacionesCargadas = ErrorHandler.safeJsonParse(data, []);
+      const operacionesValidadas = ErrorHandler.sanitizeData(operacionesCargadas, 'operaciones');
+      console.log('✅ OperacionesScreen: Operaciones cargadas:', operacionesValidadas.length);
+      setOperaciones(operacionesValidadas);
+    } catch (e) {
+      console.error('❌ OperacionesScreen: Error cargando operaciones:', e);
+      ErrorHandler.handleError(e, 'Error de Carga', 'No se pudieron cargar las operaciones');
+    }
+  }, []);
+
+  const guardarOperaciones = useCallback(async (nuevasOperaciones) => {
+    console.log('💾 OperacionesScreen: Guardando operaciones...', nuevasOperaciones.length);
+    try {
+      const sanitized = ErrorHandler.sanitizeData(nuevasOperaciones, 'operaciones');
+      await ErrorHandler.setStorageData('operaciones', sanitized);
+      setOperaciones(sanitized);
+      console.log('✅ OperacionesScreen: Operaciones guardadas exitosamente');
+    } catch (e) {
+      console.error('❌ OperacionesScreen: Error guardando operaciones:', e);
+      ErrorHandler.handleError(e, 'Error de Guardado', 'No se pudieron guardar las operaciones');
+    }
+  }, []);
+
+  const handleGuardarOperacion = useCallback((roney_op, cultivo) => {
+    console.log('🔄 OperacionesScreen: Guardando operación...', { roney_op, cultivo, modoEdicion });
+    try {
+      if (modoEdicion && operacionSeleccionada) {
+        // Editar operación existente
+        const nuevasOperaciones = operaciones.map(op =>
+          op.id === operacionSeleccionada.id ? { ...op, roney_op, cultivo } : op
+        );
+        guardarOperaciones(nuevasOperaciones);
+        console.log('✅ OperacionesScreen: Operación editada');
+      } else {
+        // Crear nueva operación
+        const nuevaOperacion = {
+          id: Date.now().toString(),
+          roney_op,
+          cultivo,
+        };
+        const nuevasOperaciones = [...operaciones, nuevaOperacion];
+        guardarOperaciones(nuevasOperaciones);
+        console.log('✅ OperacionesScreen: Nueva operación creada');
       }
+      
+      // Cerrar modal y resetear estados
+      setModalVisible(false);
+      setOperacionSeleccionada(null);
+      setModoEdicion(false);
     } catch (e) {
-      Alert.alert('Error', 'No se pudieron cargar las operaciones');
+      console.error('❌ OperacionesScreen: Error en handleGuardarOperacion:', e);
+      ErrorHandler.handleError(e, 'Error de Operación', 'No se pudo procesar la operación');
     }
-  };
-
-  const guardarOperaciones = async (nuevasOperaciones) => {
-    try {
-      await AsyncStorage.setItem('operaciones', JSON.stringify(nuevasOperaciones));
-      setOperaciones(nuevasOperaciones);
-    } catch (e) {
-      Alert.alert('Error', 'No se pudieron guardar las operaciones');
-    }
-  };
-
-  const handleGuardarOperacion = (roney_op, cultivo) => {
-    if (modoEdicion && operacionSeleccionada) {
-      // Editar operación existente
-      const nuevasOperaciones = operaciones.map(op =>
-        op.id === operacionSeleccionada.id ? { ...op, roney_op, cultivo } : op
-      );
-      guardarOperaciones(nuevasOperaciones);
-    } else {
-      // Crear nueva operación
-      const nuevaOperacion = {
-        id: Date.now().toString(),
-        roney_op,
-        cultivo,
-      };
-      const nuevasOperaciones = [...operaciones, nuevaOperacion];
-      guardarOperaciones(nuevasOperaciones);
-    }
-    
-    // Cerrar modal y resetear estados
-    setModalVisible(false);
-    setOperacionSeleccionada(null);
-    setModoEdicion(false);
-  };
+  }, [modoEdicion, operacionSeleccionada, operaciones, guardarOperaciones]);
 
   const handleBorrarOperacion = (id) => {
     Alert.alert(
