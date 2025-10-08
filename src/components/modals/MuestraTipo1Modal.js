@@ -81,17 +81,28 @@ export default function MuestraTipo1Modal({
       Alert.alert('Error', 'Todos los campos de datos son obligatorios');
       return;
     }
-    onGuardar(dato_1, dato_2, dato_3, dato_4, coordenada);
-  };
+    
+    // 💡 SOLUCIÓN: Empaquetar todos los datos en un objeto antes de guardar
+    const datosMuestra = {
+      dato_1: dato_1,
+      dato_2: dato_2,
+      dato_3: dato_3,
+      dato_4: dato_4,
+      coordenada: coordenada
+    };
+    
+    onGuardar(datosMuestra); // <-- Llamada correcta, pasando UN SOLO OBJETO
+    onClose(); // Llama a onClose aquí para cerrar el modal después de guardar
+};
 
-  const handleCerrar = () => {
-    setDato_1(valoresIniciales.dato_1 || '');
-    setDato_2(valoresIniciales.dato_2 || '');
-    setDato_3(valoresIniciales.dato_3 || '');
-    setDato_4(valoresIniciales.dato_4 || '');
-    setCoordenada(valoresIniciales.coordenada || '');
-    onClose();
-  };
+const handleCerrar = () => {
+  setDato_1(valoresIniciales.dato_1 || '');
+  setDato_2(valoresIniciales.dato_2 || '');
+  setDato_3(valoresIniciales.dato_3 || '');
+  setDato_4(valoresIniciales.dato_4 || '');
+  setCoordenada(valoresIniciales.coordenada || '');
+  onClose();
+};
 
   return (
     <Modal

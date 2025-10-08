@@ -9,15 +9,22 @@ import MuestraTipo4Modal from '../components/modals/MuestraTipo4Modal';
 import CerrarLoteModal from '../components/modals/CerrarLoteModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ErrorHandler } from '../utils/ErrorHandler';
+import { calculoDeDaño } from '../utils/calculoDeDaño';
 import { 
-  calculoDeDaño
-} from '../utils/calculoDeDaño';
+  obtenerEstadosFenologicos, 
+  esEstadoValido,
+  mapearEstadoATipoModal 
+} from '../utils/fenologicosConfig';
+import MuestraTrigoModal from '../components/modals/MuestraTrigoModal';
+import MuestraMaizModal from '../components/modals/MuestraMaizModal'; // TODO: Crear estos modales
+import MuestraGirasolModal from '../components/modals/MuestraGirasolModal'; // TODO: Crear este modal
 
 export default function MuestrasScreen({ route, navigation }) {
   const { roney_op, operacionId } = route.params || {};
+  const [cultivo, setCultivo] = useState('soja');
+  const [estadosFenologicos, setEstadosFenologicos] = useState([]);
   const [muestras, setMuestras] = useState([]);
   const [fenologicoSeleccionado, setFenologicoSeleccionado] = useState('1');
-  // Subfenológicos ya no se usan
   
   const [modalTipo, setModalTipo] = useState(null);
   const [muestraEnEdicion, setMuestraEnEdicion] = useState(null);
@@ -25,13 +32,10 @@ export default function MuestrasScreen({ route, navigation }) {
   const [cerrarLoteModalVisible, setCerrarLoteModalVisible] = useState(false);
   const [recalculando, setRecalculando] = useState(false);
 
+  // Función de mapeo ahora usa la configuración según el cultivo
   const mapSeleccionToTipo = useCallback((valorSeleccion) => {
-    const v = parseInt(valorSeleccion, 10);
-    if (v >= 1 && v <= 3) return '1';
-    if (v == 4) return '2';
-    if (v == 5) return '3';
-    return '4'; 
-  }, []);
+    return mapearEstadoATipoModal(cultivo, valorSeleccion);
+  }, [cultivo]);
 
   useEffect(() => {
     if (!roney_op || !operacionId) {
@@ -43,8 +47,35 @@ export default function MuestrasScreen({ route, navigation }) {
       navigation.goBack();
       return;
     }
+    cargarDatosOperacion();
     inicializarDatos();
   }, [operacionId, roney_op]);
+
+  // Cargar el tipo de cultivo de la operación actual
+  const cargarDatosOperacion = async () => {
+    try {
+      const data = await ErrorHandler.getStorageData('operaciones');
+      const operaciones = ErrorHandler.safeJsonParse(data, []);
+      const operacionActual = operaciones.find(op => op.id === operacionId);
+      
+      if (operacionActual) {
+        const cultivoActual = operacionActual.cultivo || 'soja';
+        setCultivo(cultivoActual);
+        const estados = obtenerEstadosFenologicos(cultivoActual);
+        setEstadosFenologicos(estados);
+        
+        // Si el estado actual no es válido para este cultivo, resetear al primero
+        if (!esEstadoValido(cultivoActual, fenologicoSeleccionado)) {
+          setFenologicoSeleccionado(estados[0]?.value || '1');
+        }
+      }
+    } catch (e) {
+      ErrorHandler.handleError(e, 'Error de Carga', 'No se pudo cargar el tipo de cultivo');
+      // Usar soja por defecto en caso de error
+      const estadosDefault = obtenerEstadosFenologicos('soja');
+      setEstadosFenologicos(estadosDefault);
+    }
+  };
 
   // Recargar muestras cuando se regrese de otras pantallas
   useEffect(() => {
@@ -68,10 +99,6 @@ export default function MuestrasScreen({ route, navigation }) {
       ErrorHandler.handleError(e, 'Error de Carga', 'No se pudieron cargar las muestras');
     }
   }, [operacionId]);
-
-  // Subfenológicos eliminados
-
-  // Sin persistencia de subfenológicos
 
   const guardarMuestras = useCallback(async (nuevasMuestras) => {
     try {
@@ -99,18 +126,19 @@ export default function MuestrasScreen({ route, navigation }) {
     setModalTipo(muestra.tipo);
   };
 
-  const agregarMuestraDesdeModal = (tipo, datos) => {
-    // Calcular daño usando el estado fenológico seleccionado (no el tipo mapeado)
-    const porcentajeDaño = calculoDeDaño(datos, fenologicoSeleccionado, null);
+  const agregarMuestraDesdeModal = (tipo, datosCompletos) => {
+    // *** CAMBIO CLAVE: Ahora pasamos el cultivo a calculoDeDaño ***
+    const porcentajeDaño = calculoDeDaño(datosCompletos, fenologicoSeleccionado, cultivo);
 
     console.log('🔍 Debug agregarMuestra:', {
+      cultivo,
       fenologicoSeleccionado,
       tipo,
-      datos,
+      datos: datosCompletos,
       porcentajeDaño
     });
     
-    const datosConDaño = { ...datos, porcentajeDaño };
+    const datosConDaño = { ...datosCompletos, porcentajeDaño };
 
     if (muestraEnEdicion) {
       const nuevasMuestras = muestras.map((m) =>
@@ -145,10 +173,11 @@ export default function MuestrasScreen({ route, navigation }) {
       const muestrasActualizadas = muestras.map(muestra => {
         // Solo recalcular muestras del tipo fenológico actual y que no estén en lotes
         if (muestra.tipo === tipoMapeado && !muestra.loteId) {
+          // *** CAMBIO CLAVE: Ahora pasamos el cultivo a calculoDeDaño ***
           const nuevoPorcentajeDaño = calculoDeDaño(
             muestra.datos,
             fenologicoParaCalculo,
-            null
+            cultivo
           );
           
           return {
@@ -186,18 +215,6 @@ export default function MuestrasScreen({ route, navigation }) {
     setMuestrasSeleccionadas(new Set()); // Limpiar selección
     // Recalcular inmediatamente usando el nuevo valor
     await recalcularDañoMuestrasActuales(nuevoFenologico);
-  };
-
-  const handleCambioSubFenologico = async (nuevoSubFenologico) => {
-    setSubFenologicoSeleccionado(nuevoSubFenologico);
-    
-    const nuevosSubFenologicos = {
-      ...subFenologicosPorTipo,
-      [fenologicoSeleccionado]: nuevoSubFenologico
-    };
-    await guardarSubFenologicos(nuevosSubFenologicos);
-    
-    setTimeout(recalcularDañoMuestrasActuales, 100);
   };
 
   const borrarMuestra = (id) => {
@@ -318,9 +335,6 @@ export default function MuestrasScreen({ route, navigation }) {
     !m.loteId
   );
 
-  // Obtener subFenológicos disponibles para el tipo actual
-  // Subfenológicos eliminados
-
   const renderMuestra = ({ item }) => (
     <MuestraItem 
       item={item} 
@@ -349,50 +363,15 @@ export default function MuestrasScreen({ route, navigation }) {
           style={styles.picker}
           onValueChange={(value) => handleCambioFenologico(value)}
         >
-          <Picker.Item label="V1-V5" value="1" />
-          <Picker.Item label="V6-V8" value="2" />
-          <Picker.Item label="V9-VN" value="3" />
-          <Picker.Item label="R1-R3,5" value="4" />
-          <Picker.Item label="R4-R7" value="5" />
-          <Picker.Item label="R8" value="6" />
-        </Picker>
-      </View>
-
-        {/* <View style={styles.pickerContainer}>
-          <Text style={styles.pickerLabel}>Tipo Fenológico:</Text>
-          <Picker
-            selectedValue={fenologicoSeleccionado}
-            style={styles.picker}
-            onValueChange={handleCambioFenologico}
-          >
-            <Picker.Item label="Tipo 1" value="1" />
-            <Picker.Item label="Tipo 2" value="2" />
-            <Picker.Item label="Tipo 3" value="3" />
-            <Picker.Item label="Tipo 4" value="4" />
-          </Picker>
-        </View> */}
-
-      {/* <View style={styles.pickerContainer}>
-        <View style={styles.subPickerHeader}>
-          <Text style={styles.pickerLabel}>Sub categoría fenológico:</Text>
-          {recalculando && (
-            <View style={styles.recalculandoContainer}>
-              <ActivityIndicator size="small" color="#007bff" />
-              <Text style={styles.recalculandoText}>Recalculando...</Text>
-            </View>
-          )}
-        </View>
-        <Picker
-          selectedValue={subFenologicoSeleccionado}
-          style={styles.picker}
-          onValueChange={handleCambioSubFenologico}
-          enabled={!recalculando}
-        >
-          {subFenologicosDisponibles.map(sub => (
-            <Picker.Item key={sub.value} label={sub.label} value={sub.value} />
+          {estadosFenologicos.map((estado) => (
+            <Picker.Item 
+              key={estado.value} 
+              label={estado.label} 
+              value={estado.value} 
+            />
           ))}
         </Picker>
-      </View> */}
+      </View>
 
       <FlatList
         data={muestrasFiltradas}
@@ -405,6 +384,7 @@ export default function MuestrasScreen({ route, navigation }) {
 
       <ModalesSegunTipo
         tipo={modalTipo}
+        cultivo={cultivo}
         visible={!!modalTipo}
         onCerrar={cerrarModal}
         onGuardar={agregarMuestraDesdeModal}
@@ -415,7 +395,7 @@ export default function MuestrasScreen({ route, navigation }) {
           dato_4: '',
           coordenada: ''
         }}
-        esEdicion={!!muestraEnEdicion}  // Agregar esta prop
+        esEdicion={!!muestraEnEdicion}
       />
 
       <CerrarLoteModal
@@ -457,29 +437,52 @@ export default function MuestrasScreen({ route, navigation }) {
 }
 
 // Componente para manejar los diferentes modales
-function ModalesSegunTipo({ tipo, visible, onCerrar, onGuardar, valoresIniciales, esEdicion }) {
+function ModalesSegunTipo({ tipo, cultivo, visible, onCerrar, onGuardar, valoresIniciales, esEdicion }) {
   if (!visible || !tipo) return null;
 
   const props = {
     visible: true,
     onClose: onCerrar,
-    onGuardar: (d1, d2, d3, d4, coordenada) => onGuardar(tipo, { dato_1: d1, dato_2: d2, dato_3: d3, dato_4: d4, coordenada }),
+    onGuardar: (datosCompletos) => { 
+      onGuardar(tipo, datosCompletos); 
+    },
     valoresIniciales: valoresIniciales || { 
       dato_1: '', 
       dato_2: '', 
-      dato_3: '', 
-      dato_4: '',
-      coordenada: ''
+      coordenada: '' 
     },
     esEdicion: esEdicion
   };
 
-  switch (tipo) {
-    case '1': return <MuestraTipo1Modal {...props} />;
-    case '2': return <MuestraTipo2Modal {...props} />;
-    case '3': return <MuestraTipo3Modal {...props} />;
-    case '4': return <MuestraTipo4Modal {...props} />;
-    default: return null;
+  // Routing de modales según cultivo y tipo
+  switch (cultivo) {
+    case 'soja':
+      switch (tipo) {
+        case '1': return <MuestraTipo1Modal {...props} />;
+        case '2': return <MuestraTipo2Modal {...props} />;
+        case '3': return <MuestraTipo3Modal {...props} />; 
+        case '4': return <MuestraTipo4Modal {...props} />; 
+        default: return null;
+      }
+    
+    case 'trigo':
+      return <MuestraTrigoModal {...props} />;
+    
+    case 'maiz':
+      // TODO: Crear los 2 modales de maíz
+      switch (tipo) {
+        case '1': 
+        case '2': 
+          return <MuestraMaizModal {...props} tipoModal={tipo} />;
+        default: return null;
+      }
+    
+    case 'girasol':
+      // TODO: Crear el modal de girasol
+      return <MuestraGirasolModal {...props} />;
+    
+    default:
+      return null;
   }
 }
 

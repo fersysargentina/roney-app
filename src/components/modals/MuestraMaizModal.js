@@ -15,31 +15,48 @@ import {
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 
-// --- CONFIGURACIÓN DE LOS 21 CAMPOS DE DATOS ---
-const DATOS_COUNT = 21;
+// --- CONFIGURACIÓN DE LOS 23 CAMPOS DE DATOS PARA TRIGO ---
+const DATOS_COUNT = 23;
 const DATOS_FIELDS = Array.from({ length: DATOS_COUNT }, (_, i) => `dato_${i + 1}`);
 
-// Generar las etiquetas y placeholders para los 21 campos
-const generateLabels = () => {
-  const labels = ['En el suelo'];
-  for (let i = 1; i <= 10; i++) {
-    labels.push(`En vainas abiertas ${i}`);
-    labels.push(`En vainas sanas ${i}`);
-  }
-  return labels;
-};
-const LABELS = generateLabels();
+// Etiquetas específicas para trigo (ajusta según tus necesidades)
+const LABELS = [
+  'Pérdidas en D',  // dato_1
+  'Colgadas en D',  // dato_2
+  'Restantes en D', // dato_3
+  'Espiga 1 P',     // dato_4
+  'Espiga 1 T',     // dato_5
+  'Espiga 2 P',     // dato_6
+  'Espiga 2 T',     // dato_7
+  'Espiga 3 P',     // dato_8
+  'Espiga 3 T',     // dato_9
+  'Espiga 4 P',     // dato_10
+  'Espiga 4 T',     // dato_11
+  'Espiga 5 P',     // dato_12
+  'Espiga 5 T',     // dato_13
+  'Espiga 6 P',     // dato_14
+  'Espiga 6 T',     // dato_15
+  'Espiga 7 P',     // dato_16
+  'Espiga 7 T',     // dato_17
+  'Espiga 8 P',     // dato_18
+  'Espiga 8 T',     // dato_19
+  'Espiga 9 P',     // dato_20
+  'Espiga 9 T',     // dato_21
+  'Espiga 10 P',    // dato_22
+  'Espiga 10 T'   // dato_23
+];
 // ------------------------------------------------
 
-export default function MuestraTipo4Modal({ 
+export default function MuestraMaizModal({ 
   visible, 
   onClose, 
   onGuardar, 
-  valoresIniciales = {}, 
+  valoresIniciales = {},
+  estadoFenologico = '', 
   esEdicion = false 
 }) {
   
-  // Función para inicializar el estado de los datos (dato_1 a dato_21)
+  // Función para inicializar el estado de los datos (dato_1 a dato_23)
   const initializeDataState = (initialValues) => {
     return DATOS_FIELDS.reduce((acc, key) => {
       acc[key] = initialValues[key] || '';
@@ -52,26 +69,26 @@ export default function MuestraTipo4Modal({
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Sincronizar estado al cambiar valoresIniciales (para edición/reset)
+  // Sincronizar estado al cambiar valoresIniciales
   useEffect(() => {
     setData(initializeDataState(valoresIniciales));
     setCoordenada(valoresIniciales.coordenada || '');
   }, [valoresIniciales]);
 
-  // Obtener GPS solo en creación y si es visible
+  // Obtener GPS solo en creación
   useEffect(() => {
     if (!esEdicion && visible && !valoresIniciales.coordenada) {
       actualizarCoordenada();
     }
   }, [visible, esEdicion]);
 
-  // Función para actualizar un campo específico del estado 'data'
+  // Función para actualizar un campo específico
   const handleDataChange = (key, text) => {
     setData(prev => ({ ...prev, [key]: text }));
   };
 
   const handleGuardar = () => {
-    // 1. Validar que todos los 21 campos de datos no estén vacíos
+    // Validar que todos los 23 campos estén completos
     const allFieldsValid = DATOS_FIELDS.every(key => data[key].trim());
     
     if (!allFieldsValid) {
@@ -79,15 +96,14 @@ export default function MuestraTipo4Modal({
       return;
     }
     
-    // 2. CREAR UN ÚNICO OBJETO DE DATOS que incluye los 21 campos y la coordenada
+    // Crear objeto completo con todos los datos
     const datosCompletos = { ...data, coordenada };
     
-    // 3. LLAMAR A onGuardar pasando el OBJETO COMPLETO
+    // Llamar a onGuardar pasando el objeto completo
     onGuardar(datosCompletos);
   };
 
   const handleCerrar = () => {
-    // Resetear el estado basado en valoresIniciales
     setData(initializeDataState(valoresIniciales));
     setCoordenada(valoresIniciales.coordenada || '');
     onClose();
@@ -124,18 +140,31 @@ export default function MuestraTipo4Modal({
     setLoadingGPS(false);
   };
 
-  // --- RENDERIZACIÓN DE LOS 21 INPUTS ---
+  // Obtener el nombre del estado fenológico para el título
+  const getTituloEstado = () => {
+    // Mapear el valor del estado a su nombre legible
+    const estados = {
+      '1': 'Espigamiento (Z.50/59)',
+      '2': 'Floración (Z.60/69)',
+      '3': 'Lechoso (Z.70/79)',
+      '4': 'Pastoso blando (Z.80/84)',
+      '5': 'Pastoso duro (Z.85/89)',
+      '6': 'Próx. a mudurez (Z.90/99)',
+    };
+    return estados[estadoFenologico] || 'Trigo';
+  };
+
+  // Renderizar los 23 inputs
   const renderDataInputs = () => {
     return DATOS_FIELDS.map((key, index) => {
       const labelText = LABELS[index];
-      const placeholderText = LABELS[index]; // Placeholder sin los dos puntos
 
       return (
         <React.Fragment key={key}>
           <Text style={styles.label}>{labelText}:</Text>
           <TextInput
             style={styles.input}
-            placeholder={placeholderText}
+            placeholder={labelText}
             value={data[key]}
             onChangeText={(text) => handleDataChange(key, text)}
             keyboardType="numeric"
@@ -165,7 +194,9 @@ export default function MuestraTipo4Modal({
           <View style={styles.modalContainer}>
             <View style={styles.header}>
               <Text style={styles.titulo}>
-                {esEdicion ? 'Editar Muestra R8' : 'Nueva Muestra R8'}
+                {esEdicion 
+                  ? `Editar Muestra - ${getTituloEstado()}` 
+                  : `Nueva Muestra - ${getTituloEstado()}`}
               </Text>
               <TouchableOpacity 
                 onPress={handleCerrar} 
@@ -196,7 +227,6 @@ export default function MuestraTipo4Modal({
                       editable={!esEdicion}
                     />
                     
-                    {/* Botón de actualizar GPS solo visible en creación */}
                     {!esEdicion && (
                       <TouchableOpacity
                         style={styles.gpsButton}
@@ -214,7 +244,7 @@ export default function MuestraTipo4Modal({
                 )}
               </View>
 
-              {/* Campos de datos generados dinámicamente */}
+              {/* Campos de datos dinámicos */}
               {renderDataInputs()}
               
               <View style={styles.botones}>

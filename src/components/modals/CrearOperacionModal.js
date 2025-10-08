@@ -74,9 +74,9 @@ export default function CrearOperacionModal({
                 >
                   <Picker.Item label="Selecciona un cultivo..." value="" />
                   <Picker.Item label="Soja" value="soja" />
-                  <Picker.Item label="Trigo" value="trigo" />
-                  <Picker.Item label="Cebada" value="cebada" />
                   <Picker.Item label="Maíz" value="maiz" />
+                  <Picker.Item label="Trigo" value="trigo" />
+                  <Picker.Item label="Girasol" value="girasol" />
                 </Picker>
               </View>
               <View style={styles.botones}>

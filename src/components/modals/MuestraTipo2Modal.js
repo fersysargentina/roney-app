@@ -3,20 +3,32 @@ import { Modal, View, Text, TextInput, Platform, StyleSheet, TouchableOpacity, K
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function MuestraTipo2Modal({ visible, onClose, onGuardar, valoresIniciales = { dato_1: '', dato_2: '', dato_3: '', dato_4: '', coordenada: '' }, esEdicion = false }) {
+export default function MuestraTipo2Modal({ visible, onClose, onGuardar, valoresIniciales = { dato_1: '', dato_2: '', dato_3: '', dato_4: '', dato_5: '', dato_6: '', dato_7: '', dato_8: '', dato_9: '', coordenada: '' }, esEdicion = false }) {
   const [dato_1, setDato_1] = useState(valoresIniciales.dato_1 || '');
   const [dato_2, setDato_2] = useState(valoresIniciales.dato_2 || '');
   const [dato_3, setDato_3] = useState(valoresIniciales.dato_3 || '');
   const [dato_4, setDato_4] = useState(valoresIniciales.dato_4 || '');
+  const [dato_5, setDato_5] = useState(valoresIniciales.dato_5 || '');
+  const [dato_6, setDato_6] = useState(valoresIniciales.dato_6 || '');
+  const [dato_7, setDato_7] = useState(valoresIniciales.dato_7 || '');
+  const [dato_8, setDato_8] = useState(valoresIniciales.dato_8 || '');
+  const [dato_9, setDato_9] = useState(valoresIniciales.dato_9 || '');
+
+
   const [coordenada, setCoordenada] = useState(valoresIniciales.coordenada || '');
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    setDato_1(valoresIniciales.dato_1 || '');
-    setDato_2(valoresIniciales.dato_2 || '');
-    setDato_3(valoresIniciales.dato_3 || '');
-    setDato_4(valoresIniciales.dato_4 || '');
+    setDato_1(valoresIniciales.dato_1 || ''); //PERDIDA EN d
+    setDato_2(valoresIniciales.dato_2 || ''); //RESTANTE EN D
+    setDato_3(valoresIniciales.dato_3 || ''); // ORIGINALES POR PLANTA
+    setDato_4(valoresIniciales.dato_4 || ''); //Nudos remanentes 1
+    setDato_5(valoresIniciales.dato_5 || ''); //Nudos remanentes 2
+    setDato_6(valoresIniciales.dato_6 || ''); //Nudos remanentes 3
+    setDato_7(valoresIniciales.dato_7 || ''); //Nudos remanentes 4
+    setDato_8(valoresIniciales.dato_8 || ''); ////Nudos remanentes 5
+    setDato_9(valoresIniciales.dato_9 || ''); // defoliacion 
     setCoordenada(valoresIniciales.coordenada || '');
   }, [valoresIniciales]);
 
@@ -27,18 +39,60 @@ export default function MuestraTipo2Modal({ visible, onClose, onGuardar, valores
   }, [visible]);
 
   const handleGuardar = () => {
-    if (!dato_1.trim() || !dato_2.trim() || !dato_3.trim() || !dato_4.trim()) return;
-    onGuardar(dato_1, dato_2, dato_3, dato_4, coordenada);
-  };
+    // 1. Validar todos los 9 datos y la coordenada
+    if (
+        !dato_1.trim() || 
+        !dato_2.trim() || 
+        !dato_3.trim() || 
+        !dato_4.trim() || 
+        !dato_5.trim() || 
+        !dato_6.trim() || 
+        !dato_7.trim() || 
+        !dato_8.trim() || 
+        !dato_9.trim() ||
+        !coordenada.trim() // Asegúrate de validar la coordenada también
+    ) {
+        Alert.alert('Error', 'Todos los campos de datos y la coordenada son obligatorios');
+        return;
+    }
 
-  const handleCerrar = () => {
-    setDato_1(valoresIniciales.dato_1 || '');
-    setDato_2(valoresIniciales.dato_2 || '');
-    setDato_3(valoresIniciales.dato_3 || '');
-    setDato_4(valoresIniciales.dato_4 || '');
-    setCoordenada(valoresIniciales.coordenada || '');
-    onClose();
-  };
+    // 2. Empaquetar los 9 datos y la coordenada en un solo objeto
+    const datosMuestra = {
+        dato_1: dato_1,
+        dato_2: dato_2,
+        dato_3: dato_3,
+        dato_4: dato_4,
+        dato_5: dato_5,
+        dato_6: dato_6,
+        dato_7: dato_7,
+        dato_8: dato_8,
+        dato_9: dato_9,
+        coordenada: coordenada
+    };
+    
+    // 3. Llamada correcta, pasando UN SOLO OBJETO
+    onGuardar(datosMuestra); 
+    onClose(); // Cerrar el modal después de guardar
+};
+
+const handleCerrar = () => {
+  // Resetear los estados de los 9 datos a sus valores iniciales
+  setDato_1(valoresIniciales.dato_1 || '');
+  setDato_2(valoresIniciales.dato_2 || '');
+  setDato_3(valoresIniciales.dato_3 || '');
+  setDato_4(valoresIniciales.dato_4 || '');
+  setDato_5(valoresIniciales.dato_5 || '');
+  setDato_6(valoresIniciales.dato_6 || '');
+  setDato_7(valoresIniciales.dato_7 || '');
+  setDato_8(valoresIniciales.dato_8 || '');
+  setDato_9(valoresIniciales.dato_9 || '');
+  
+  // Resetear la coordenada
+  setCoordenada(valoresIniciales.coordenada || '');
+  
+  // Cerrar el modal
+  onClose();
+};
 
 
   const actualizarCoordenada = async () => {
@@ -140,46 +194,97 @@ export default function MuestraTipo2Modal({ visible, onClose, onGuardar, valores
               </View>
 
               {/* Campos de datos */}
-              <Text style={styles.label}>Dato 1:</Text>
+              <Text style={styles.label}>Pérdida en D:</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Ingrese dato 1"
+                placeholder="Pérdida en D"
                 value={dato_1}
                 onChangeText={setDato_1}
                 keyboardType="numeric"
                 returnKeyType="next"
               />
               
-              <Text style={styles.label}>Dato 2:</Text>
+              <Text style={styles.label}>Restante en D:</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Ingrese dato 2"
+                placeholder="Restante en D"
                 value={dato_2}
                 onChangeText={setDato_2}
                 keyboardType="numeric"
                 returnKeyType="next"
               />
               
-              <Text style={styles.label}>Dato 3:</Text>
+              <Text style={styles.label}>Nudos originales por Planta:</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Ingrese dato 3"
+                placeholder="Nudos originales por Planta"
                 value={dato_3}
                 onChangeText={setDato_3}
                 keyboardType="numeric"
                 returnKeyType="next"
               />
               
-              <Text style={styles.label}>Dato 4:</Text>
+              <Text style={styles.label}>Nudos remanentes 1:</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Ingrese dato 4"
+                placeholder="Nudos remanentes 1"
                 value={dato_4}
                 onChangeText={setDato_4}
                 keyboardType="numeric"
                 returnKeyType="done"
               />
               
+              <Text style={styles.label}>Nudos remanentes 2:</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Nudos remanentes 2"
+                value={dato_5}
+                onChangeText={setDato_5}
+                keyboardType="numeric"
+                returnKeyType="done"
+              />
+
+              <Text style={styles.label}>Nudos remanentes 3:</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Nudos remanentes 3"
+                value={dato_6}
+                onChangeText={setDato_6}
+                keyboardType="numeric"
+                returnKeyType="done"
+              />
+
+              <Text style={styles.label}>Nudos remanentes 4:</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Nudos remanentes 4"
+                value={dato_7}
+                onChangeText={setDato_7}
+                keyboardType="numeric"
+                returnKeyType="done"
+              />
+
+              <Text style={styles.label}>Nudos remanentes 5:</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Nudos remanentes 5"
+                value={dato_8}
+                onChangeText={setDato_8}
+                keyboardType="numeric"
+                returnKeyType="done"
+              />
+
+              <Text style={styles.label}>% Defoliacion:</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="% Defoliacion"
+                value={dato_9}
+                onChangeText={setDato_9}
+                keyboardType="numeric"
+                returnKeyType="done"
+              />
+
+
               <View style={styles.botones}>
                 <TouchableOpacity
                   style={[styles.button, styles.cancelButton]}
