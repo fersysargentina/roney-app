@@ -51,6 +51,11 @@ export default function LoteItem({ lote, onPress, onDelete }) {
     return styles.dañoCompleto;
   };
 
+  // Mostrar el label si existe, si no mostrar el value
+  const getFenologicoDisplay = () => {
+    return lote.tipoFenologicoLabel || lote.tipoFenologico || '-';
+  };
+
   return (
     <TouchableOpacity
       style={styles.container}
@@ -83,22 +88,17 @@ export default function LoteItem({ lote, onPress, onDelete }) {
           <Text style={styles.statValue}>{lote.muestrasIds.length}</Text>
         </View>
 
-        <View style={styles.statItem}>
+        <View style={styles.statItemWide}>
           <Text style={styles.statLabel}>Fenológico</Text>
-          <Text style={styles.statValue}>{lote.tipoFenologico ?? '-'}</Text>
-        </View>
-
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Daño Real</Text>
-          <Text style={[styles.statValue, styles.dañoReal]}>
-            {lote.dañoReal}%
+          <Text style={styles.statValueSmall} numberOfLines={2} ellipsizeMode="tail">
+            {getFenologicoDisplay()}
           </Text>
         </View>
 
         <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Pactado</Text>
-          <Text style={[styles.statValue, getDañoPactadoStyle()]}>
-            {getDañoPactadoDisplay()}
+          <Text style={styles.statLabel}>Daño</Text>
+          <Text style={[styles.statValue, styles.dañoReal]}>
+            {lote.dañoReal}%
           </Text>
         </View>
       </View>
@@ -150,10 +150,18 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
+    minWidth: 60,
+  },
+  statItemWide: {
+    flex: 1.5,
+    alignItems: 'center',
+    minWidth: 80,
   },
   statLabel: {
     fontSize: 11,
@@ -161,11 +169,19 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     fontWeight: '600',
     marginBottom: 4,
+    textAlign: 'center',
   },
   statValue: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
+    textAlign: 'center',
+  },
+  statValueSmall: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
   },
   dañoReal: {
     color: '#dc3545', // Rojo para daño real

@@ -193,7 +193,7 @@ export default function LotesScreen({ route, navigation }) {
 
       {lotes.length > 0 && (
         <View style={styles.statsContainer}>
-          <Text style={styles.statsText}>📊 Total de lotes: {lotes.length}</Text>
+          {/* <Text style={styles.statsText}>📊 Total de lotes: {lotes.length}</Text> */}
           <Text style={styles.statsText}>🌾 Total hectáreas: {totalHectareas.toFixed(1)} ha</Text>
         </View>
       )}
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   statsText: {
-    fontSize: 14,
+    fontSize: 20,
     color: '#666',
     marginBottom: 4,
   },

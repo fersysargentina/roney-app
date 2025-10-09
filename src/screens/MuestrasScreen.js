@@ -201,10 +201,14 @@ export default function MuestrasScreen({ route, navigation }) {
   };
 
   const calcularPromedioSeleccionadas = () => {
-    if (muestrasSeleccionadas.size === 0) return 0;
+    if (muestrasSeleccionadas.size === 0) return '0,0';
     
     const muestrasArray = muestras.filter(m => muestrasSeleccionadas.has(m.id));
-    const sumaDanos = muestrasArray.reduce((sum, m) => sum + (m.datos.porcentajeDaño || 0), 0);
+    const sumaDanos = muestrasArray.reduce((sum, m) => {
+      const porcentaje = parseFloat(m.datos?.porcentajeDaño) || 0;
+      return sum + porcentaje;
+    }, 0);
+    
     const promedio = sumaDanos / muestrasArray.length;
     const trunc = Math.trunc(promedio * 10) / 10; // truncar a 1 decimal, no redondear
     return trunc.toFixed(1).replace('.', ',');
@@ -249,6 +253,11 @@ export default function MuestrasScreen({ route, navigation }) {
     );
   };
 
+  const tipoFenologicoLabel = React.useMemo(() => {
+    const estadoActual = estadosFenologicos.find(e => e.value === fenologicoSeleccionado);
+    return estadoActual?.label || fenologicoSeleccionado;
+  }, [estadosFenologicos, fenologicoSeleccionado]);
+
   const toggleSeleccionMuestra = (id) => {
     const muestra = muestras.find(m => m.id === id);
     if (muestra?.loteId) {
@@ -266,23 +275,16 @@ export default function MuestrasScreen({ route, navigation }) {
   };
 
   const abrirCerrarLoteModal = () => {
-    const tipoMapeado = mapSeleccionToTipo(fenologicoSeleccionado);
-    const muestrasSeleccionadasArray = muestras.filter(m => 
-      muestrasSeleccionadas.has(m.id) && 
-      m.tipo === tipoMapeado &&
-      !m.loteId
-    );
-    
-    if (muestrasSeleccionadasArray.length === 0) {
-      Alert.alert('Error', 'Debe seleccionar al menos una muestra para crear un lote');
-      return;
-    }
-
+    // Permitir crear lote sin muestras seleccionadas
     setCerrarLoteModalVisible(true);
   };
 
   const handleCerrarLote = async (datosLote) => {
     try {
+      // Obtener el label del estado fenológico seleccionado
+      const estadoActual = estadosFenologicos.find(e => e.value === fenologicoSeleccionado);
+      const fenologicoLabel = estadoActual?.label || fenologicoSeleccionado;
+
       const nuevoLote = {
         id: Date.now().toString(),
         nombreLote: datosLote.nombreLote,
@@ -292,7 +294,8 @@ export default function MuestrasScreen({ route, navigation }) {
         muestrasIds: datosLote.muestrasIds,
         operacionId: operacionId,
         fecha: new Date().toISOString(),
-        tipoFenologico: datosLote.tipoFenologico,
+        tipoFenologico: fenologicoSeleccionado, // El value
+        tipoFenologicoLabel: fenologicoLabel, // El label
       };
 
       const lotesData = await AsyncStorage.getItem(`lotes_${operacionId}`);
@@ -324,16 +327,19 @@ export default function MuestrasScreen({ route, navigation }) {
     }
   };
 
-  // Filtrar muestras por tipo mapeado a partir de la selección 1-10 y que no estén en lotes
   const tipoActual = mapSeleccionToTipo(fenologicoSeleccionado);
+  
+  // Filtrar muestras por tipo mapeado y que no estén en lotes
   const muestrasFiltradas = muestras.filter(m => m.tipo === tipoActual && !m.loteId);
 
-  // Obtener muestras seleccionadas para el modal
-  const muestrasSeleccionadasArray = muestras.filter(m => 
-    muestrasSeleccionadas.has(m.id) && 
-    m.tipo === tipoActual &&
-    !m.loteId
-  );
+  // Obtener muestras seleccionadas para el modal (se calculan antes del render)
+  const muestrasSeleccionadasArray = React.useMemo(() => {
+    return muestras.filter(m => 
+      muestrasSeleccionadas.has(m.id) && 
+      m.tipo === tipoActual &&
+      !m.loteId
+    );
+  }, [muestras, muestrasSeleccionadas, tipoActual]);
 
   const renderMuestra = ({ item }) => (
     <MuestraItem 
@@ -404,6 +410,7 @@ export default function MuestrasScreen({ route, navigation }) {
         onConfirmar={handleCerrarLote}
         muestrasSeleccionadas={muestrasSeleccionadasArray}
         tipoFenologicoSeleccionado={fenologicoSeleccionado}
+        tipoFenologicoLabel={tipoFenologicoLabel}
       />
 
       <View style={styles.footer}>
@@ -421,14 +428,10 @@ export default function MuestrasScreen({ route, navigation }) {
             <Text style={styles.limpiarSeleccionText}>Limpiar Selección</Text>
           </TouchableOpacity>
         <TouchableOpacity
-          style={[
-            styles.cerrarBtn,
-            muestrasSeleccionadas.size === 0 && styles.cerrarBtnDisabled
-          ]}
+          style={styles.cerrarBtn}
           onPress={abrirCerrarLoteModal}
-          disabled={muestrasSeleccionadas.size === 0}
         >
-          <Text style={styles.btnText}>Cerrar Lote</Text>
+          <Text style={styles.btnText}>Crear Lote</Text>
         </TouchableOpacity>
         </View>
       </View>
@@ -521,9 +524,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 18,
     borderRadius: 8,
-  },
-  cerrarBtnDisabled: {
-    backgroundColor: '#ccc',
   },
   btnText: {
     color: '#fff',

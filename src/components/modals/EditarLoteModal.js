@@ -158,7 +158,11 @@ export default function EditarLoteModal({
     </View>
   );
 
-  const totalHectareasMuestras = muestras.length; // Por ahora, cada muestra = 1 "unidad"
+  // Función para obtener el display del fenológico
+  const getFenologicoDisplay = () => {
+    // Priorizar el label si existe, sino mostrar el value
+    return lote?.tipoFenologicoLabel || lote?.tipoFenologico || '-';
+  };
 
   if (!lote) return null;
 
@@ -209,16 +213,21 @@ export default function EditarLoteModal({
                 </View>
 
                 <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Tipo fenológico</Text>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: '#f0f0f0', color: '#666' }]}
-                    value={String(lote.tipoFenologico ?? '')}
-                    editable={false}
-                  />
+                  <Text style={styles.label}>Estado fenológico</Text>
+                  <View style={[styles.input, styles.readOnlyInput]}>
+                    <Text style={styles.readOnlyText}>
+                      {getFenologicoDisplay()}
+                    </Text>
+                  </View>
+                  {/* {lote.tipoFenologico && (
+                    <Text style={styles.helpText}>
+                      ID: {lote.tipoFenologico}
+                    </Text>
+                  )} */}
                 </View>
 
                 <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Daño Real (Calculado)</Text>
+                  <Text style={styles.label}>Daño Calculado</Text>
                   <View style={styles.calculatedContainer}>
                     <Text style={styles.calculatedValue}>
                       {lote.dañoReal}%
@@ -226,7 +235,7 @@ export default function EditarLoteModal({
                   </View>
                 </View>
 
-                <View style={styles.inputContainer}>
+                {/* <View style={styles.inputContainer}>
                   <Text style={styles.label}>Daño Pactado</Text>
                   <TextInput
                     style={styles.input}
@@ -236,7 +245,7 @@ export default function EditarLoteModal({
                     placeholder="Opcional"
                     maxLength={10}
                   />
-                </View>
+                </View> */}
               </View>
 
               {/* Lista de muestras */}
@@ -369,6 +378,20 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     backgroundColor: '#fafafa',
+  },
+  readOnlyInput: {
+    backgroundColor: '#f0f0f0',
+    borderColor: '#e0e0e0',
+  },
+  readOnlyText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  helpText: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   calculatedContainer: {
     backgroundColor: '#e8f5e8',

@@ -18,6 +18,7 @@ export default function CerrarLoteModal({
   onConfirmar, 
   muestrasSeleccionadas = [],
   tipoFenologicoSeleccionado,
+  tipoFenologicoLabel // Agregamos este prop
 }) {
   const [nombreLote, setNombreLote] = useState('');
   const [hectareas, setHectareas] = useState('');
@@ -42,9 +43,14 @@ export default function CerrarLoteModal({
     }
 
     // Calcular daño real (promedio de todas las muestras)
-    const dañoReal = muestrasSeleccionadas.length > 0 
-      ? muestrasSeleccionadas.reduce((sum, muestra) => sum + (muestra.datos.porcentajeDaño || 0), 0) / muestrasSeleccionadas.length
-      : 0;
+    let dañoReal = 0;
+    if (muestrasSeleccionadas.length > 0) {
+      const sumaDaños = muestrasSeleccionadas.reduce((sum, muestra) => {
+        const porcentaje = parseFloat(muestra.datos?.porcentajeDaño) || 0;
+        return sum + porcentaje;
+      }, 0);
+      dañoReal = sumaDaños / muestrasSeleccionadas.length;
+    }
 
     const datosLote = {
       nombreLote: nombreLote.trim(),
@@ -66,9 +72,22 @@ export default function CerrarLoteModal({
     onClose();
   };
 
-  const dañoRealCalculado = muestrasSeleccionadas.length > 0 
-    ? muestrasSeleccionadas.reduce((sum, muestra) => sum + (muestra.datos.porcentajeDaño || 0), 0) / muestrasSeleccionadas.length
-    : 0;
+  // Calcular daño real para mostrar
+  const dañoRealCalculado = React.useMemo(() => {
+    if (muestrasSeleccionadas.length === 0) return 0;
+    
+    const sumaDaños = muestrasSeleccionadas.reduce((sum, muestra) => {
+      const porcentaje = parseFloat(muestra.datos?.porcentajeDaño) || 0;
+      return sum + porcentaje;
+    }, 0);
+    
+    return sumaDaños / muestrasSeleccionadas.length;
+  }, [muestrasSeleccionadas]);
+
+  // Función para obtener el display del fenológico (igual que en EditarLoteModal)
+  const getFenologicoDisplay = () => {
+    return tipoFenologicoLabel || tipoFenologicoSeleccionado || '-';
+  };
 
   return (
     <Modal
@@ -84,7 +103,7 @@ export default function CerrarLoteModal({
         <View style={styles.modalContainer}>
           <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.header}>
-              <Text style={styles.title}>Cerrar Lote</Text>
+              <Text style={styles.title}>Crear Lote</Text>
               <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
                 <Text style={styles.closeButtonText}>✕</Text>
               </TouchableOpacity>
@@ -95,9 +114,14 @@ export default function CerrarLoteModal({
                 <Text style={styles.infoText}>
                   📊 Muestras seleccionadas: {muestrasSeleccionadas.length}
                 </Text>
-              <Text style={styles.infoText}>
-                🧬 Tipo fenológico: {tipoFenologicoSeleccionado}
-              </Text>
+                <Text style={styles.infoText}>
+                  🧬 Tipo fenológico: {getFenologicoDisplay()}
+                </Text>
+                {muestrasSeleccionadas.length === 0 && (
+                  <Text style={styles.warningText}>
+                    ⚠️ Este lote no tendrá muestras asociadas
+                  </Text>
+                )}
               </View>
 
               <View style={styles.inputContainer}>
@@ -124,27 +148,26 @@ export default function CerrarLoteModal({
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Daño Real (Calculado)</Text>
-                <View style={styles.calculatedContainer}>
-                  <Text style={styles.calculatedValue}>
-                    {Math.round(dañoRealCalculado * 100) / 100}%
+                <Text style={styles.label}>
+                  Daño Real {muestrasSeleccionadas.length > 0 ? '(Calculado)' : '(Sin muestras)'}
+                </Text>
+                <View style={[
+                  styles.calculatedContainer,
+                  muestrasSeleccionadas.length === 0 && styles.calculatedContainerEmpty
+                ]}>
+                  <Text style={[
+                    styles.calculatedValue,
+                    muestrasSeleccionadas.length === 0 && styles.calculatedValueEmpty
+                  ]}>
+                    {(Math.round(dañoRealCalculado * 100) / 100).toFixed(2)}%
                   </Text>
                   <Text style={styles.calculatedNote}>
-                    Promedio automático de las muestras
+                    {muestrasSeleccionadas.length > 0 
+                      ? 'Promedio automático de las muestras'
+                      : 'Sin muestras para calcular'
+                    }
                   </Text>
                 </View>
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Daño Pactado</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ej: 15.5"
-                  value={dañoPactado}
-                  onChangeText={setDañoPactado}
-                  keyboardType="numeric"
-                  maxLength={10}
-                />
               </View>
             </View>
 
@@ -227,6 +250,12 @@ const styles = StyleSheet.create({
     color: '#495057',
     marginBottom: 5,
   },
+  warningText: {
+    fontSize: 13,
+    color: '#ff9800',
+    marginTop: 8,
+    fontWeight: '600',
+  },
   inputContainer: {
     marginBottom: 20,
   },
@@ -251,23 +280,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#c3e6c3',
   },
+  calculatedContainerEmpty: {
+    backgroundColor: '#fff3cd',
+    borderColor: '#ffc107',
+  },
   calculatedValue: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#28a745',
     textAlign: 'center',
   },
+  calculatedValueEmpty: {
+    color: '#856404',
+  },
   calculatedNote: {
     fontSize: 12,
     color: '#6c757d',
     textAlign: 'center',
     marginTop: 4,
-  },
-  helpText: {
-    fontSize: 12,
-    color: '#6c757d',
-    marginTop: 5,
-    fontStyle: 'italic',
   },
   buttonContainer: {
     flexDirection: 'row',
