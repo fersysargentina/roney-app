@@ -19,6 +19,7 @@ export default function LotesScreen({ route, navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [loteSeleccionado, setLoteSeleccionado] = useState(null);
+  const [cultivo, setCultivo] = useState('soja');
 
   useEffect(() => {
     console.log('🔧 LotesScreen: Inicializando...', { operacionId, roney_op });
@@ -31,6 +32,7 @@ export default function LotesScreen({ route, navigation }) {
       navigation.goBack();
       return;
     }
+    cargarDatosOperacion(); 
     cargarLotes();
   }, [operacionId]);
 
@@ -53,6 +55,21 @@ export default function LotesScreen({ route, navigation }) {
     } catch (e) {
       console.error('❌ LotesScreen: Error cargando lotes:', e);
       ErrorHandler.handleError(e, 'Error de Carga', 'No se pudieron cargar los lotes');
+    }
+  }, [operacionId]);
+
+  const cargarDatosOperacion = useCallback(async () => {
+    try {
+      const data = await AsyncStorage.getItem('operaciones');
+      if (data) {
+        const operaciones = JSON.parse(data);
+        const operacionActual = operaciones.find(op => op.id === operacionId);
+        if (operacionActual) {
+          setCultivo(operacionActual.cultivo || 'soja');
+        }
+      }
+    } catch (e) {
+      console.error('Error cargando datos de operación:', e);
     }
   }, [operacionId]);
 
@@ -226,6 +243,7 @@ export default function LotesScreen({ route, navigation }) {
         visible={modalVisible}
         lote={loteSeleccionado}
         operacionId={operacionId}
+        cultivo={cultivo}
         onClose={cerrarModal}
         onActualizar={actualizarLote}
         onLiberarMuestra={liberarMuestra}

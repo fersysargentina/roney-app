@@ -126,10 +126,9 @@ export default function MuestrasScreen({ route, navigation }) {
     setModalTipo(muestra.tipo);
   };
 
-  const agregarMuestraDesdeModal = (tipo, datosCompletos) => {
-    // *** CAMBIO CLAVE: Ahora pasamos el cultivo a calculoDeDaño ***
+  const agregarMuestraDesdeModal = async (tipo, datosCompletos) => {
     const porcentajeDaño = calculoDeDaño(datosCompletos, fenologicoSeleccionado, cultivo);
-
+  
     console.log('🔍 Debug agregarMuestra:', {
       cultivo,
       fenologicoSeleccionado,
@@ -139,7 +138,7 @@ export default function MuestrasScreen({ route, navigation }) {
     });
     
     const datosConDaño = { ...datosCompletos, porcentajeDaño };
-
+  
     if (muestraEnEdicion) {
       const nuevasMuestras = muestras.map((m) =>
         m.id === muestraEnEdicion.id
@@ -148,12 +147,14 @@ export default function MuestrasScreen({ route, navigation }) {
       );
       guardarMuestras(nuevasMuestras);
     } else {
-      const muestrasDelTipo = muestras.filter(m => m.tipo === tipo && !m.loteId);
+      // CAMBIO: Obtener siguiente número del contador
+      const numeroMuestra = await obtenerSiguienteNumeroMuestra(operacionId, tipo);
+      
       const nuevaMuestra = {
         id: Date.now().toString(),
         tipo,
         datos: { ...datosConDaño },
-        nombre: `Muestra ${muestrasDelTipo.length + 1}`,
+        nombre: `Muestra ${numeroMuestra}`, // <-- AHORA USA EL CONTADOR
         fecha: new Date().toLocaleDateString(),
         operacionId: operacionId,
         loteId: null,
@@ -352,6 +353,20 @@ export default function MuestrasScreen({ route, navigation }) {
     />
   );
 
+  const obtenerSiguienteNumeroMuestra = async (operacionId, tipo) => {
+    try {
+      const key = `contador_muestras_${operacionId}_${tipo}`;
+      const contadorStr = await AsyncStorage.getItem(key);
+      const contador = contadorStr ? parseInt(contadorStr, 10) : 0;
+      const siguiente = contador + 1;
+      await AsyncStorage.setItem(key, siguiente.toString());
+      return siguiente;
+    } catch (e) {
+      console.error('Error obteniendo contador:', e);
+      return Date.now() % 10000; // Fallback: usar timestamp
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -374,6 +389,7 @@ export default function MuestrasScreen({ route, navigation }) {
               key={estado.value} 
               label={estado.label} 
               value={estado.value} 
+              style={styles.pickerItem}
             />
           ))}
         </Picker>
@@ -559,6 +575,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     flex: 1,
     minWidth: 140,
+    color: '#000'
+  },
+  pickerItem: {
+    color: '#000'
   },
   emptyText: {
     textAlign: 'center',

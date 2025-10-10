@@ -13,11 +13,13 @@ import {
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import VerMuestraModal from './VerMuestraModal'; // <-- IMPORTAR EL NUEVO MODAL
 
 export default function EditarLoteModal({ 
   visible, 
   lote, 
   operacionId,
+  cultivo = 'soja', // <-- AGREGAR EL CULTIVO COMO PROP
   onClose, 
   onActualizar,
   onLiberarMuestra,
@@ -28,6 +30,10 @@ export default function EditarLoteModal({
   const [dañoPactado, setDañoPactado] = useState('');
   const [muestras, setMuestras] = useState([]);
   const [loading, setLoading] = useState(false);
+  
+  // NUEVO: Estado para el modal de ver muestra
+  const [verMuestraModalVisible, setVerMuestraModalVisible] = useState(false);
+  const [muestraSeleccionada, setMuestraSeleccionada] = useState(null);
 
   useEffect(() => {
     if (visible && lote) {
@@ -93,11 +99,9 @@ export default function EditarLoteModal({
           onPress: async () => {
             const success = await onLiberarMuestra(lote.id, muestraId);
             if (success) {
-              // Actualizar la lista local de muestras
               const nuevasMuestras = muestras.filter(m => m.id !== muestraId);
               setMuestras(nuevasMuestras);
               
-              // Si no quedan muestras, cerrar el modal
               if (nuevasMuestras.length === 0) {
                 Alert.alert(
                   'Lote Vacío',
@@ -130,6 +134,18 @@ export default function EditarLoteModal({
     );
   };
 
+  // NUEVO: Función para abrir el modal de ver muestra
+  const handleVerMuestra = (muestra) => {
+    setMuestraSeleccionada(muestra);
+    setVerMuestraModalVisible(true);
+  };
+
+  // NUEVO: Función para cerrar el modal de ver muestra
+  const handleCerrarVerMuestra = () => {
+    setVerMuestraModalVisible(false);
+    setMuestraSeleccionada(null);
+  };
+
   const handleClose = () => {
     setNombreLote('');
     setHectareas('');
@@ -140,15 +156,24 @@ export default function EditarLoteModal({
 
   const renderMuestra = ({ item }) => (
     <View style={styles.muestraItem}>
-      <View style={styles.muestraInfo}>
-        <Text style={styles.muestraNombre}>{item.nombre}</Text>
+      {/* MODIFICADO: Hacer que toda la info sea clickeable */}
+      <TouchableOpacity 
+        style={styles.muestraInfo}
+        onPress={() => handleVerMuestra(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.muestraHeader}>
+          <Text style={styles.muestraNombre}>{item.nombre}</Text>
+          <Text style={styles.verDetalleText}>👁️ Ver</Text>
+        </View>
         <Text style={styles.muestraDetalles}>
           Tipo {item.tipo} • {item.fecha}
         </Text>
         <Text style={styles.muestraDaño}>
           Daño: {item.datos.porcentajeDaño || 0}%
         </Text>
-      </View>
+      </TouchableOpacity>
+      
       <TouchableOpacity
         style={styles.liberarButton}
         onPress={() => handleLiberarMuestra(item.id)}
@@ -158,9 +183,7 @@ export default function EditarLoteModal({
     </View>
   );
 
-  // Función para obtener el display del fenológico
   const getFenologicoDisplay = () => {
-    // Priorizar el label si existe, sino mostrar el value
     return lote?.tipoFenologicoLabel || lote?.tipoFenologico || '-';
   };
 
@@ -187,7 +210,6 @@ export default function EditarLoteModal({
             </View>
 
             <View style={styles.content}>
-              {/* Información del lote */}
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>📋 Información del Lote</Text>
                 
@@ -219,11 +241,6 @@ export default function EditarLoteModal({
                       {getFenologicoDisplay()}
                     </Text>
                   </View>
-                  {/* {lote.tipoFenologico && (
-                    <Text style={styles.helpText}>
-                      ID: {lote.tipoFenologico}
-                    </Text>
-                  )} */}
                 </View>
 
                 <View style={styles.inputContainer}>
@@ -234,24 +251,14 @@ export default function EditarLoteModal({
                     </Text>
                   </View>
                 </View>
-
-                {/* <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Daño Pactado</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={dañoPactado}
-                    onChangeText={setDañoPactado}
-                    keyboardType="numeric"
-                    placeholder="Opcional"
-                    maxLength={10}
-                  />
-                </View> */}
               </View>
 
-              {/* Lista de muestras */}
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>
                   📊 Muestras Asociadas ({muestras.length})
+                </Text>
+                <Text style={styles.helpText}>
+                  💡 Toca una muestra para ver sus detalles
                 </Text>
                 
                 {loading ? (
@@ -272,7 +279,6 @@ export default function EditarLoteModal({
               </View>
             </View>
 
-            {/* Botones de acción */}
             <View style={styles.buttonContainer}>
               <TouchableOpacity 
                 style={styles.deleteAllButton} 
@@ -299,10 +305,18 @@ export default function EditarLoteModal({
                 </TouchableOpacity>
               </View>
             </View>
-        
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
+
+      {/* NUEVO: Modal de ver muestra (modal dentro del modal) */}
+      <VerMuestraModal
+        visible={verMuestraModalVisible}
+        onClose={handleCerrarVerMuestra}
+        muestra={muestraSeleccionada}
+        cultivo={cultivo}
+        tipoFenologico={lote?.tipoFenologico}
+      />
     </Modal>
   );
 }
@@ -389,8 +403,8 @@ const styles = StyleSheet.create({
   },
   helpText: {
     fontSize: 12,
-    color: '#999',
-    marginTop: 4,
+    color: '#007bff',
+    marginBottom: 8,
     fontStyle: 'italic',
   },
   calculatedContainer: {
@@ -411,15 +425,27 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 8,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
   muestraInfo: {
     flex: 1,
+  },
+  muestraHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   muestraNombre: {
     fontSize: 14,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 4,
+  },
+  verDetalleText: {
+    fontSize: 12,
+    color: '#007bff',
+    fontWeight: '600',
   },
   muestraDetalles: {
     fontSize: 12,
@@ -435,6 +461,7 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 6,
     backgroundColor: '#fff3cd',
+    marginLeft: 8,
   },
   liberarButtonText: {
     fontSize: 16,
@@ -494,16 +521,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  footer: {
-    padding: 20,
-    paddingTop: 0,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 12,
-    color: '#666',
   },
 });

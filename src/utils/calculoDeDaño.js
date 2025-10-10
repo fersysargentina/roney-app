@@ -426,81 +426,109 @@ function calcularDañoGirasol(datos, fenologico) {
   
   console.log('🌻 Calculando daño GIRASOL para estado:', fenologicoNum);
 
-  // Mapeo de estados fenológicos de girasol
-  // 1: V1-V11, 2: V12-Vn, 3: R1, 4: R2, 5: R3, 6: R4, 7: R5, 8: R6, 9: R7, 10: R8, 11: R9
-  
-  let fenologicoLabel = '';
-  
-  if (fenologicoNum >= 1 && fenologicoNum <= 2) {
-    // Estados vegetativos V1-Vn
-    fenologicoLabel = fenologicoNum === 1 ? 'v1-v11' : 'v12-vn';
-    return calcularDañoGirasolVegetativo(datos, fenologicoLabel);
-  } else if (fenologicoNum >= 3 && fenologicoNum <= 11) {
-    // Estados reproductivos R1-R9
-    const estadosR = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9'];
-    fenologicoLabel = estadosR[fenologicoNum - 3];
-    return calcularDañoGirasolReproductivo(datos, fenologicoLabel);
+  let fenologicoLabel = "V1-V11";
+
+  if (!isNaN(fenologicoNum)) {
+    switch (fenologicoNum) {
+      case 1:
+        fenologicoLabel = 'V1-V11'; 
+        break;
+      case 2:
+        fenologicoLabel = 'V12-Vn'; 
+        break;
+      case 3:
+        fenologicoLabel = 'R1 (estrella)'; 
+        break;
+      case 4:
+        fenologicoLabel = 'R2 (botón a 0,5 - 2 cm)'; 
+        break;
+      case 5:
+        fenologicoLabel = 'R3 (botón a + de 2 cm)';
+        break;
+      case 6:
+        fenologicoLabel = 'R4 (apertura inflorescencia)'; 
+        break;
+      case 7:
+        fenologicoLabel = 'R5 (inicio floración)'; 
+        break;
+      case 8:
+        fenologicoLabel = 'R6 (fin floración)'; 
+        break;
+      case 9:
+        fenologicoLabel = 'R7 (envés capítulo inicio amarilleo)'; 
+        break;
+      case 10:
+        fenologicoLabel = 'R8 (envés capítulo amarillo)'; 
+        break;
+      case 11:
+        fenologicoLabel = 'R9 (brácteas amarillo/marrón)'; 
+        break;
+      default:
+        fenologicoLabel = 'V1-V11';
+    }
   }
+
+  // Extraer todos los datos (dato_1 a dato_5)
+const data = {};
+for (let i = 1; i <= 5; i++) {
+    data[`d${i}`] = parseFloat(datos[`dato_${i}`]) || 0;
+}
+
+// Cálculo de espigas perdidas
+const totenD = data.d1 + data.d2 + data.d3;
+
+let plantasPerdidas = 0;
+if (totenD !== 0) {
+  plantasPerdidas = (data.d1 / totenD) * 100;
+}
+
+let plantasImproduct = 0;
+if (totenD !== 0) {
+  plantasImproduct = (data.d2 / totenD) * 100;
+}
+
+// Convertir a índice para buscar en la tabla
+const indiceGirasol = String(Math.floor(plantasPerdidas));
+
+let coefiGirasol = {};
+
+// Lista de todos los estados fenológicos de trigo
+const fenologicosGirasol = ['V1-V11', 'V12-Vn', 'R1 (estrella)', 'R2 (botón a 0,5 - 2 cm)', 'R3 (botón a + de 2 cm)', 'R4 (apertura inflorescencia)', 'R5 (inicio floración)', 'R6 (fin floración)','R7 (envés capítulo inicio amarilleo)', 'R8 (envés capítulo amarillo)', 'R9 (brácteas amarillo/marrón)'];
+
+if (fenologicosGirasol.includes(fenologicoLabel)) {
+    coefiGirasol = girasolReduccion?.[fenologicoLabel]?.dan || {};
+}
+
+// Obtener el daño de la tabla usando el índice
+let danA = indiceGirasol !== '0' 
+    ? parseFloat(coefiGirasol?.[indiceGirasol] ?? 0) 
+    : 0;
+danA = danA + plantasImproduct;
+
+const cprB = 100-danA;
+const danE = data.d4*cprB/100;
+const cprF = 100 - danA - danE;
+
+const indiceGirasolDesfo = String(Math.floor(data.d5));
+let coefiDesfoGirasol = {};
+if (fenologicosGirasol.includes(fenologicoLabel)) {
+  coefiDesfoGirasol = girasolDesfo?.[fenologicoLabel]?.dan || {};
+};
+
+let danG = indiceGirasolDesfo !== '0' 
+    ? parseFloat(coefiDesfoGirasol?.[indiceGirasolDesfo] ?? 0) 
+    : 0;
+
+const danH = danG * cprF / 100;
+
+const danTot = danA + danE + danH;
+
+
+
+return parseFloat(danTot.toFixed(1));
   
-  return 0;
 }
 
-/**
- * Cálculo para estados vegetativos de GIRASOL (V1-Vn)
- */
-function calcularDañoGirasolVegetativo(datos, fenologicoLabel) {
-  const d1 = parseFloat(datos?.dato_1) || 0; // Pérdida en D
-  const d2 = parseFloat(datos?.dato_2) || 0; // Restante en D
-  const d3 = parseFloat(datos?.dato_3) || 0; // Defoliación %
-
-  const totalD = d1 + d2;
-  const porcePlantasPerdidas = totalD > 0 ? (d1 / totalD) * 100 : 0;
-
-  // Coeficientes de tablas de girasol
-  const coefiReduccion = girasolReduccion?.[fenologicoLabel]?.dan || {};
-  const coefiDesfo = girasolDesfo?.[fenologicoLabel]?.dan || {};
-
-  // Cálculo por reducción de plantas
-  const indiceReduccion = Math.floor(porcePlantasPerdidas);
-  const danReduccion = parseFloat(coefiReduccion?.[indiceReduccion] ?? 0) || 0;
-  const cpr = 100 - danReduccion;
-
-  // Cálculo por defoliación
-  const indiceDefoliacion = Math.floor(d3);
-  const danDesfo = parseFloat(coefiDesfo?.[indiceDefoliacion] ?? 0) || 0;
-  const danNetoDesfo = (danDesfo * cpr) / 100;
-
-  const porcentaje = danReduccion + danNetoDesfo;
-
-  console.log('📊 Cálculo V (GIRASOL):', {
-    fenologico: fenologicoLabel,
-    porcePlantasPerdidas: danReduccion,
-    porDefoliacion: danNetoDesfo,
-    total: porcentaje
-  });
-
-  return porcentaje.toFixed(1);
-}
-
-/**
- * Cálculo para estados reproductivos de GIRASOL (R1-R9)
- */
-function calcularDañoGirasolReproductivo(datos, fenologicoLabel) {
-  // TODO: Implementar lógica específica para estados reproductivos de girasol
-  // Similar a soja pero con las tablas y lógica específicas de girasol
-  
-  const d1 = parseFloat(datos?.dato_1) || 0;
-  const d2 = parseFloat(datos?.dato_2) || 0;
-  const d3 = parseFloat(datos?.dato_3) || 0;
-
-  console.log('📊 Cálculo R (GIRASOL):', {
-    fenologico: fenologicoLabel,
-    mensaje: 'Implementación pendiente según tablas específicas'
-  });
-
-  // Implementación temporal - ajustar según tus tablas reales
-  return 0;
-}
 
 /**
  * ============================================================================

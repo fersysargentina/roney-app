@@ -70,13 +70,13 @@ export default function CrearOperacionModal({
                 <Picker
                   selectedValue={cultivo}
                   onValueChange={setCultivo}
-                  style={{ width: '100%' }}
+                  style={{ width: '100%', color: '#000' }}
                 >
-                  <Picker.Item label="Selecciona un cultivo..." value="" />
-                  <Picker.Item label="Soja" value="soja" />
-                  <Picker.Item label="Maíz" value="maiz" />
-                  <Picker.Item label="Trigo" value="trigo" />
-                  <Picker.Item label="Girasol" value="girasol" />
+                  <Picker.Item label="Selecciona un cultivo..." value="" style={{ color: '#000' }} />
+                  <Picker.Item label="Soja" value="soja" style={{ color: '#000' }} />
+                  <Picker.Item label="Maíz" value="maiz" style={{ color: '#000' }} />
+                  <Picker.Item label="Trigo" value="trigo" style={{ color: '#000' }} />
+                  <Picker.Item label="Girasol" value="girasol" style={{ color: '#000' }} />
                 </Picker>
               </View>
               <View style={styles.botones}>

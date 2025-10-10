@@ -10,7 +10,8 @@ import {
   Platform, 
   ScrollView,
   ActivityIndicator,
-  Alert
+  Alert,
+  SafeAreaView
 } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -186,6 +187,9 @@ export default function MuestraTrigoModal({
       statusBarTranslucent
       onRequestClose={handleCerrar}
     >
+      <SafeAreaView style={styles.safeArea}>
+
+      
       <View style={styles.overlay}>
         <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
@@ -271,17 +275,22 @@ export default function MuestraTrigoModal({
           </View>
         </KeyboardAvoidingView>
       </View>
+      </SafeAreaView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: { // ✅ Nuevo estilo
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? 40 : 0, // ✅ Padding extra para Android
   },
   avoider: {
     width: '100%',

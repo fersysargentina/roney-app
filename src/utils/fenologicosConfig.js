@@ -101,10 +101,17 @@ export const obtenerEstadosFenologicos = (cultivo) => {
     ],
     
     girasol: [
-      { min: 1, max: 4, tipo: '1' },   // VE-V2, V4-V6, V8-V10, V12-VN
-      { min: 5, max: 7, tipo: '2' },   // R1, R2, R3
-      { min: 8, max: 10, tipo: '3' },  // R4, R5, R6
-      { min: 11, max: 99, tipo: '4' }  // R7, R8, R9
+      { min: 1, max: 11, tipo: '1' },   // V1-V11, 
+      // { min: 2, max: 2, tipo: '2' },   // V12-VN, 
+      // { min: 3, max: 3, tipo: '3' },   // R1 (estrella), 
+      // { min: 4, max: 4, tipo: '4' },   // R2 (botón a 0,5 - 2 cm), 
+      // { min: 5, max: 5, tipo: '5' },   // R3 (botón a + de 2 cm), 
+      // { min: 6, max: 6, tipo: '6' },   // R4 (apertura inflorescencia), 
+      // { min: 7, max: 7, tipo: '7' },   // R5 (inicio floración), 
+      // { min: 8, max: 8, tipo: '8' },   // R6 (fin floración), 
+      // { min: 9, max: 9, tipo: '9' },   // R7 (envés capítulo inicio amarilleo), 
+      // { min: 10, max: 10, tipo: '10' },   // R8 (envés capítulo amarillo), 
+      // { min: 11, max: 11, tipo: '11' },   // R9 (brácteas amarillo/marrón), 
     ]
   };
   

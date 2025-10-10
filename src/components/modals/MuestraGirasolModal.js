@@ -15,35 +15,17 @@ import {
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 
-// --- CONFIGURACIÓN DE LOS 23 CAMPOS DE DATOS PARA TRIGO ---
-const DATOS_COUNT = 23;
+// --- CONFIGURACIÓN DE LOS 6 CAMPOS DE DATOS PARA GIRASOL ---
+const DATOS_COUNT = 5;
 const DATOS_FIELDS = Array.from({ length: DATOS_COUNT }, (_, i) => `dato_${i + 1}`);
 
 // Etiquetas específicas para trigo (ajusta según tus necesidades)
 const LABELS = [
-  'Pérdidas en D',  // dato_1
-  'Colgadas en D',  // dato_2
-  'Restantes en D', // dato_3
-  'Espiga 1 P',     // dato_4
-  'Espiga 1 T',     // dato_5
-  'Espiga 2 P',     // dato_6
-  'Espiga 2 T',     // dato_7
-  'Espiga 3 P',     // dato_8
-  'Espiga 3 T',     // dato_9
-  'Espiga 4 P',     // dato_10
-  'Espiga 4 T',     // dato_11
-  'Espiga 5 P',     // dato_12
-  'Espiga 5 T',     // dato_13
-  'Espiga 6 P',     // dato_14
-  'Espiga 6 T',     // dato_15
-  'Espiga 7 P',     // dato_16
-  'Espiga 7 T',     // dato_17
-  'Espiga 8 P',     // dato_18
-  'Espiga 8 T',     // dato_19
-  'Espiga 9 P',     // dato_20
-  'Espiga 9 T',     // dato_21
-  'Espiga 10 P',    // dato_22
-  'Espiga 10 T'   // dato_23
+  'Pérdida en D',
+  'Improduct en D',
+  'Restante en D',
+  '% promedio daño capít.',
+  '% defoliacion'
 ];
 // ------------------------------------------------
 
@@ -144,12 +126,17 @@ export default function MuestraGirasolModal({
   const getTituloEstado = () => {
     // Mapear el valor del estado a su nombre legible
     const estados = {
-      '1': 'Espigamiento (Z.50/59)',
-      '2': 'Floración (Z.60/69)',
-      '3': 'Lechoso (Z.70/79)',
-      '4': 'Pastoso blando (Z.80/84)',
-      '5': 'Pastoso duro (Z.85/89)',
-      '6': 'Próx. a mudurez (Z.90/99)',
+      '1': 'V1-V11',
+      '2': 'V12-Vn',
+      '3': 'R1 (estrella)',
+      '4': 'R2 (botón a 0,5 - 2 cm)',
+      '5': 'R3 (botón a + de 2 cm)',
+      '6': 'R4 (apertura inflorescencia)',
+      '7': 'R5 (inicio floración)',
+      '8': 'R6 (fin floración)',
+      '9': 'R7 (envés capítulo inicio amarilleo)',
+      '10': 'R8 (envés capítulo amarillo)',
+      '11': 'R9 (brácteas amarillo/marrón)',
     };
     return estados[estadoFenologico] || 'Trigo';
   };
