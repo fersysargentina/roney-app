@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, Alert, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, Alert, FlatList, TouchableOpacity } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import MuestraItem from '../components/MuestraItem';
 import MuestraTipo1Modal from '../components/modals/MuestraTipo1Modal';
@@ -16,8 +16,12 @@ import {
   mapearEstadoATipoModal 
 } from '../utils/fenologicosConfig';
 import MuestraTrigoModal from '../components/modals/MuestraTrigoModal';
-import MuestraMaizModal from '../components/modals/MuestraMaizModal'; // TODO: Crear estos modales
-import MuestraGirasolModal from '../components/modals/MuestraGirasolModal'; // TODO: Crear este modal
+import MuestraMaizModal from '../components/modals/MuestraMaizModal';
+import MuestraGirasolModal from '../components/modals/MuestraGirasolModal';
+
+// ✅ Constantes fuera del componente
+const ITEM_HEIGHT = 100;
+const MAX_SELECTIONS = 500;
 
 export default function MuestrasScreen({ route, navigation }) {
   const { roney_op, operacionId } = route.params || {};
@@ -30,9 +34,18 @@ export default function MuestrasScreen({ route, navigation }) {
   const [muestraEnEdicion, setMuestraEnEdicion] = useState(null);
   const [muestrasSeleccionadas, setMuestrasSeleccionadas] = useState(new Set());
   const [cerrarLoteModalVisible, setCerrarLoteModalVisible] = useState(false);
-  const [recalculando, setRecalculando] = useState(false);
 
-  // Función de mapeo ahora usa la configuración según el cultivo
+  // ✅ Ref para verificar si el componente está montado
+  const isMountedRef = useRef(true);
+
+  // ✅ Cleanup al desmontar
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // ✅ Función de mapeo memoizada
   const mapSeleccionToTipo = useCallback((valorSeleccion) => {
     return mapearEstadoATipoModal(cultivo, valorSeleccion);
   }, [cultivo]);
@@ -51,82 +64,97 @@ export default function MuestrasScreen({ route, navigation }) {
     inicializarDatos();
   }, [operacionId, roney_op]);
 
-  // Cargar el tipo de cultivo de la operación actual
-  const cargarDatosOperacion = async () => {
+  // ✅ Cargar datos con verificación de montaje
+  const cargarDatosOperacion = useCallback(async () => {
     try {
       const data = await ErrorHandler.getStorageData('operaciones');
       const operaciones = ErrorHandler.safeJsonParse(data, []);
       const operacionActual = operaciones.find(op => op.id === operacionId);
       
-      if (operacionActual) {
+      if (operacionActual && isMountedRef.current) {
         const cultivoActual = operacionActual.cultivo || 'soja';
         setCultivo(cultivoActual);
         const estados = obtenerEstadosFenologicos(cultivoActual);
         setEstadosFenologicos(estados);
         
-        // Si el estado actual no es válido para este cultivo, resetear al primero
         if (!esEstadoValido(cultivoActual, fenologicoSeleccionado)) {
           setFenologicoSeleccionado(estados[0]?.value || '1');
         }
       }
     } catch (e) {
-      ErrorHandler.handleError(e, 'Error de Carga', 'No se pudo cargar el tipo de cultivo');
-      // Usar soja por defecto en caso de error
-      const estadosDefault = obtenerEstadosFenologicos('soja');
-      setEstadosFenologicos(estadosDefault);
+      if (isMountedRef.current) {
+        ErrorHandler.handleError(e, 'Error de Carga', 'No se pudo cargar el tipo de cultivo');
+        const estadosDefault = obtenerEstadosFenologicos('soja');
+        setEstadosFenologicos(estadosDefault);
+      }
     }
-  };
+  }, [operacionId, fenologicoSeleccionado]);
 
-  // Recargar muestras cuando se regrese de otras pantallas
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      cargarMuestras();
-    });
-    return unsubscribe;
-  }, [navigation]);
-
-  const inicializarDatos = async () => {
-    await cargarMuestras();
-  };
-
+  // ✅ Cargar muestras con verificación de montaje
   const cargarMuestras = useCallback(async () => {
     try {
       const data = await ErrorHandler.getStorageData(`muestras_${operacionId}`);
       const muestrasCargadas = ErrorHandler.safeJsonParse(data, []);
       const muestrasValidadas = ErrorHandler.sanitizeData(muestrasCargadas, 'muestras');
-      setMuestras(muestrasValidadas);
+      
+      if (isMountedRef.current) {
+        setMuestras(muestrasValidadas);
+      }
     } catch (e) {
-      ErrorHandler.handleError(e, 'Error de Carga', 'No se pudieron cargar las muestras');
+      if (isMountedRef.current) {
+        ErrorHandler.handleError(e, 'Error de Carga', 'No se pudieron cargar las muestras');
+      }
     }
   }, [operacionId]);
 
+  // ✅ Listener con cleanup correcto
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (isMountedRef.current) {
+        cargarMuestras();
+      }
+    });
+    return unsubscribe;
+  }, [navigation, cargarMuestras]);
+
+  const inicializarDatos = useCallback(async () => {
+    await cargarMuestras();
+  }, [cargarMuestras]);
+
+  // ✅ Guardar muestras con verificación de montaje
   const guardarMuestras = useCallback(async (nuevasMuestras) => {
     try {
       const sanitized = ErrorHandler.sanitizeData(nuevasMuestras, 'muestras');
       await ErrorHandler.setStorageData(`muestras_${operacionId}`, sanitized);
-      setMuestras(sanitized);
+      
+      if (isMountedRef.current) {
+        setMuestras(sanitized);
+      }
     } catch (e) {
-      ErrorHandler.handleError(e, 'Error de Guardado', 'No se pudieron guardar las muestras');
+      if (isMountedRef.current) {
+        ErrorHandler.handleError(e, 'Error de Guardado', 'No se pudieron guardar las muestras');
+      }
     }
   }, [operacionId]);
 
-  const abrirModalSegunTipo = () => {
+  // ✅ Funciones de modal memoizadas
+  const abrirModalSegunTipo = useCallback(() => {
     setMuestraEnEdicion(null);
     const tipoMapeado = mapSeleccionToTipo(fenologicoSeleccionado);
     setModalTipo(tipoMapeado);
-  };
+  }, [fenologicoSeleccionado, mapSeleccionToTipo]);
 
-  const cerrarModal = () => {
+  const cerrarModal = useCallback(() => {
     setModalTipo(null);
     setMuestraEnEdicion(null);
-  };
+  }, []);
 
-  const abrirModalEdicion = (muestra) => {
+  const abrirModalEdicion = useCallback((muestra) => {
     setMuestraEnEdicion(muestra);
     setModalTipo(muestra.tipo);
-  };
+  }, []);
 
-  const agregarMuestraDesdeModal = async (tipo, datosCompletos) => {
+  const agregarMuestraDesdeModal = useCallback(async (tipo, datosCompletos) => {
     const porcentajeDaño = calculoDeDaño(datosCompletos, fenologicoSeleccionado, cultivo);
   
     console.log('🔍 Debug agregarMuestra:', {
@@ -147,14 +175,13 @@ export default function MuestrasScreen({ route, navigation }) {
       );
       guardarMuestras(nuevasMuestras);
     } else {
-      // CAMBIO: Obtener siguiente número del contador
       const numeroMuestra = await obtenerSiguienteNumeroMuestra(operacionId, tipo);
       
       const nuevaMuestra = {
         id: Date.now().toString(),
         tipo,
         datos: { ...datosConDaño },
-        nombre: `Muestra ${numeroMuestra}`, // <-- AHORA USA EL CONTADOR
+        nombre: `Muestra ${numeroMuestra}`,
         fecha: new Date().toLocaleDateString(),
         operacionId: operacionId,
         loteId: null,
@@ -163,66 +190,15 @@ export default function MuestrasScreen({ route, navigation }) {
       guardarMuestras(nuevasMuestras);
     }
     cerrarModal();
-  };
+  }, [muestraEnEdicion, muestras, fenologicoSeleccionado, cultivo, operacionId, guardarMuestras, cerrarModal]);
 
-  const recalcularDañoMuestrasActuales = async (fenologicoParam = null) => {
-    setRecalculando(true);
-    
-    try {
-      const fenologicoParaCalculo = fenologicoParam ?? fenologicoSeleccionado;
-      const tipoMapeado = mapSeleccionToTipo(fenologicoParaCalculo);
-      const muestrasActualizadas = muestras.map(muestra => {
-        // Solo recalcular muestras del tipo fenológico actual y que no estén en lotes
-        if (muestra.tipo === tipoMapeado && !muestra.loteId) {
-          // *** CAMBIO CLAVE: Ahora pasamos el cultivo a calculoDeDaño ***
-          const nuevoPorcentajeDaño = calculoDeDaño(
-            muestra.datos,
-            fenologicoParaCalculo,
-            cultivo
-          );
-          
-          return {
-            ...muestra,
-            datos: {
-              ...muestra.datos,
-              porcentajeDaño: nuevoPorcentajeDaño
-            }
-          };
-        }
-        return muestra;
-      });
-
-      await guardarMuestras(muestrasActualizadas);
-    } catch (e) {
-      Alert.alert('Error', 'No se pudo recalcular el daño de las muestras');
-    } finally {
-      // Delay mínimo para mostrar el loading
-      setTimeout(() => setRecalculando(false), 500);
-    }
-  };
-
-  const calcularPromedioSeleccionadas = () => {
-    if (muestrasSeleccionadas.size === 0) return '0,0';
-    
-    const muestrasArray = muestras.filter(m => muestrasSeleccionadas.has(m.id));
-    const sumaDanos = muestrasArray.reduce((sum, m) => {
-      const porcentaje = parseFloat(m.datos?.porcentajeDaño) || 0;
-      return sum + porcentaje;
-    }, 0);
-    
-    const promedio = sumaDanos / muestrasArray.length;
-    const trunc = Math.trunc(promedio * 10) / 10; // truncar a 1 decimal, no redondear
-    return trunc.toFixed(1).replace('.', ',');
-  };
-
-  const handleCambioFenologico = async (nuevoFenologico) => {
+  const handleCambioFenologico = useCallback(async (nuevoFenologico) => {
     setFenologicoSeleccionado(nuevoFenologico);
-    setMuestrasSeleccionadas(new Set()); // Limpiar selección
-    // Recalcular inmediatamente usando el nuevo valor
-    await recalcularDañoMuestrasActuales(nuevoFenologico);
-  };
+    setMuestrasSeleccionadas(new Set());
+  }, []);
 
-  const borrarMuestra = (id) => {
+  // ✅ Borrar muestra memoizado
+  const borrarMuestra = useCallback((id) => {
     const muestra = muestras.find(m => m.id === id);
     
     if (muestra?.loteId) {
@@ -245,44 +221,48 @@ export default function MuestrasScreen({ route, navigation }) {
           onPress: () => {
             const nuevasMuestras = muestras.filter(m => m.id !== id);
             guardarMuestras(nuevasMuestras);
-            const nuevasSeleccionadas = new Set(muestrasSeleccionadas);
-            nuevasSeleccionadas.delete(id);
-            setMuestrasSeleccionadas(nuevasSeleccionadas);
+            setMuestrasSeleccionadas(prev => {
+              const nuevas = new Set(prev);
+              nuevas.delete(id);
+              return nuevas;
+            });
           }
         }
       ]
     );
-  };
+  }, [muestras, guardarMuestras]);
 
-  const tipoFenologicoLabel = React.useMemo(() => {
-    const estadoActual = estadosFenologicos.find(e => e.value === fenologicoSeleccionado);
-    return estadoActual?.label || fenologicoSeleccionado;
-  }, [estadosFenologicos, fenologicoSeleccionado]);
-
-  const toggleSeleccionMuestra = (id) => {
+  // ✅ Toggle selección con límite
+  const toggleSeleccionMuestra = useCallback((id) => {
     const muestra = muestras.find(m => m.id === id);
     if (muestra?.loteId) {
       Alert.alert('Info', 'Esta muestra ya está asignada a un lote');
       return;
     }
 
-    const nuevasSeleccionadas = new Set(muestrasSeleccionadas);
-    if (nuevasSeleccionadas.has(id)) {
-      nuevasSeleccionadas.delete(id);
-    } else {
-      nuevasSeleccionadas.add(id);
-    }
-    setMuestrasSeleccionadas(nuevasSeleccionadas);
-  };
+    setMuestrasSeleccionadas(prev => {
+      const nuevas = new Set(prev);
+      
+      if (nuevas.has(id)) {
+        nuevas.delete(id);
+      } else {
+        if (nuevas.size >= MAX_SELECTIONS) {
+          Alert.alert('Límite', `No puedes seleccionar más de ${MAX_SELECTIONS} muestras`);
+          return prev;
+        }
+        nuevas.add(id);
+      }
+      
+      return nuevas;
+    });
+  }, [muestras]);
 
-  const abrirCerrarLoteModal = () => {
-    // Permitir crear lote sin muestras seleccionadas
+  const abrirCerrarLoteModal = useCallback(() => {
     setCerrarLoteModalVisible(true);
-  };
+  }, []);
 
-  const handleCerrarLote = async (datosLote) => {
+  const handleCerrarLote = useCallback(async (datosLote) => {
     try {
-      // Obtener el label del estado fenológico seleccionado
       const estadoActual = estadosFenologicos.find(e => e.value === fenologicoSeleccionado);
       const fenologicoLabel = estadoActual?.label || fenologicoSeleccionado;
 
@@ -295,8 +275,8 @@ export default function MuestrasScreen({ route, navigation }) {
         muestrasIds: datosLote.muestrasIds,
         operacionId: operacionId,
         fecha: new Date().toISOString(),
-        tipoFenologico: fenologicoSeleccionado, // El value
-        tipoFenologicoLabel: fenologicoLabel, // El label
+        tipoFenologico: fenologicoSeleccionado,
+        tipoFenologicoLabel: fenologicoLabel,
       };
 
       const lotesData = await AsyncStorage.getItem(`lotes_${operacionId}`);
@@ -312,46 +292,25 @@ export default function MuestrasScreen({ route, navigation }) {
       });
 
       await guardarMuestras(muestrasActualizadas);
-      setMuestrasSeleccionadas(new Set());
       
-      Alert.alert(
-        '✅ Lote Creado',
-        `Lote "${datosLote.nombreLote}" creado con ${datosLote.muestrasIds.length} muestras`,
-        [
-          { text: 'Ver Lotes', onPress: () => navigation.navigate('Lotes', { operacionId, roney_op }) },
-          { text: 'Continuar Aquí', style: 'cancel' }
-        ]
-      );
-
+      if (isMountedRef.current) {
+        setMuestrasSeleccionadas(new Set());
+        
+        Alert.alert(
+          '✅ Lote Creado',
+          `Lote "${datosLote.nombreLote}" creado con ${datosLote.muestrasIds.length} muestras`,
+          [
+            { text: 'Ver Lotes', onPress: () => navigation.navigate('Lotes', { operacionId, roney_op }) },
+            { text: 'Continuar Aquí', style: 'cancel' }
+          ]
+        );
+      }
     } catch (e) {
-      Alert.alert('Error', 'No se pudo crear el lote');
+      if (isMountedRef.current) {
+        Alert.alert('Error', 'No se pudo crear el lote');
+      }
     }
-  };
-
-  const tipoActual = mapSeleccionToTipo(fenologicoSeleccionado);
-  
-  // Filtrar muestras por tipo mapeado y que no estén en lotes
-  const muestrasFiltradas = muestras.filter(m => m.tipo === tipoActual && !m.loteId);
-
-  // Obtener muestras seleccionadas para el modal (se calculan antes del render)
-  const muestrasSeleccionadasArray = React.useMemo(() => {
-    return muestras.filter(m => 
-      muestrasSeleccionadas.has(m.id) && 
-      m.tipo === tipoActual &&
-      !m.loteId
-    );
-  }, [muestras, muestrasSeleccionadas, tipoActual]);
-
-  const renderMuestra = ({ item }) => (
-    <MuestraItem 
-      item={item} 
-      isSelected={muestrasSeleccionadas.has(item.id)}
-      onOpenModal={abrirModalEdicion}
-      onToggleSelect={toggleSeleccionMuestra}
-      onDelete={() => borrarMuestra(item.id)}
-      isInLote={!!item.loteId}
-    />
-  );
+  }, [estadosFenologicos, fenologicoSeleccionado, operacionId, muestras, guardarMuestras, navigation, roney_op]);
 
   const obtenerSiguienteNumeroMuestra = async (operacionId, tipo) => {
     try {
@@ -363,15 +322,82 @@ export default function MuestrasScreen({ route, navigation }) {
       return siguiente;
     } catch (e) {
       console.error('Error obteniendo contador:', e);
-      return Date.now() % 10000; // Fallback: usar timestamp
+      return Date.now() % 10000;
     }
   };
+
+  // ✅ Memoizar tipo actual
+  const tipoActual = useMemo(() => {
+    return mapSeleccionToTipo(fenologicoSeleccionado);
+  }, [fenologicoSeleccionado, mapSeleccionToTipo]);
+
+  // ✅ Memoizar muestras filtradas
+  const muestrasFiltradas = useMemo(() => {
+    return muestras.filter(m => m.tipo === tipoActual && !m.loteId);
+  }, [muestras, tipoActual]);
+
+  // ✅ Memoizar muestras seleccionadas array
+  const muestrasSeleccionadasArray = useMemo(() => {
+    return muestras.filter(m => 
+      muestrasSeleccionadas.has(m.id) && 
+      m.tipo === tipoActual &&
+      !m.loteId
+    );
+  }, [muestras, muestrasSeleccionadas, tipoActual]);
+
+  // ✅ Memoizar label fenológico
+  const tipoFenologicoLabel = useMemo(() => {
+    const estadoActual = estadosFenologicos.find(e => e.value === fenologicoSeleccionado);
+    return estadoActual?.label || fenologicoSeleccionado;
+  }, [estadosFenologicos, fenologicoSeleccionado]);
+
+  // ✅ Memoizar promedio
+  const promedioSeleccionadas = useMemo(() => {
+    if (muestrasSeleccionadas.size === 0) return '0,0';
+    
+    const muestrasArray = muestras.filter(m => muestrasSeleccionadas.has(m.id));
+    const sumaDanos = muestrasArray.reduce((sum, m) => {
+      const porcentaje = parseFloat(m.datos?.porcentajeDaño) || 0;
+      return sum + porcentaje;
+    }, 0);
+    
+    const promedio = sumaDanos / muestrasArray.length;
+    const trunc = Math.trunc(promedio * 10) / 10;
+    return trunc.toFixed(1).replace('.', ',');
+  }, [muestras, muestrasSeleccionadas]);
+
+  // ✅ Render item memoizado
+  const renderMuestra = useCallback(({ item }) => (
+    <MuestraItem 
+      item={item} 
+      isSelected={muestrasSeleccionadas.has(item.id)}
+      onOpenModal={abrirModalEdicion}
+      onToggleSelect={toggleSeleccionMuestra}
+      onDelete={() => borrarMuestra(item.id)}
+      isInLote={!!item.loteId}
+    />
+  ), [muestrasSeleccionadas, abrirModalEdicion, toggleSeleccionMuestra, borrarMuestra]);
+
+  // ✅ keyExtractor memoizado
+  const keyExtractor = useCallback((item) => item.id, []);
+
+  // ✅ getItemLayout memoizado
+  const getItemLayout = useCallback((data, index) => ({
+    length: ITEM_HEIGHT,
+    offset: ITEM_HEIGHT * index,
+    index,
+  }), []);
+
+  // ✅ EmptyComponent memoizado
+  const EmptyComponent = useMemo(() => (
+    <Text style={styles.emptyText}>
+      No hay muestras cargadas correspondientes al estado fenológico seleccionado
+    </Text>
+  ), []);
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-      
-    
         <Picker
           selectedValue={fenologicoSeleccionado}
           style={styles.picker}
@@ -395,16 +421,20 @@ export default function MuestrasScreen({ route, navigation }) {
         <TouchableOpacity style={styles.agrega} onPress={abrirModalSegunTipo}>
           <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold' }}>+</Text>
         </TouchableOpacity>
-   
       </View>
 
       <FlatList
         data={muestrasFiltradas}
-        keyExtractor={(item) => item.id}
+        keyExtractor={keyExtractor}
         renderItem={renderMuestra}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No hay muestras cargadas correspondientes al estado fenológico seleccionado</Text>
-        }
+        getItemLayout={getItemLayout}
+        ListEmptyComponent={EmptyComponent}
+        // ✅ Optimizaciones críticas
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={10}
+        windowSize={5}
       />
 
       <ModalesSegunTipo
@@ -437,7 +467,7 @@ export default function MuestrasScreen({ route, navigation }) {
           <Text style={styles.footerText}>
             Seleccionadas: {muestrasSeleccionadas.size}
           </Text>
-          <Text style={styles.footerText}>% {calcularPromedioSeleccionadas()}</Text>
+          <Text style={styles.footerText}>% {promedioSeleccionadas}</Text>
         </View>
         <View style={styles.footerButtons}>
           <TouchableOpacity 
@@ -446,12 +476,12 @@ export default function MuestrasScreen({ route, navigation }) {
           >
             <Text style={styles.limpiarSeleccionText}>Limpiar Selección</Text>
           </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.cerrarBtn}
-          onPress={abrirCerrarLoteModal}
-        >
-          <Text style={styles.btnText}>Crear Lote</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.cerrarBtn}
+            onPress={abrirCerrarLoteModal}
+          >
+            <Text style={styles.btnText}>Crear Lote</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -476,7 +506,6 @@ function ModalesSegunTipo({ tipo, cultivo, visible, onCerrar, onGuardar, valores
     esEdicion: esEdicion
   };
 
-  // Routing de modales según cultivo y tipo
   switch (cultivo) {
     case 'soja':
       switch (tipo) {
@@ -491,7 +520,6 @@ function ModalesSegunTipo({ tipo, cultivo, visible, onCerrar, onGuardar, valores
       return <MuestraTrigoModal {...props} />;
     
     case 'maiz':
-      // TODO: Crear los 2 modales de maíz
       switch (tipo) {
         case '1': 
         case '2': 
@@ -500,7 +528,6 @@ function ModalesSegunTipo({ tipo, cultivo, visible, onCerrar, onGuardar, valores
       }
     
     case 'girasol':
-      // TODO: Crear el modal de girasol
       return <MuestraGirasolModal {...props} />;
     
     default:
@@ -518,7 +545,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 50,
+    gap: 10,
     marginBottom: 20,
     paddingBottom: 10,
     borderBottomWidth: 1,
@@ -549,29 +576,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-  pickerContainer: {
-    marginBottom: 20,
-  },
-  subPickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  pickerLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  recalculandoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  recalculandoText: {
-    fontSize: 12,
-    color: '#007bff',
-    marginLeft: 4,
-    fontStyle: 'italic',
-  },
   picker: {
     height: 50,
     backgroundColor: '#f8f9fa',
@@ -586,7 +590,7 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: 'center',
     marginTop: 50,
-    fontSize: 18,
+    fontSize: 16,
     color: '#999',
   },
   footer: {

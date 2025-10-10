@@ -1,128 +1,201 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TextInput, Platform, StyleSheet, TouchableOpacity, KeyboardAvoidingView, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { 
+  Modal, 
+  View, 
+  Text, 
+  TextInput, 
+  Platform, 
+  StyleSheet, 
+  TouchableOpacity, 
+  KeyboardAvoidingView, 
+  ScrollView, 
+  ActivityIndicator, 
+  Alert 
+} from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function MuestraTipo2Modal({ visible, onClose, onGuardar, valoresIniciales = { dato_1: '', dato_2: '', dato_3: '', dato_4: '', dato_5: '', dato_6: '', dato_7: '', dato_8: '', dato_9: '', coordenada: '' }, esEdicion = false }) {
-  const [dato_1, setDato_1] = useState(valoresIniciales.dato_1 || '');
-  const [dato_2, setDato_2] = useState(valoresIniciales.dato_2 || '');
-  const [dato_3, setDato_3] = useState(valoresIniciales.dato_3 || '');
-  const [dato_4, setDato_4] = useState(valoresIniciales.dato_4 || '');
-  const [dato_5, setDato_5] = useState(valoresIniciales.dato_5 || '');
-  const [dato_6, setDato_6] = useState(valoresIniciales.dato_6 || '');
-  const [dato_7, setDato_7] = useState(valoresIniciales.dato_7 || '');
-  const [dato_8, setDato_8] = useState(valoresIniciales.dato_8 || '');
-  const [dato_9, setDato_9] = useState(valoresIniciales.dato_9 || '');
-
-
+export default function MuestraTipo2Modal({ 
+  visible, 
+  onClose, 
+  onGuardar, 
+  valoresIniciales = { 
+    dato_1: '', 
+    dato_2: '', 
+    dato_3: '', 
+    dato_4: '', 
+    dato_5: '', 
+    dato_6: '', 
+    dato_7: '', 
+    dato_8: '', 
+    dato_9: '', 
+    coordenada: '' 
+  }, 
+  esEdicion = false 
+}) {
+  const [dato_1, setDato_1] = useState(valoresIniciales.dato_1 || ''); // PERDIDA EN D
+  const [dato_2, setDato_2] = useState(valoresIniciales.dato_2 || ''); // RESTANTE EN D
+  const [dato_3, setDato_3] = useState(valoresIniciales.dato_3 || ''); // ORIGINALES POR PLANTA
+  const [dato_4, setDato_4] = useState(valoresIniciales.dato_4 || ''); // Nudos remanentes 1
+  const [dato_5, setDato_5] = useState(valoresIniciales.dato_5 || ''); // Nudos remanentes 2
+  const [dato_6, setDato_6] = useState(valoresIniciales.dato_6 || ''); // Nudos remanentes 3
+  const [dato_7, setDato_7] = useState(valoresIniciales.dato_7 || ''); // Nudos remanentes 4
+  const [dato_8, setDato_8] = useState(valoresIniciales.dato_8 || ''); // Nudos remanentes 5
+  const [dato_9, setDato_9] = useState(valoresIniciales.dato_9 || ''); // Defoliación
   const [coordenada, setCoordenada] = useState(valoresIniciales.coordenada || '');
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    setDato_1(valoresIniciales.dato_1 || ''); //PERDIDA EN d
-    setDato_2(valoresIniciales.dato_2 || ''); //RESTANTE EN D
-    setDato_3(valoresIniciales.dato_3 || ''); // ORIGINALES POR PLANTA
-    setDato_4(valoresIniciales.dato_4 || ''); //Nudos remanentes 1
-    setDato_5(valoresIniciales.dato_5 || ''); //Nudos remanentes 2
-    setDato_6(valoresIniciales.dato_6 || ''); //Nudos remanentes 3
-    setDato_7(valoresIniciales.dato_7 || ''); //Nudos remanentes 4
-    setDato_8(valoresIniciales.dato_8 || ''); ////Nudos remanentes 5
-    setDato_9(valoresIniciales.dato_9 || ''); // defoliacion 
-    setCoordenada(valoresIniciales.coordenada || '');
-  }, [valoresIniciales]);
+  // ✅ Ref para verificar si está montado
+  const isMountedRef = useRef(true);
 
+  // ✅ Cleanup al desmontar
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // ✅ Actualizar valores iniciales con verificación de montaje
+  useEffect(() => {
+    if (visible) {
+      setDato_1(valoresIniciales.dato_1 || '');
+      setDato_2(valoresIniciales.dato_2 || '');
+      setDato_3(valoresIniciales.dato_3 || '');
+      setDato_4(valoresIniciales.dato_4 || '');
+      setDato_5(valoresIniciales.dato_5 || '');
+      setDato_6(valoresIniciales.dato_6 || '');
+      setDato_7(valoresIniciales.dato_7 || '');
+      setDato_8(valoresIniciales.dato_8 || '');
+      setDato_9(valoresIniciales.dato_9 || '');
+      setCoordenada(valoresIniciales.coordenada || '');
+    }
+  }, [visible, valoresIniciales]);
+
+  // ✅ Auto-obtener coordenadas en modo creación
   useEffect(() => {
     if (!esEdicion && visible && !valoresIniciales.coordenada) {
       actualizarCoordenada();
     }
-  }, [visible]);
+  }, [visible, esEdicion, valoresIniciales.coordenada]);
 
-  const handleGuardar = () => {
-    // Valida todos los 9 datos y la coordenada
-    if (
-        !dato_1.trim() || 
-        !dato_2.trim() || 
-        !dato_3.trim() || 
-        !dato_4.trim() || 
-        !dato_5.trim() || 
-        !dato_6.trim() || 
-        !dato_7.trim() || 
-        !dato_8.trim() || 
-        !dato_9.trim() ||
-        !coordenada.trim() 
-    ) {
-        Alert.alert('Error', 'Todos los campos de datos y la coordenada son obligatorios');
-        return;
-    }
-
-    // Empaqueta los 9 datos y la coordenada en un solo objeto
-    const datosMuestra = {
-        dato_1: dato_1,
-        dato_2: dato_2,
-        dato_3: dato_3,
-        dato_4: dato_4,
-        dato_5: dato_5,
-        dato_6: dato_6,
-        dato_7: dato_7,
-        dato_8: dato_8,
-        dato_9: dato_9,
-        coordenada: coordenada
-    };
-    
-    // Llamada correcta, pasando UN SOLO OBJETO
-    onGuardar(datosMuestra); 
-    onClose(); // Cerrar el modal después de guardar
-};
-
-const handleCerrar = () => {
-  // Resetear los estados de los 9 datos a sus valores iniciales
-  setDato_1(valoresIniciales.dato_1 || '');
-  setDato_2(valoresIniciales.dato_2 || '');
-  setDato_3(valoresIniciales.dato_3 || '');
-  setDato_4(valoresIniciales.dato_4 || '');
-  setDato_5(valoresIniciales.dato_5 || '');
-  setDato_6(valoresIniciales.dato_6 || '');
-  setDato_7(valoresIniciales.dato_7 || '');
-  setDato_8(valoresIniciales.dato_8 || '');
-  setDato_9(valoresIniciales.dato_9 || '');
-  
-  // Resetear la coordenada
-  setCoordenada(valoresIniciales.coordenada || '');
-  onClose();
-};
-
-
-  const actualizarCoordenada = async () => {
+  // ✅ Actualizar coordenada memoizada
+  const actualizarCoordenada = useCallback(async () => {
     if (esEdicion) return;
     
-    setLoadingGPS(true);
+    if (isMountedRef.current) {
+      setLoadingGPS(true);
+    }
 
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       
       if (status !== 'granted') {
         Alert.alert('Error', 'Se necesita permiso de ubicación para obtener las coordenadas GPS');
-        setCoordenada('Error: Sin permisos de ubicación');
-        setLoadingGPS(false);
+        if (isMountedRef.current) {
+          setCoordenada('Error: Sin permisos de ubicación');
+        }
         return;
       }
 
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
+      const location = await Promise.race([
+        Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('GPS timeout')), 10000)
+        )
+      ]);
 
       const coords = `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`;
-      setCoordenada(coords);
-      Alert.alert('Éxito', 'Coordenadas GPS actualizadas');
+      
+      if (isMountedRef.current) {
+        setCoordenada(coords);
+        Alert.alert('Éxito', 'Coordenadas GPS actualizadas');
+      }
     } catch (error) {
       console.error('Error obteniendo coordenadas:', error);
-      Alert.alert('Error', 'No se pudieron obtener las coordenadas GPS');
-      setCoordenada('Error obteniendo coordenadas');
+      if (isMountedRef.current) {
+        Alert.alert('Error', 'No se pudieron obtener las coordenadas GPS');
+        setCoordenada('Error obteniendo coordenadas');
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setLoadingGPS(false);
+      }
+    }
+  }, [esEdicion]);
+
+  // ✅ Validación de campos memoizada (todos los 9 datos + coordenada)
+  const camposValidos = useMemo(() => {
+    return dato_1.trim() && 
+           dato_2.trim() && 
+           dato_3.trim() && 
+           dato_4.trim() && 
+           dato_5.trim() && 
+           dato_6.trim() && 
+           dato_7.trim() && 
+           dato_8.trim() && 
+           dato_9.trim() && 
+           coordenada.trim();
+  }, [dato_1, dato_2, dato_3, dato_4, dato_5, dato_6, dato_7, dato_8, dato_9, coordenada]);
+
+  // ✅ Guardar memoizado
+  const handleGuardar = useCallback(() => {
+    if (!camposValidos) {
+      Alert.alert('Error', 'Todos los campos de datos y la coordenada son obligatorios');
+      return;
     }
 
-    setLoadingGPS(false);
-  };
+    const datosMuestra = {
+      dato_1: dato_1,
+      dato_2: dato_2,
+      dato_3: dato_3,
+      dato_4: dato_4,
+      dato_5: dato_5,
+      dato_6: dato_6,
+      dato_7: dato_7,
+      dato_8: dato_8,
+      dato_9: dato_9,
+      coordenada: coordenada
+    };
+    
+    onGuardar(datosMuestra); 
+    onClose();
+  }, [camposValidos, dato_1, dato_2, dato_3, dato_4, dato_5, dato_6, dato_7, dato_8, dato_9, coordenada, onGuardar, onClose]);
+
+  // ✅ Cerrar memoizado con reset de valores
+  const handleCerrar = useCallback(() => {
+    setDato_1(valoresIniciales.dato_1 || '');
+    setDato_2(valoresIniciales.dato_2 || '');
+    setDato_3(valoresIniciales.dato_3 || '');
+    setDato_4(valoresIniciales.dato_4 || '');
+    setDato_5(valoresIniciales.dato_5 || '');
+    setDato_6(valoresIniciales.dato_6 || '');
+    setDato_7(valoresIniciales.dato_7 || '');
+    setDato_8(valoresIniciales.dato_8 || '');
+    setDato_9(valoresIniciales.dato_9 || '');
+    setCoordenada(valoresIniciales.coordenada || '');
+    onClose();
+  }, [valoresIniciales, onClose]);
+
+  // ✅ Título memoizado
+  const titulo = useMemo(() => {
+    return esEdicion ? 'Editar Muestra R1-R3,5' : 'Nueva Muestra R1-R3,5';
+  }, [esEdicion]);
+
+  // ✅ Estilos dinámicos memoizados
+  const coordsInputStyle = useMemo(() => [
+    styles.input, 
+    styles.coordsInput,
+    esEdicion && styles.coordsInputDisabled
+  ], [esEdicion]);
+
+  const saveButtonStyle = useMemo(() => [
+    styles.button, 
+    styles.saveButton,
+    !camposValidos && styles.saveButtonDisabled
+  ], [camposValidos]);
 
   return (
     <Modal
@@ -140,9 +213,7 @@ const handleCerrar = () => {
         >
           <View style={styles.modalContainer}>
             <View style={styles.header}>
-              <Text style={styles.titulo}>
-                {esEdicion ? 'Editar Muestra R1-R3,5' : 'Nueva Muestra R1-R3,5'}
-              </Text>
+              <Text style={styles.titulo}>{titulo}</Text>
               <TouchableOpacity 
                 onPress={handleCerrar} 
                 accessibilityRole="button" 
@@ -160,11 +231,7 @@ const handleCerrar = () => {
                 ) : (
                   <>
                     <TextInput
-                      style={[
-                        styles.input, 
-                        styles.coordsInput,
-                        esEdicion && styles.coordsInputDisabled
-                      ]}
+                      style={coordsInputStyle}
                       placeholder="Coordenadas GPS (lat, long)"
                       value={coordenada}
                       onChangeText={setCoordenada}
@@ -225,7 +292,7 @@ const handleCerrar = () => {
                 value={dato_4}
                 onChangeText={setDato_4}
                 keyboardType="numeric"
-                returnKeyType="done"
+                returnKeyType="next"
               />
               
               <Text style={styles.label}>Nudos remanentes 2:</Text>
@@ -235,7 +302,7 @@ const handleCerrar = () => {
                 value={dato_5}
                 onChangeText={setDato_5}
                 keyboardType="numeric"
-                returnKeyType="done"
+                returnKeyType="next"
               />
 
               <Text style={styles.label}>Nudos remanentes 3:</Text>
@@ -245,7 +312,7 @@ const handleCerrar = () => {
                 value={dato_6}
                 onChangeText={setDato_6}
                 keyboardType="numeric"
-                returnKeyType="done"
+                returnKeyType="next"
               />
 
               <Text style={styles.label}>Nudos remanentes 4:</Text>
@@ -255,7 +322,7 @@ const handleCerrar = () => {
                 value={dato_7}
                 onChangeText={setDato_7}
                 keyboardType="numeric"
-                returnKeyType="done"
+                returnKeyType="next"
               />
 
               <Text style={styles.label}>Nudos remanentes 5:</Text>
@@ -265,19 +332,18 @@ const handleCerrar = () => {
                 value={dato_8}
                 onChangeText={setDato_8}
                 keyboardType="numeric"
-                returnKeyType="done"
+                returnKeyType="next"
               />
 
-              <Text style={styles.label}>% Defoliacion:</Text>
+              <Text style={styles.label}>% Defoliación:</Text>
               <TextInput
                 style={styles.input}
-                placeholder="% Defoliacion"
+                placeholder="% Defoliación"
                 value={dato_9}
                 onChangeText={setDato_9}
                 keyboardType="numeric"
                 returnKeyType="done"
               />
-
 
               <View style={styles.botones}>
                 <TouchableOpacity
@@ -288,13 +354,9 @@ const handleCerrar = () => {
                 </TouchableOpacity>
                 
                 <TouchableOpacity
-                  style={[
-                    styles.button, 
-                    styles.saveButton,
-                    (!dato_1.trim() || !dato_2.trim() || !dato_3.trim() || !dato_4.trim()) && styles.saveButtonDisabled
-                  ]}
+                  style={saveButtonStyle}
                   onPress={handleGuardar}
-                  disabled={!dato_1.trim() || !dato_2.trim() || !dato_3.trim() || !dato_4.trim()}
+                  disabled={!camposValidos}
                 >
                   <Text style={styles.saveButtonText}>Guardar</Text>
                 </TouchableOpacity>

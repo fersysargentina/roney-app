@@ -1,6 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TextInput, Button, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { 
+  Modal, 
+  View, 
+  Text, 
+  TextInput, 
+  StyleSheet, 
+  TouchableOpacity, 
+  KeyboardAvoidingView, 
+  Platform, 
+  ScrollView 
+} from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+
+// ✅ Constante de mapeo de cultivos (fuera del componente)
+const CULTIVOS_MAP = {
+  'soja': 'Soja',
+  'maiz': 'Maíz',
+  'trigo': 'Trigo',
+  'girasol': 'Girasol'
+};
 
 export default function CrearOperacionModal({
   visible,
@@ -12,37 +30,70 @@ export default function CrearOperacionModal({
   const [roneyOp, setRoneyOp] = useState(valoresIniciales.roney_op || '');
   const [cultivo, setCultivo] = useState(valoresIniciales.cultivo || '');
 
+  // ✅ Sincronizar con valoresIniciales cuando visible cambia
   useEffect(() => {
-    setRoneyOp(valoresIniciales.roney_op || '');
-    setCultivo(valoresIniciales.cultivo || '');
+    if (visible) {
+      setRoneyOp(valoresIniciales.roney_op || '');
+      setCultivo(valoresIniciales.cultivo || '');
+    }
   }, [valoresIniciales, visible]);
 
-  const handleGuardar = () => {
-    if (!roneyOp.trim() || !cultivo.trim()) {
+  // ✅ Validación de campos memoizada
+  const camposCompletos = useMemo(() => {
+    return roneyOp.trim() && cultivo.trim();
+  }, [roneyOp, cultivo]);
+
+  // ✅ Nombre del cultivo memoizado
+  const nombreCultivo = useMemo(() => {
+    return CULTIVOS_MAP[cultivo] || cultivo;
+  }, [cultivo]);
+
+  // ✅ Título memoizado
+  const titulo = useMemo(() => {
+    if (modoEdicion) {
+      return valoresIniciales.roney_op || 'Editar Operación';
+    }
+    return 'Nueva Operación';
+  }, [modoEdicion, valoresIniciales.roney_op]);
+
+  // ✅ Texto del botón guardar memoizado
+  const textoBotonGuardar = useMemo(() => {
+    return modoEdicion ? 'Guardar Cambios' : 'Guardar';
+  }, [modoEdicion]);
+
+  // ✅ Texto del cultivo display memoizado
+  const cultivoDisplayText = useMemo(() => {
+    return `🌾 Cultivo: ${nombreCultivo}`;
+  }, [nombreCultivo]);
+
+  // ✅ Guardar memoizado
+  const handleGuardar = useCallback(() => {
+    if (!camposCompletos) {
       return;
     }
     onGuardar(roneyOp, cultivo);
     setRoneyOp('');
     setCultivo('');
-  };
+  }, [camposCompletos, roneyOp, cultivo, onGuardar]);
 
-  const handleCerrar = () => {
+  // ✅ Cerrar memoizado
+  const handleCerrar = useCallback(() => {
     setRoneyOp(valoresIniciales.roney_op || '');
     setCultivo(valoresIniciales.cultivo || '');
     onClose();
-  };
+  }, [valoresIniciales, onClose]);
 
-  const camposCompletos = roneyOp.trim() && cultivo.trim();
+  // ✅ Estilos dinámicos memoizados
+  const saveButtonStyle = useMemo(() => [
+    styles.saveButton,
+    !camposCompletos && styles.saveButtonDisabled,
+    camposCompletos && !modoEdicion && styles.saveButtonActive
+  ], [camposCompletos, modoEdicion]);
 
-  const getNombreCultivo = (value) => {
-    const cultivos = {
-      'soja': 'Soja',
-      'maiz': 'Maíz',
-      'trigo': 'Trigo',
-      'girasol': 'Girasol'
-    };
-    return cultivos[value] || value;
-  };
+  const inputDisabledStyle = useMemo(() => [
+    styles.input, 
+    styles.inputDisabled
+  ], []);
 
   return (
     <Modal
@@ -60,13 +111,16 @@ export default function CrearOperacionModal({
         >
           <View style={styles.modalContainer}>
             <View style={styles.header}>
-              <Text style={styles.titulo}>
-                {modoEdicion ? (valoresIniciales.roney_op || 'Editar Operación') : 'Nueva Operación'}
-              </Text>
-              <TouchableOpacity onPress={handleCerrar} accessibilityRole="button" accessibilityLabel="Cerrar">
+              <Text style={styles.titulo}>{titulo}</Text>
+              <TouchableOpacity 
+                onPress={handleCerrar} 
+                accessibilityRole="button" 
+                accessibilityLabel="Cerrar"
+              >
                 <Text style={styles.cerrar}>✕</Text>
               </TouchableOpacity>
             </View>
+
             <ScrollView keyboardShouldPersistTaps="handled">
               <TextInput
                 style={styles.input}
@@ -83,19 +137,39 @@ export default function CrearOperacionModal({
                   <Picker
                     selectedValue={cultivo}
                     onValueChange={setCultivo}
-                    style={{ width: '100%', color: '#000' }}
+                    style={styles.picker}
                   >
-                    <Picker.Item label="Selecciona un cultivo..." value="" style={{ color: '#000' }} />
-                    <Picker.Item label="Soja" value="soja" style={{ color: '#000' }} />
-                    <Picker.Item label="Maíz" value="maiz" style={{ color: '#000' }} />
-                    <Picker.Item label="Trigo" value="trigo" style={{ color: '#000' }} />
-                    <Picker.Item label="Girasol" value="girasol" style={{ color: '#000' }} />
+                    <Picker.Item 
+                      label="Selecciona un cultivo..." 
+                      value="" 
+                      style={styles.pickerItem} 
+                    />
+                    <Picker.Item 
+                      label="Soja" 
+                      value="soja" 
+                      style={styles.pickerItem} 
+                    />
+                    <Picker.Item 
+                      label="Maíz" 
+                      value="maiz" 
+                      style={styles.pickerItem} 
+                    />
+                    <Picker.Item 
+                      label="Trigo" 
+                      value="trigo" 
+                      style={styles.pickerItem} 
+                    />
+                    <Picker.Item 
+                      label="Girasol" 
+                      value="girasol" 
+                      style={styles.pickerItem} 
+                    />
                   </Picker>
                 </View>
               ) : (
-                <View style={[styles.input, styles.inputDisabled]}>
+                <View style={inputDisabledStyle}>
                   <Text style={styles.cultivoTexto}>
-                    🌾 Cultivo: {getNombreCultivo(cultivo)}
+                    {cultivoDisplayText}
                   </Text>
                 </View>
               )}
@@ -109,16 +183,12 @@ export default function CrearOperacionModal({
                 </TouchableOpacity>
                 
                 <TouchableOpacity
-                  style={[
-                    styles.saveButton,
-                    !camposCompletos && styles.saveButtonDisabled,
-                    camposCompletos && !modoEdicion && styles.saveButtonActive 
-                  ]}
+                  style={saveButtonStyle}
                   onPress={handleGuardar}
                   disabled={!camposCompletos}
                 >
                   <Text style={styles.saveButtonText}>
-                    {modoEdicion ? 'Guardar Cambios' : 'Guardar'}
+                    {textoBotonGuardar}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -174,6 +244,13 @@ const styles = StyleSheet.create({
   inputDisabled: {
     backgroundColor: '#f0f0f0',
     borderColor: '#ddd',
+  },
+  picker: {
+    width: '100%',
+    color: '#000',
+  },
+  pickerItem: {
+    color: '#000',
   },
   cultivoTexto: {
     fontSize: 16,

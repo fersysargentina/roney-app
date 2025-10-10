@@ -104,9 +104,18 @@ export default function MuestraGirasolModal({
         return;
       }
 
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
+      // const location = await Location.getCurrentPositionAsync({
+      //   accuracy: Location.Accuracy.High,
+      // });
+
+      const location = await Promise.race([
+        Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('GPS timeout')), 10000)
+        )
+      ]);
 
       const coords = `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`;
       setCoordenada(coords);

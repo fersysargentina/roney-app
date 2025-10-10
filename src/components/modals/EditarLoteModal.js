@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -13,7 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import VerMuestraModal from './VerMuestraModal'; // <-- IMPORTAR EL NUEVO MODAL
+import VerMuestraModal from './VerMuestraModal';
 
 export default function EditarLoteModal({ 
   visible, 
@@ -31,9 +31,18 @@ export default function EditarLoteModal({
   const [muestras, setMuestras] = useState([]);
   const [loading, setLoading] = useState(false);
   
-  // NUEVO: Estado para el modal de ver muestra
   const [verMuestraModalVisible, setVerMuestraModalVisible] = useState(false);
   const [muestraSeleccionada, setMuestraSeleccionada] = useState(null);
+
+  // ✅ Ref para verificar si está montado
+  const isMountedRef = useRef(true);
+
+  // ✅ Cleanup al desmontar
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (visible && lote) {
@@ -44,10 +53,14 @@ export default function EditarLoteModal({
     }
   }, [visible, lote]);
 
-  const cargarMuestrasDelLote = async () => {
+  // ✅ Cargar muestras con verificación de montaje
+  const cargarMuestrasDelLote = useCallback(async () => {
     if (!lote || !operacionId) return;
     
-    setLoading(true);
+    if (isMountedRef.current) {
+      setLoading(true);
+    }
+
     try {
       const data = await AsyncStorage.getItem(`muestras_${operacionId}`);
       if (data) {
@@ -55,16 +68,22 @@ export default function EditarLoteModal({
         const muestrasDelLote = todasLasMuestras.filter(m => 
           lote.muestrasIds.includes(m.id)
         );
-        setMuestras(muestrasDelLote);
+        
+        if (isMountedRef.current) {
+          setMuestras(muestrasDelLote);
+        }
       }
     } catch (e) {
       console.warn('Error cargando muestras:', e);
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, [lote, operacionId]);
 
-  const handleActualizar = () => {
+  // ✅ Actualizar con validación de montaje
+  const handleActualizar = useCallback(() => {
     if (!nombreLote.trim()) {
       Alert.alert('Error', 'El nombre del lote es obligatorio');
       return;
@@ -84,9 +103,10 @@ export default function EditarLoteModal({
     };
 
     onActualizar(loteActualizado);
-  };
+  }, [nombreLote, hectareas, dañoPactado, lote, onActualizar]);
 
-  const handleLiberarMuestra = (muestraId) => {
+  // ✅ Liberar muestra memoizada
+  const handleLiberarMuestra = useCallback((muestraId) => {
     const muestra = muestras.find(m => m.id === muestraId);
     
     Alert.alert(
@@ -98,7 +118,7 @@ export default function EditarLoteModal({
           text: 'Liberar',
           onPress: async () => {
             const success = await onLiberarMuestra(lote.id, muestraId);
-            if (success) {
+            if (success && isMountedRef.current) {
               const nuevasMuestras = muestras.filter(m => m.id !== muestraId);
               setMuestras(nuevasMuestras);
               
@@ -114,9 +134,10 @@ export default function EditarLoteModal({
         }
       ]
     );
-  };
+  }, [muestras, lote, onLiberarMuestra, onClose]);
 
-  const handleEliminarLote = () => {
+  // ✅ Eliminar lote memoizado
+  const handleEliminarLote = useCallback(() => {
     Alert.alert(
       'Eliminar Lote Completo',
       `¿Estás seguro que deseas eliminar todo el lote "${lote?.nombreLote}"?\n\nTodas las ${muestras.length} muestras volverán a estar disponibles.`,
@@ -132,29 +153,34 @@ export default function EditarLoteModal({
         }
       ]
     );
-  };
+  }, [lote, muestras.length, onEliminarLote, onClose]);
 
-  //Función para abrir el modal de ver muestra
-  const handleVerMuestra = (muestra) => {
+  // ✅ Ver muestra memoizado
+  const handleVerMuestra = useCallback((muestra) => {
     setMuestraSeleccionada(muestra);
     setVerMuestraModalVisible(true);
-  };
+  }, []);
 
-  // Función para cerrar el modal de ver muestra
-  const handleCerrarVerMuestra = () => {
+  const handleCerrarVerMuestra = useCallback(() => {
     setVerMuestraModalVisible(false);
     setMuestraSeleccionada(null);
-  };
+  }, []);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setNombreLote('');
     setHectareas('');
     setDañoPactado('');
     setMuestras([]);
     onClose();
-  };
+  }, [onClose]);
 
-  const renderMuestra = ({ item }) => (
+  // ✅ Memoizar fenológico display
+  const fenologicoDisplay = useMemo(() => {
+    return lote?.tipoFenologicoLabel || lote?.tipoFenologico || '-';
+  }, [lote]);
+
+  // ✅ Render item memoizado
+  const renderMuestra = useCallback(({ item }) => (
     <View style={styles.muestraItem}>
       <TouchableOpacity 
         style={styles.muestraInfo}
@@ -165,26 +191,22 @@ export default function EditarLoteModal({
           <Text style={styles.muestraNombre}>{item.nombre}</Text>
           <Text style={styles.verDetalleText}>👁️ Ver</Text>
         </View>
-        {/* <Text style={styles.muestraDetalles}>
-          {/* Tipo {item.tipo} • {item.fecha} 
-        </Text> */}
         <Text style={styles.muestraDaño}>
           Daño: {item.datos.porcentajeDaño || 0}%
         </Text>
       </TouchableOpacity>
-      
-      {/* <TouchableOpacity
-        style={styles.liberarButton}
-        onPress={() => handleLiberarMuestra(item.id)}
-      >
-        <Text style={styles.liberarButtonText}>↩️</Text>
-      </TouchableOpacity> */}
     </View>
-  );
+  ), [handleVerMuestra]);
 
-  const getFenologicoDisplay = () => {
-    return lote?.tipoFenologicoLabel || lote?.tipoFenologico || '-';
-  };
+  // ✅ keyExtractor memoizado
+  const keyExtractor = useCallback((item) => item.id, []);
+
+  // ✅ EmptyComponent memoizado
+  const EmptyComponent = useMemo(() => (
+    <Text style={styles.emptyMuestrasText}>
+      No hay muestras asociadas
+    </Text>
+  ), []);
 
   if (!lote) return null;
 
@@ -237,7 +259,7 @@ export default function EditarLoteModal({
                   <Text style={styles.label}>Estado fenológico</Text>
                   <View style={[styles.input, styles.readOnlyInput]}>
                     <Text style={styles.readOnlyText}>
-                      {getFenologicoDisplay()}
+                      {fenologicoDisplay}
                     </Text>
                   </View>
                 </View>
@@ -265,14 +287,10 @@ export default function EditarLoteModal({
                 ) : (
                   <FlatList
                     data={muestras}
-                    keyExtractor={(item) => item.id}
+                    keyExtractor={keyExtractor}
                     renderItem={renderMuestra}
                     scrollEnabled={false}
-                    ListEmptyComponent={
-                      <Text style={styles.emptyMuestrasText}>
-                        No hay muestras asociadas
-                      </Text>
-                    }
+                    ListEmptyComponent={EmptyComponent}
                   />
                 )}
               </View>
@@ -445,24 +463,10 @@ const styles = StyleSheet.create({
     color: '#007bff',
     fontWeight: '600',
   },
-  muestraDetalles: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 2,
-  },
   muestraDaño: {
     fontSize: 16,
     color: '#dc3545',
     fontWeight: '600',
-  },
-  liberarButton: {
-    padding: 8,
-    borderRadius: 6,
-    backgroundColor: '#fff3cd',
-    marginLeft: 8,
-  },
-  liberarButtonText: {
-    fontSize: 16,
   },
   loadingText: {
     textAlign: 'center',

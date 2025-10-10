@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   Modal,
   View,
@@ -8,400 +8,47 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { girasolDesfo } from '../../utils/tablas';
 
+// ✅ Configuraciones como constantes (fuera del componente)
 const LABELS_CONFIG = {
   soja: {
-    '1': [ // V1-V5
-      'Pérdida en D',
-      'Restante en D',
-      '% nudos perdidos',
-      '% defoliación'
-    ],
-    '2': [ // V6-V8
-      'Pérdida en D',
-      'Restante en D',
-      '% nudos perdidos',
-      '% defoliación'
-    ],
-    '3': [ // V9-VN
-      'Pérdida en D',
-      'Restante en D',
-      '% nudos perdidos',
-      '% defoliación'
-    ],
-    '4': [ // R1-R2
-      'Pérdida en D',
-      'Restante en D',
-      'Nudos originales por Planta:',
-      'Nudos remanentes 1',
-      'Nudos remanentes 2',
-      'Nudos remanentes 3',
-      'Nudos remanentes 4',
-      'Nudos remanentes 5',
-      '% Defoliación',
-    ],
-    '5': [ //R2,5
-      'Pérdida en D',
-      'Restante en D',
-      'Nudos originales por Planta:',
-      'Nudos remanentes 1',
-      'Nudos remanentes 2',
-      'Nudos remanentes 3',
-      'Nudos remanentes 4',
-      'Nudos remanentes 5',
-      '% Defoliación',
-    ],
-    '6':[ //R3
-      'Pérdida en D',
-      'Restante en D',
-      'Nudos originales por Planta:',
-      'Nudos remanentes 1',
-      'Nudos remanentes 2',
-      'Nudos remanentes 3',
-      'Nudos remanentes 4',
-      'Nudos remanentes 5',
-      '% Defoliación',
-    ],
-    '7':[ //R3,5
-      'Pérdida en D',
-      'Restante en D',
-      'Nudos originales por Planta:',
-      'Nudos remanentes 1',
-      'Nudos remanentes 2',
-      'Nudos remanentes 3',
-      'Nudos remanentes 4',
-      'Nudos remanentes 5',
-      '% Defoliación',
-    ],
-    '8':[ //R4 
-      'Vainas en el suelo',
-      'Vainas abiertas (Nudo 1)',
-      'Vainas Sanas (Nudo 1)',
-      'Vainas abiertas (Nudo 2)',
-      'Vainas Sanas (Nudo 2)',
-      'Vainas abiertas (Nudo 3)',
-      'Vainas Sanas (Nudo 3)',
-      'Vainas abiertas (Nudo 4)',
-      'Vainas Sanas (Nudo 4)',
-      'Vainas abiertas (Nudo 5)',
-      'Vainas Sanas (Nudo 5)',
-      '% Defoliación',
-    ],
-    '9':[ //4,5
-        'Vainas en el suelo',
-        'Vainas abiertas (Nudo 1)',
-        'Vainas Sanas (Nudo 1)',
-        'Vainas abiertas (Nudo 2)',
-        'Vainas Sanas (Nudo 2)',
-        'Vainas abiertas (Nudo 3)',
-        'Vainas Sanas (Nudo 3)',
-        'Vainas abiertas (Nudo 4)',
-        'Vainas Sanas (Nudo 4)',
-        'Vainas abiertas (Nudo 5)',
-        'Vainas Sanas (Nudo 5)',
-        '% Defoliación',
-    ],
-    '10':[ //R5-R5,5
-        'Vainas en el suelo',
-        'Vainas abiertas (Nudo 1)',
-        'Vainas Sanas (Nudo 1)',
-        'Vainas abiertas (Nudo 2)',
-        'Vainas Sanas (Nudo 2)',
-        'Vainas abiertas (Nudo 3)',
-        'Vainas Sanas (Nudo 3)',
-        'Vainas abiertas (Nudo 4)',
-        'Vainas Sanas (Nudo 4)',
-        'Vainas abiertas (Nudo 5)',
-        'Vainas Sanas (Nudo 5)',
-        '% Defoliación',
-    ],
-    '11':[ //R6
-        'Vainas en el suelo',
-        'Vainas abiertas (Nudo 1)',
-        'Vainas Sanas (Nudo 1)',
-        'Vainas abiertas (Nudo 2)',
-        'Vainas Sanas (Nudo 2)',
-        'Vainas abiertas (Nudo 3)',
-        'Vainas Sanas (Nudo 3)',
-        'Vainas abiertas (Nudo 4)',
-        'Vainas Sanas (Nudo 4)',
-        'Vainas abiertas (Nudo 5)',
-        'Vainas Sanas (Nudo 5)',
-        '% Defoliación',
-    ], 
-    '12': [ //R6,5
-        'Vainas en el suelo',
-        'Vainas abiertas (Nudo 1)',
-        'Vainas Sanas (Nudo 1)',
-        'Vainas abiertas (Nudo 2)',
-        'Vainas Sanas (Nudo 2)',
-        'Vainas abiertas (Nudo 3)',
-        'Vainas Sanas (Nudo 3)',
-        'Vainas abiertas (Nudo 4)',
-        'Vainas Sanas (Nudo 4)',
-        'Vainas abiertas (Nudo 5)',
-        'Vainas Sanas (Nudo 5)',
-        '% Defoliación',
-    ],
-    '13':[//R8
-        'Vainas en el suelo',
-        'Vainas abiertas 1',
-        'Vainas Sanas 1',
-        'Vainas abiertas 2',
-        'Vainas Sanas 2',
-        'Vainas abiertas 3',
-        'Vainas Sanas 3',
-        'Vainas abiertas 4',
-        'Vainas Sanas 4',
-        'Vainas abiertas 5',
-        'Vainas Sanas 5',
-        'Vainas abiertas 6',
-        'Vainas Sanas 6',
-        'Vainas abiertas 7',
-        'Vainas Sanas 7',
-        'Vainas abiertas 8',
-        'Vainas Sanas 8',
-        'Vainas abiertas 9',
-        'Vainas Sanas 9',
-        'Vainas abiertas 10',
-        'Vainas Sanas 10',
-    ]
+    '1': ['Pérdida en D', 'Restante en D', '% nudos perdidos', '% defoliación'],
+    '2': ['Pérdida en D', 'Restante en D', '% nudos perdidos', '% defoliación'],
+    '3': ['Pérdida en D', 'Restante en D', '% nudos perdidos', '% defoliación'],
+    '4': ['Pérdida en D', 'Restante en D', 'Nudos originales por Planta:', 'Nudos remanentes 1', 'Nudos remanentes 2', 'Nudos remanentes 3', 'Nudos remanentes 4', 'Nudos remanentes 5', '% Defoliación'],
+    '5': ['Pérdida en D', 'Restante en D', 'Nudos originales por Planta:', 'Nudos remanentes 1', 'Nudos remanentes 2', 'Nudos remanentes 3', 'Nudos remanentes 4', 'Nudos remanentes 5', '% Defoliación'],
+    '6': ['Pérdida en D', 'Restante en D', 'Nudos originales por Planta:', 'Nudos remanentes 1', 'Nudos remanentes 2', 'Nudos remanentes 3', 'Nudos remanentes 4', 'Nudos remanentes 5', '% Defoliación'],
+    '7': ['Pérdida en D', 'Restante en D', 'Nudos originales por Planta:', 'Nudos remanentes 1', 'Nudos remanentes 2', 'Nudos remanentes 3', 'Nudos remanentes 4', 'Nudos remanentes 5', '% Defoliación'],
+    '8': ['Vainas en el suelo', 'Vainas abiertas (Nudo 1)', 'Vainas Sanas (Nudo 1)', 'Vainas abiertas (Nudo 2)', 'Vainas Sanas (Nudo 2)', 'Vainas abiertas (Nudo 3)', 'Vainas Sanas (Nudo 3)', 'Vainas abiertas (Nudo 4)', 'Vainas Sanas (Nudo 4)', 'Vainas abiertas (Nudo 5)', 'Vainas Sanas (Nudo 5)', '% Defoliación'],
+    '9': ['Vainas en el suelo', 'Vainas abiertas (Nudo 1)', 'Vainas Sanas (Nudo 1)', 'Vainas abiertas (Nudo 2)', 'Vainas Sanas (Nudo 2)', 'Vainas abiertas (Nudo 3)', 'Vainas Sanas (Nudo 3)', 'Vainas abiertas (Nudo 4)', 'Vainas Sanas (Nudo 4)', 'Vainas abiertas (Nudo 5)', 'Vainas Sanas (Nudo 5)', '% Defoliación'],
+    '10': ['Vainas en el suelo', 'Vainas abiertas (Nudo 1)', 'Vainas Sanas (Nudo 1)', 'Vainas abiertas (Nudo 2)', 'Vainas Sanas (Nudo 2)', 'Vainas abiertas (Nudo 3)', 'Vainas Sanas (Nudo 3)', 'Vainas abiertas (Nudo 4)', 'Vainas Sanas (Nudo 4)', 'Vainas abiertas (Nudo 5)', 'Vainas Sanas (Nudo 5)', '% Defoliación'],
+    '11': ['Vainas en el suelo', 'Vainas abiertas (Nudo 1)', 'Vainas Sanas (Nudo 1)', 'Vainas abiertas (Nudo 2)', 'Vainas Sanas (Nudo 2)', 'Vainas abiertas (Nudo 3)', 'Vainas Sanas (Nudo 3)', 'Vainas abiertas (Nudo 4)', 'Vainas Sanas (Nudo 4)', 'Vainas abiertas (Nudo 5)', 'Vainas Sanas (Nudo 5)', '% Defoliación'],
+    '12': ['Vainas en el suelo', 'Vainas abiertas (Nudo 1)', 'Vainas Sanas (Nudo 1)', 'Vainas abiertas (Nudo 2)', 'Vainas Sanas (Nudo 2)', 'Vainas abiertas (Nudo 3)', 'Vainas Sanas (Nudo 3)', 'Vainas abiertas (Nudo 4)', 'Vainas Sanas (Nudo 4)', 'Vainas abiertas (Nudo 5)', 'Vainas Sanas (Nudo 5)', '% Defoliación'],
+    '13': ['Vainas en el suelo', 'Vainas abiertas 1', 'Vainas Sanas 1', 'Vainas abiertas 2', 'Vainas Sanas 2', 'Vainas abiertas 3', 'Vainas Sanas 3', 'Vainas abiertas 4', 'Vainas Sanas 4', 'Vainas abiertas 5', 'Vainas Sanas 5', 'Vainas abiertas 6', 'Vainas Sanas 6', 'Vainas abiertas 7', 'Vainas Sanas 7', 'Vainas abiertas 8', 'Vainas Sanas 8', 'Vainas abiertas 9', 'Vainas Sanas 9', 'Vainas abiertas 10', 'Vainas Sanas 10']
   },
   trigo: {
-    '1': [ // Espigamiento
-      'Pérdidas en D',
-      'Colgadas en D',
-      'Restantes en D',
-      'Espiga 1 P',
-      'Espiga 1 T',
-      'Espiga 2 P',
-      'Espiga 2 T',
-      'Espiga 3 P',
-      'Espiga 3 T',
-      'Espiga 4 P',
-      'Espiga 4 T',
-      'Espiga 5 P',
-      'Espiga 5 T',
-      'Espiga 6 P',
-      'Espiga 6 T',
-      'Espiga 7 P',
-      'Espiga 7 T',
-      'Espiga 8 P',
-      'Espiga 8 T',
-      'Espiga 9 P',
-      'Espiga 9 T',
-      'Espiga 10 P',
-      'Espiga 10 T'
-    ],
-    '2': [ // Floración
-      'Pérdidas en D',
-      'Colgadas en D',
-      'Restantes en D',
-      'Espiga 1 P',
-      'Espiga 1 T',
-      'Espiga 2 P',
-      'Espiga 2 T',
-      'Espiga 3 P',
-      'Espiga 3 T',
-      'Espiga 4 P',
-      'Espiga 4 T',
-      'Espiga 5 P',
-      'Espiga 5 T',
-      'Espiga 6 P',
-      'Espiga 6 T',
-      'Espiga 7 P',
-      'Espiga 7 T',
-      'Espiga 8 P',
-      'Espiga 8 T',
-      'Espiga 9 P',
-      'Espiga 9 T',
-      'Espiga 10 P',
-      'Espiga 10 T'
-    ],
-    '3': [ // Lechoso
-      'Pérdidas en D',
-      'Colgadas en D',
-      'Restantes en D',
-      'Espiga 1 P',
-      'Espiga 1 T',
-      'Espiga 2 P',
-      'Espiga 2 T',
-      'Espiga 3 P',
-      'Espiga 3 T',
-      'Espiga 4 P',
-      'Espiga 4 T',
-      'Espiga 5 P',
-      'Espiga 5 T',
-      'Espiga 6 P',
-      'Espiga 6 T',
-      'Espiga 7 P',
-      'Espiga 7 T',
-      'Espiga 8 P',
-      'Espiga 8 T',
-      'Espiga 9 P',
-      'Espiga 9 T',
-      'Espiga 10 P',
-      'Espiga 10 T'
-    ],
-    '4': [ // Pastoso blando
-      'Pérdidas en D',
-      'Colgadas en D',
-      'Restantes en D',
-      'Espiga 1 P',
-      'Espiga 1 T',
-      'Espiga 2 P',
-      'Espiga 2 T',
-      'Espiga 3 P',
-      'Espiga 3 T',
-      'Espiga 4 P',
-      'Espiga 4 T',
-      'Espiga 5 P',
-      'Espiga 5 T',
-      'Espiga 6 P',
-      'Espiga 6 T',
-      'Espiga 7 P',
-      'Espiga 7 T',
-      'Espiga 8 P',
-      'Espiga 8 T',
-      'Espiga 9 P',
-      'Espiga 9 T',
-      'Espiga 10 P',
-      'Espiga 10 T'
-    ],
-    '5': [ // Pastoso duro
-      'Pérdidas en D',
-      'Colgadas en D',
-      'Restantes en D',
-      'Espiga 1 P',
-      'Espiga 1 T',
-      'Espiga 2 P',
-      'Espiga 2 T',
-      'Espiga 3 P',
-      'Espiga 3 T',
-      'Espiga 4 P',
-      'Espiga 4 T',
-      'Espiga 5 P',
-      'Espiga 5 T',
-      'Espiga 6 P',
-      'Espiga 6 T',
-      'Espiga 7 P',
-      'Espiga 7 T',
-      'Espiga 8 P',
-      'Espiga 8 T',
-      'Espiga 9 P',
-      'Espiga 9 T',
-      'Espiga 10 P',
-      'Espiga 10 T'
-    ],
-    '6': [ // Próx. a madurez
-      'Pérdidas en D',
-      'Colgadas en D',
-      'Restantes en D',
-      'Espiga 1 P',
-      'Espiga 1 T',
-      'Espiga 2 P',
-      'Espiga 2 T',
-      'Espiga 3 P',
-      'Espiga 3 T',
-      'Espiga 4 P',
-      'Espiga 4 T',
-      'Espiga 5 P',
-      'Espiga 5 T',
-      'Espiga 6 P',
-      'Espiga 6 T',
-      'Espiga 7 P',
-      'Espiga 7 T',
-      'Espiga 8 P',
-      'Espiga 8 T',
-      'Espiga 9 P',
-      'Espiga 9 T',
-      'Espiga 10 P',
-      'Espiga 10 T'
-    ]
+    '1': ['Pérdidas en D', 'Colgadas en D', 'Restantes en D', 'Espiga 1 P', 'Espiga 1 T', 'Espiga 2 P', 'Espiga 2 T', 'Espiga 3 P', 'Espiga 3 T', 'Espiga 4 P', 'Espiga 4 T', 'Espiga 5 P', 'Espiga 5 T', 'Espiga 6 P', 'Espiga 6 T', 'Espiga 7 P', 'Espiga 7 T', 'Espiga 8 P', 'Espiga 8 T', 'Espiga 9 P', 'Espiga 9 T', 'Espiga 10 P', 'Espiga 10 T'],
+    '2': ['Pérdidas en D', 'Colgadas en D', 'Restantes en D', 'Espiga 1 P', 'Espiga 1 T', 'Espiga 2 P', 'Espiga 2 T', 'Espiga 3 P', 'Espiga 3 T', 'Espiga 4 P', 'Espiga 4 T', 'Espiga 5 P', 'Espiga 5 T', 'Espiga 6 P', 'Espiga 6 T', 'Espiga 7 P', 'Espiga 7 T', 'Espiga 8 P', 'Espiga 8 T', 'Espiga 9 P', 'Espiga 9 T', 'Espiga 10 P', 'Espiga 10 T'],
+    '3': ['Pérdidas en D', 'Colgadas en D', 'Restantes en D', 'Espiga 1 P', 'Espiga 1 T', 'Espiga 2 P', 'Espiga 2 T', 'Espiga 3 P', 'Espiga 3 T', 'Espiga 4 P', 'Espiga 4 T', 'Espiga 5 P', 'Espiga 5 T', 'Espiga 6 P', 'Espiga 6 T', 'Espiga 7 P', 'Espiga 7 T', 'Espiga 8 P', 'Espiga 8 T', 'Espiga 9 P', 'Espiga 9 T', 'Espiga 10 P', 'Espiga 10 T'],
+    '4': ['Pérdidas en D', 'Colgadas en D', 'Restantes en D', 'Espiga 1 P', 'Espiga 1 T', 'Espiga 2 P', 'Espiga 2 T', 'Espiga 3 P', 'Espiga 3 T', 'Espiga 4 P', 'Espiga 4 T', 'Espiga 5 P', 'Espiga 5 T', 'Espiga 6 P', 'Espiga 6 T', 'Espiga 7 P', 'Espiga 7 T', 'Espiga 8 P', 'Espiga 8 T', 'Espiga 9 P', 'Espiga 9 T', 'Espiga 10 P', 'Espiga 10 T'],
+    '5': ['Pérdidas en D', 'Colgadas en D', 'Restantes en D', 'Espiga 1 P', 'Espiga 1 T', 'Espiga 2 P', 'Espiga 2 T', 'Espiga 3 P', 'Espiga 3 T', 'Espiga 4 P', 'Espiga 4 T', 'Espiga 5 P', 'Espiga 5 T', 'Espiga 6 P', 'Espiga 6 T', 'Espiga 7 P', 'Espiga 7 T', 'Espiga 8 P', 'Espiga 8 T', 'Espiga 9 P', 'Espiga 9 T', 'Espiga 10 P', 'Espiga 10 T'],
+    '6': ['Pérdidas en D', 'Colgadas en D', 'Restantes en D', 'Espiga 1 P', 'Espiga 1 T', 'Espiga 2 P', 'Espiga 2 T', 'Espiga 3 P', 'Espiga 3 T', 'Espiga 4 P', 'Espiga 4 T', 'Espiga 5 P', 'Espiga 5 T', 'Espiga 6 P', 'Espiga 6 T', 'Espiga 7 P', 'Espiga 7 T', 'Espiga 8 P', 'Espiga 8 T', 'Espiga 9 P', 'Espiga 9 T', 'Espiga 10 P', 'Espiga 10 T']
   },
   girasol: {
-    '1': [ //'v1-v11'
-        'Pérdida en D',
-        'Improduct en D',
-        'Restante en D',
-        '% promedio daño capít.',
-        '% defoliacion'
-    ],
-    '2': [ //'v12-vn'
-        'Pérdida en D',
-        'Improduct en D',
-        'Restante en D',
-        '% promedio daño capít.',
-        '% defoliacion'
-    ],
-    '3': [ //'R1 Estrella'
-        'Pérdida en D',
-        'Improduct en D',
-        'Restante en D',
-        '% promedio daño capít.',
-        '% defoliacion'
-    ],
-    '4': [ //'R2 (botón a 0,5 - 2 cm)'
-        'Pérdida en D',
-        'Improduct en D',
-        'Restante en D',
-        '% promedio daño capít.',
-        '% defoliacion'
-    ],
-    '5': [ //'R3 (botón a + de 2 cm)'
-        'Pérdida en D',
-        'Improduct en D',
-        'Restante en D',
-        '% promedio daño capít.',
-        '% defoliacion'
-    ],
-    '6': [ //'R4 (apertura inflorescencia)'
-        'Pérdida en D',
-        'Improduct en D',
-        'Restante en D',
-        '% promedio daño capít.',
-        '% defoliacion'
-    ],
-    '7': [ //'R5 (inicio floración)'
-        'Pérdida en D',
-        'Improduct en D',
-        'Restante en D',
-        '% promedio daño capít.',
-        '% defoliacion'
-    ],
-    '8': [ //'R6 (fin floración)'
-        'Pérdida en D',
-        'Improduct en D',
-        'Restante en D',
-        '% promedio daño capít.',
-        '% defoliacion'
-    ],
-    '9': [ //'R7 (envés capítulo inicio amarilleo)'
-        'Pérdida en D',
-        'Improduct en D',
-        'Restante en D',
-        '% promedio daño capít.',
-        '% defoliacion'
-    ],
-    '10': [ //'R8 (envés capítulo amarillo)'
-        'Pérdida en D',
-        'Improduct en D',
-        'Restante en D',
-        '% promedio daño capít.',
-        '% defoliacion'
-    ],
-    '11': [ //'R9 (brácteas amarillo/marrón)'
-        'Pérdida en D',
-        'Improduct en D',
-        'Restante en D',
-        '% promedio daño capít.',
-        '% defoliacion'
-    ]
+    '1': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
+    '2': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
+    '3': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
+    '4': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
+    '5': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
+    '6': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
+    '7': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
+    '8': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
+    '9': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
+    '10': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
+    '11': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion']
   }
 };
 
-// Nombres de estados fenológicos por cultivo
 const ESTADOS_NOMBRES = {
   soja: {
     '1': 'V1-Vn',
@@ -417,7 +64,19 @@ const ESTADOS_NOMBRES = {
     '5': 'Pastoso duro (Z.85/89)',
     '6': 'Próx. a madurez (Z.90/99)'
   },
-  // Agregar maiz
+  girasol: {
+    '1': 'V1-V11',
+    '2': 'V12-Vn',
+    '3': 'R1 (estrella)',
+    '4': 'R2 (botón a 0,5 - 2 cm)',
+    '5': 'R3 (botón a + de 2 cm)',
+    '6': 'R4 (apertura inflorescencia)',
+    '7': 'R5 (inicio floración)',
+    '8': 'R6 (fin floración)',
+    '9': 'R7 (envés capítulo inicio amarilleo)',
+    '10': 'R8 (envés capítulo amarillo)',
+    '11': 'R9 (brácteas amarillo/marrón)',
+  }
 };
 
 export default function VerMuestraModal({ 
@@ -427,9 +86,8 @@ export default function VerMuestraModal({
   cultivo = 'soja',
   tipoFenologico = '1'
 }) {
-  if (!muestra) return null;
-
-  const getLabels = () => {
+  // ✅ Labels memoizados
+  const labels = useMemo(() => {
     const cultivoConfig = LABELS_CONFIG[cultivo];
     if (!cultivoConfig) return [];
     
@@ -437,19 +95,33 @@ export default function VerMuestraModal({
     if (!tipoConfig) return [];
     
     return tipoConfig;
-  };
+  }, [cultivo, tipoFenologico]);
 
-  const getNombreEstado = () => {
+  // ✅ Nombre del estado fenológico memoizado
+  const nombreEstado = useMemo(() => {
     const cultivoEstados = ESTADOS_NOMBRES[cultivo];
     if (!cultivoEstados) return `Tipo ${tipoFenologico}`;
     
     return cultivoEstados[tipoFenologico] || `Tipo ${tipoFenologico}`;
-  };
+  }, [cultivo, tipoFenologico]);
 
-  const labels = getLabels();
-  const datos = muestra.datos || {};
+  // ✅ Datos de la muestra memoizados
+  const datos = useMemo(() => {
+    return muestra?.datos || {};
+  }, [muestra]);
 
-  const renderDataField = (label, key, index) => {
+  // ✅ Verificar si hay coordenadas memoizado
+  const tieneCoordenas = useMemo(() => {
+    return Boolean(datos.coordenada);
+  }, [datos.coordenada]);
+
+  // ✅ Verificar si hay porcentaje de daño memoizado
+  const tienePorcentajeDano = useMemo(() => {
+    return datos.porcentajeDaño !== undefined;
+  }, [datos.porcentajeDaño]);
+
+  // ✅ Renderizar campo de dato memoizado
+  const renderDataField = useCallback((label, key, index) => {
     const value = datos[key];
     
     return (
@@ -463,7 +135,23 @@ export default function VerMuestraModal({
         </View>
       </View>
     );
-  };
+  }, [datos]);
+
+  // ✅ Renderizar lista de campos memoizada
+  const dataFields = useMemo(() => {
+    return labels.map((label, index) => {
+      const key = `dato_${index + 1}`;
+      return renderDataField(label, key, index);
+    });
+  }, [labels, renderDataField]);
+
+  // ✅ Estilo del valor de daño memoizado
+  const danioValueStyle = useMemo(() => [
+    styles.infoValue, 
+    styles.danioValue
+  ], []);
+
+  if (!muestra) return null;
 
   return (
     <Modal
@@ -477,7 +165,7 @@ export default function VerMuestraModal({
           <View style={styles.header}>
             <View style={styles.headerContent}>
               <Text style={styles.title}>Ver Muestra</Text>
-              <Text style={styles.subtitle}>{getNombreEstado()}</Text>
+              {/* <Text style={styles.subtitle}>{nombreEstado}</Text> */}
             </View>
             <TouchableOpacity 
               style={styles.closeButton} 
@@ -509,10 +197,10 @@ export default function VerMuestraModal({
                     <Text style={styles.infoValue}>{muestra.fecha}</Text>
                   </View>
                   
-                  {datos.porcentajeDaño !== undefined && (
+                  {tienePorcentajeDano && (
                     <View style={styles.infoRow}>
                       <Text style={styles.infoLabel}>Daño Calculado:</Text>
-                      <Text style={[styles.infoValue, styles.danioValue]}>
+                      <Text style={danioValueStyle}>
                         {datos.porcentajeDaño}%
                       </Text>
                     </View>
@@ -520,7 +208,7 @@ export default function VerMuestraModal({
                 </View>
               </View>
 
-              {datos.coordenada && (
+              {tieneCoordenas && (
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>📍 Coordenadas GPS</Text>
                   <View style={styles.gpsCard}>
@@ -533,10 +221,7 @@ export default function VerMuestraModal({
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>📊 Datos de la Muestra</Text>
                 <View style={styles.dataContainer}>
-                  {labels.map((label, index) => {
-                    const key = `dato_${index + 1}`;
-                    return renderDataField(label, key, index);
-                  })}
+                  {dataFields}
                 </View>
               </View>
             </View>

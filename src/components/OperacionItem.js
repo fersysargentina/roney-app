@@ -1,24 +1,39 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, Text, Button, TouchableOpacity, StyleSheet } from 'react-native';
 
-export default function OperacionItem({ item, onPress, onBorrar, onMuestras }) {
+export default React.memo(function OperacionItem({ item, onPress, onBorrar, onMuestras }) {
+  
+  // ✅ Título memoizado
+  const titulo = useMemo(() => {
+    return `${item.roney_op} - ${item.cultivo}`;
+  }, [item.roney_op, item.cultivo]);
+
+  // ✅ Handlers memoizados
+  const handleBorrar = useCallback(() => {
+    onBorrar();
+  }, [onBorrar]);
+
+  const handleMuestras = useCallback(() => {
+    onMuestras();
+  }, [onMuestras]);
+
   return (
     <TouchableOpacity style={styles.item} onPress={onPress}>
-      <Text style={styles.title}>{item.roney_op} - {item.cultivo}</Text>
+      <Text style={styles.title}>{titulo}</Text>
       <View style={styles.itemButtons}>
         <Button
           title="Borrar"
           color="#d9534f"
-          onPress={onBorrar}
+          onPress={handleBorrar}
         />
         <Button
           title="Muestras"
-          onPress={onMuestras}
+          onPress={handleMuestras}
         />
       </View>
     </TouchableOpacity>
   );
-}
+});
 
 const styles = StyleSheet.create({
   item: {

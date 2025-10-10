@@ -1,4 +1,7 @@
-import React from 'react';
+// ============================================
+// LoteItem.js - OPTIMIZADO
+// ============================================
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,12 +10,47 @@ import {
   Alert,
 } from 'react-native';
 
-export default function LoteItem({ lote, onPress, onDelete }) {
+export default React.memo(function LoteItem({ lote, onPress, onDelete }) {
   
-  const handleDelete = () => {
+  // ✅ Formatear fecha memoizado
+  const fechaFormateada = useMemo(() => {
+    try {
+      const fecha = new Date(lote.fecha);
+      return fecha.toLocaleDateString('es-AR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    } catch {
+      return lote.fecha;
+    }
+  }, [lote.fecha]);
+
+  // ✅ Display fenológico memoizado
+  const fenologicoDisplay = useMemo(() => {
+    return lote.tipoFenologicoLabel || lote.tipoFenologico || '-';
+  }, [lote.tipoFenologicoLabel, lote.tipoFenologico]);
+
+  // ✅ Cantidad de muestras memoizada
+  const cantidadMuestras = useMemo(() => {
+    return lote.muestrasIds.length;
+  }, [lote.muestrasIds.length]);
+
+  // ✅ Texto de hectáreas memoizado
+  const hectareasText = useMemo(() => {
+    return `${lote.hectareas} ha`;
+  }, [lote.hectareas]);
+
+  // ✅ Texto de daño real memoizado
+  const dañoRealText = useMemo(() => {
+    return `${lote.dañoReal}%`;
+  }, [lote.dañoReal]);
+
+  // ✅ Eliminar memoizado
+  const handleDelete = useCallback(() => {
     Alert.alert(
       'Eliminar Lote',
-      `¿Estás seguro que deseas eliminar el lote "${lote.nombreLote}"?\n\nEsto liberará ${lote.muestrasIds.length} muestras y volverán a estar disponibles.`,
+      `¿Estás seguro que deseas eliminar el lote "${lote.nombreLote}"?\n\nEsto liberará ${cantidadMuestras} muestras y volverán a estar disponibles.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -22,39 +60,7 @@ export default function LoteItem({ lote, onPress, onDelete }) {
         }
       ]
     );
-  };
-
-  const formatearFecha = (fechaString) => {
-    try {
-      const fecha = new Date(fechaString);
-      return fecha.toLocaleDateString('es-AR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    } catch {
-      return fechaString;
-    }
-  };
-
-  const getDañoPactadoDisplay = () => {
-    if (lote.dañoPactado === null || lote.dañoPactado === undefined) {
-      return 'Sin completar';
-    }
-    return `${lote.dañoPactado}%`;
-  };
-
-  const getDañoPactadoStyle = () => {
-    if (lote.dañoPactado === null || lote.dañoPactado === undefined) {
-      return styles.dañoIncompleto;
-    }
-    return styles.dañoCompleto;
-  };
-
-  // Mostrar el label si existe, si no mostrar el value
-  const getFenologicoDisplay = () => {
-    return lote.tipoFenologicoLabel || lote.tipoFenologico || '-';
-  };
+  }, [lote.nombreLote, lote.id, cantidadMuestras, onDelete]);
 
   return (
     <TouchableOpacity
@@ -65,7 +71,7 @@ export default function LoteItem({ lote, onPress, onDelete }) {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.nombreLote}>{lote.nombreLote}</Text>
-          <Text style={styles.fecha}>{formatearFecha(lote.fecha)}</Text>
+          <Text style={styles.fecha}>{fechaFormateada}</Text>
         </View>
         
         <TouchableOpacity
@@ -80,31 +86,31 @@ export default function LoteItem({ lote, onPress, onDelete }) {
       <View style={styles.statsContainer}>
         <View style={styles.statItem}>
           <Text style={styles.statLabel}>Hectáreas</Text>
-          <Text style={styles.statValue}>{lote.hectareas} ha</Text>
+          <Text style={styles.statValue}>{hectareasText}</Text>
         </View>
 
         <View style={styles.statItem}>
           <Text style={styles.statLabel}>Muestras</Text>
-          <Text style={styles.statValue}>{lote.muestrasIds.length}</Text>
+          <Text style={styles.statValue}>{cantidadMuestras}</Text>
         </View>
 
         <View style={styles.statItemWide}>
           <Text style={styles.statLabel}>Fenológico</Text>
           <Text style={styles.statValueSmall} numberOfLines={2} ellipsizeMode="tail">
-            {getFenologicoDisplay()}
+            {fenologicoDisplay}
           </Text>
         </View>
 
         <View style={styles.statItem}>
           <Text style={styles.statLabel}>Daño</Text>
           <Text style={[styles.statValue, styles.dañoReal]}>
-            {lote.dañoReal}%
+            {dañoRealText}
           </Text>
         </View>
       </View>
     </TouchableOpacity>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -184,23 +190,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   dañoReal: {
-    color: '#dc3545', // Rojo para daño real
-  },
-  dañoCompleto: {
-    color: '#28a745', // Verde para daño pactado completado
-  },
-  dañoIncompleto: {
-    color: '#ffc107', // Amarillo para daño pactado sin completar
-    fontStyle: 'italic',
-    fontSize: 12,
-  },
-  footer: {
-    marginTop: 8,
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 12,
-    color: '#999',
-    fontStyle: 'italic',
+    color: '#dc3545',
   },
 });

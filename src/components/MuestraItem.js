@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,49 @@ import {
   Alert,
 } from 'react-native';
 
-export default function MuestraItem({ item, isSelected, onOpenModal, onToggleSelect, onDelete, isInLote = false }) {
-  const formatPorcentaje = (n) => {
-    const num = Number(n) || 0;
-    const trunc = Math.trunc(num * 10) / 10; 
-    return trunc.toFixed(1).replace('.', ',');
-  };
+export default React.memo(function MuestraItem({ 
+  item, 
+  isSelected, 
+  onOpenModal, 
+  onToggleSelect, 
+  onDelete, 
+  isInLote = false 
+}) {
   
-  const handleDelete = () => {
+  // ✅ Porcentaje de daño memoizado
+  const porcentajeDaño = useMemo(() => {
+    return `${item.datos?.porcentajeDaño}%`;
+  }, [item.datos?.porcentajeDaño]);
+
+  // ✅ Estilo del contenedor memoizado
+  const containerStyle = useMemo(() => {
+    if (isInLote) {
+      return [styles.container, styles.containerInLote];
+    }
+    if (isSelected) {
+      return [styles.container, styles.containerSelected];
+    }
+    return styles.container;
+  }, [isInLote, isSelected]);
+
+  // ✅ Estilo del botón delete memoizado
+  const deleteButtonStyle = useMemo(() => [
+    styles.deleteButton,
+    isInLote && styles.deleteButtonDisabled
+  ], [isInLote]);
+
+  // ✅ Texto del botón select memoizado
+  const selectButtonText = useMemo(() => {
+    return isSelected ? 'Quitar' : 'Seleccionar';
+  }, [isSelected]);
+
+  // ✅ Icono del botón delete memoizado
+  const deleteIcon = useMemo(() => {
+    return isInLote ? '🔒' : '🗑️';
+  }, [isInLote]);
+
+  // ✅ Eliminar memoizado
+  const handleDelete = useCallback(() => {
     if (isInLote) {
       Alert.alert(
         'Muestra en Lote',
@@ -24,9 +59,10 @@ export default function MuestraItem({ item, isSelected, onOpenModal, onToggleSel
       return;
     }
     onDelete();
-  };
+  }, [isInLote, onDelete]);
 
-  const handlePress = () => {
+  // ✅ Press memoizado
+  const handlePress = useCallback(() => {
     if (isInLote) {
       Alert.alert(
         'Muestra en Lote',
@@ -36,33 +72,18 @@ export default function MuestraItem({ item, isSelected, onOpenModal, onToggleSel
       return;
     }
     onOpenModal(item);
-  };
+  }, [isInLote, item, onOpenModal]);
 
-  const getContainerStyle = () => {
-    if (isInLote) {
-      return [styles.container, styles.containerInLote];
+  // ✅ Toggle select memoizado
+  const handleToggleSelect = useCallback(() => {
+    if (!isInLote) {
+      onToggleSelect(item.id);
     }
-    if (isSelected) {
-      return [styles.container, styles.containerSelected];
-    }
-    return styles.container;
-  };
-
-  const formatearDatos = () => {
-    const { datos } = item;
-    if (!datos) return 'Sin datos';
-    
-    const valores = Object.entries(datos)
-      .filter(([key, value]) => key !== 'porcentajeDaño' && value !== '' && value !== null)
-      .map(([key, value]) => `${key}: ${value}`)
-      .join(', ');
-    
-    return valores || 'Sin datos específicos';
-  };
+  }, [isInLote, item.id, onToggleSelect]);
 
   return (
     <TouchableOpacity
-      style={getContainerStyle()}
+      style={containerStyle}
       onPress={handlePress}
       activeOpacity={isInLote ? 1 : 0.7}
       disabled={isInLote}
@@ -74,17 +95,16 @@ export default function MuestraItem({ item, isSelected, onOpenModal, onToggleSel
               <Text style={styles.loteText}>EN LOTE</Text>
             </View>
           )}
-          <View style={styles.headerLeft}>
-          </View>
+          <View style={styles.headerLeft} />
     
           <TouchableOpacity
             style={[styles.selectButton, isInLote && styles.deleteButtonDisabled]}
-            onPress={() => !isInLote && onToggleSelect(item.id)}
+            onPress={handleToggleSelect}
             disabled={isInLote}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Text style={styles.selectButtonText}>
-              {isSelected ? 'Quitar' : 'Seleccionar'}
+              {selectButtonText}
             </Text>
           </TouchableOpacity>
         </View>
@@ -96,21 +116,17 @@ export default function MuestraItem({ item, isSelected, onOpenModal, onToggleSel
             <Text style={styles.nombre}>{item.nombre}</Text>
           </View>
           <TouchableOpacity
-            style={[
-              styles.deleteButton,
-              isInLote && styles.deleteButtonDisabled
-            ]}
+            style={deleteButtonStyle}
             onPress={handleDelete}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-          <Text style={styles.deleteButtonText}>
-              {isInLote ? '🔒' : '🗑️'}
+            <Text style={styles.deleteButtonText}>
+              {deleteIcon}
             </Text>
           </TouchableOpacity>
           <Text style={styles.dañoValue}>
-            {item.datos?.porcentajeDaño}%
+            {porcentajeDaño}
           </Text>
-          
         </View>
       </View>
 
@@ -129,7 +145,7 @@ export default function MuestraItem({ item, isSelected, onOpenModal, onToggleSel
       )}
     </TouchableOpacity>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -176,10 +192,6 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 4,
   },
-  fecha: {
-    fontSize: 12,
-    color: '#666',
-  },
   loteIndicator: {
     backgroundColor: '#ffc107',
     paddingHorizontal: 8,
@@ -218,31 +230,15 @@ const styles = StyleSheet.create({
     borderTopColor: '#f0f0f0',
     paddingTop: 12,
   },
-  tipo: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#007bff',
-    marginBottom: 8,
-  },
   dañoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
   },
-  dañoLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginRight: 8,
-  },
   dañoValue: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#dc3545',
-  },
-  datos: {
-    fontSize: 12,
-    color: '#999',
-    lineHeight: 16,
   },
   selectionIndicator: {
     position: 'absolute',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -18,13 +18,40 @@ export default function CerrarLoteModal({
   onConfirmar, 
   muestrasSeleccionadas = [],
   tipoFenologicoSeleccionado,
-  tipoFenologicoLabel // Agregamos este prop
+  tipoFenologicoLabel
 }) {
   const [nombreLote, setNombreLote] = useState('');
   const [hectareas, setHectareas] = useState('');
   const [dañoPactado, setDañoPactado] = useState('');
 
-  const handleConfirmar = () => {
+  // ✅ Calcular daño real memoizado
+  const dañoRealCalculado = useMemo(() => {
+    if (muestrasSeleccionadas.length === 0) return 0;
+    
+    const sumaDaños = muestrasSeleccionadas.reduce((sum, muestra) => {
+      const porcentaje = parseFloat(muestra.datos?.porcentajeDaño) || 0;
+      return sum + porcentaje;
+    }, 0);
+    
+    return sumaDaños / muestrasSeleccionadas.length;
+  }, [muestrasSeleccionadas]);
+
+  // ✅ Display fenológico memoizado
+  const fenologicoDisplay = useMemo(() => {
+    return tipoFenologicoLabel || tipoFenologicoSeleccionado || '-';
+  }, [tipoFenologicoLabel, tipoFenologicoSeleccionado]);
+
+  // ✅ Validación de campos memoizada
+  const camposValidos = useMemo(() => {
+    const nombreValido = nombreLote.trim().length > 0;
+    const hectareasNumero = parseFloat(hectareas);
+    const hectareasValidas = !isNaN(hectareasNumero) && hectareasNumero > 0;
+    
+    return nombreValido && hectareasValidas;
+  }, [nombreLote, hectareas]);
+
+  // ✅ Confirmación memoizada
+  const handleConfirmar = useCallback(() => {
     // Validaciones
     if (!nombreLote.trim()) {
       Alert.alert('Error', 'Debe ingresar un nombre para el lote');
@@ -42,20 +69,10 @@ export default function CerrarLoteModal({
       return;
     }
 
-    // Calcular daño real (promedio de todas las muestras)
-    let dañoReal = 0;
-    if (muestrasSeleccionadas.length > 0) {
-      const sumaDaños = muestrasSeleccionadas.reduce((sum, muestra) => {
-        const porcentaje = parseFloat(muestra.datos?.porcentajeDaño) || 0;
-        return sum + porcentaje;
-      }, 0);
-      dañoReal = sumaDaños / muestrasSeleccionadas.length;
-    }
-
     const datosLote = {
       nombreLote: nombreLote.trim(),
       hectareas: hectareasNumero,
-      dañoReal: Math.round(dañoReal * 100) / 100, // Redondear a 2 decimales
+      dañoReal: Math.round(dañoRealCalculado * 100) / 100,
       dañoPactado: dañoPactado.trim() ? parseFloat(dañoPactado) : null,
       muestrasIds: muestrasSeleccionadas.map(m => m.id),
       tipoFenologico: tipoFenologicoSeleccionado,
@@ -63,31 +80,58 @@ export default function CerrarLoteModal({
 
     onConfirmar(datosLote);
     handleClose();
-  };
+  }, [nombreLote, hectareas, dañoPactado, dañoRealCalculado, muestrasSeleccionadas, tipoFenologicoSeleccionado, onConfirmar]);
 
-  const handleClose = () => {
+  // ✅ Cierre memoizado
+  const handleClose = useCallback(() => {
     setNombreLote('');
     setHectareas('');
     setDañoPactado('');
     onClose();
-  };
+  }, [onClose]);
 
-  // Calcular daño real para mostrar
-  const dañoRealCalculado = React.useMemo(() => {
-    if (muestrasSeleccionadas.length === 0) return 0;
-    
-    const sumaDaños = muestrasSeleccionadas.reduce((sum, muestra) => {
-      const porcentaje = parseFloat(muestra.datos?.porcentajeDaño) || 0;
-      return sum + porcentaje;
-    }, 0);
-    
-    return sumaDaños / muestrasSeleccionadas.length;
-  }, [muestrasSeleccionadas]);
+  // ✅ Texto de cantidad de muestras memoizado
+  const cantidadMuestrasText = useMemo(() => {
+    return `📊 Muestras seleccionadas: ${muestrasSeleccionadas.length}`;
+  }, [muestrasSeleccionadas.length]);
 
-  // Función para obtener el display del fenológico
-  const getFenologicoDisplay = () => {
-    return tipoFenologicoLabel || tipoFenologicoSeleccionado || '-';
-  };
+  // ✅ Texto de estado fenológico memoizado
+  const estadoFenologicoText = useMemo(() => {
+    return `🧬 Estado fenológico: ${fenologicoDisplay}`;
+  }, [fenologicoDisplay]);
+
+  // ✅ Mostrar warning si no hay muestras
+  const mostrarWarning = useMemo(() => {
+    return muestrasSeleccionadas.length === 0;
+  }, [muestrasSeleccionadas.length]);
+
+  // ✅ Label de daño real memoizado
+  const labelDañoReal = useMemo(() => {
+    return `Daño Real ${muestrasSeleccionadas.length > 0 ? '(Calculado)' : '(Sin muestras)'}`;
+  }, [muestrasSeleccionadas.length]);
+
+  // ✅ Nota calculada memoizada
+  const notaCalculada = useMemo(() => {
+    return muestrasSeleccionadas.length > 0 
+      ? 'Promedio automático de las muestras'
+      : 'Sin muestras para calcular';
+  }, [muestrasSeleccionadas.length]);
+
+  // ✅ Daño formateado memoizado
+  const dañoFormateado = useMemo(() => {
+    return `${(Math.round(dañoRealCalculado * 100) / 100).toFixed(2)}%`;
+  }, [dañoRealCalculado]);
+
+  // ✅ Estilos dinámicos memoizados
+  const calculatedContainerStyle = useMemo(() => [
+    styles.calculatedContainer,
+    muestrasSeleccionadas.length === 0 && styles.calculatedContainerEmpty
+  ], [muestrasSeleccionadas.length]);
+
+  const calculatedValueStyle = useMemo(() => [
+    styles.calculatedValue,
+    muestrasSeleccionadas.length === 0 && styles.calculatedValueEmpty
+  ], [muestrasSeleccionadas.length]);
 
   return (
     <Modal
@@ -111,13 +155,9 @@ export default function CerrarLoteModal({
 
             <View style={styles.content}>
               <View style={styles.infoContainer}>
-                <Text style={styles.infoText}>
-                  📊 Muestras seleccionadas: {muestrasSeleccionadas.length}
-                </Text>
-                <Text style={styles.infoText}>
-                  🧬 Estado fenológico: {getFenologicoDisplay()}
-                </Text>
-                {muestrasSeleccionadas.length === 0 && (
+                <Text style={styles.infoText}>{cantidadMuestrasText}</Text>
+                <Text style={styles.infoText}>{estadoFenologicoText}</Text>
+                {mostrarWarning && (
                   <Text style={styles.warningText}>
                     ⚠️ Este lote no tendrá muestras asociadas
                   </Text>
@@ -148,25 +188,10 @@ export default function CerrarLoteModal({
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>
-                  Daño Real {muestrasSeleccionadas.length > 0 ? '(Calculado)' : '(Sin muestras)'}
-                </Text>
-                <View style={[
-                  styles.calculatedContainer,
-                  muestrasSeleccionadas.length === 0 && styles.calculatedContainerEmpty
-                ]}>
-                  <Text style={[
-                    styles.calculatedValue,
-                    muestrasSeleccionadas.length === 0 && styles.calculatedValueEmpty
-                  ]}>
-                    {(Math.round(dañoRealCalculado * 100) / 100).toFixed(2)}%
-                  </Text>
-                  <Text style={styles.calculatedNote}>
-                    {muestrasSeleccionadas.length > 0 
-                      ? 'Promedio automático de las muestras'
-                      : 'Sin muestras para calcular'
-                    }
-                  </Text>
+                <Text style={styles.label}>{labelDañoReal}</Text>
+                <View style={calculatedContainerStyle}>
+                  <Text style={calculatedValueStyle}>{dañoFormateado}</Text>
+                  <Text style={styles.calculatedNote}>{notaCalculada}</Text>
                 </View>
               </View>
             </View>

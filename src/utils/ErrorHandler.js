@@ -1,5 +1,6 @@
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback, useMemo } from 'react';
 
 /**
  * Maneja errores de forma global y consistente
@@ -12,13 +13,13 @@ export class ErrorHandler {
    */
   static async safeAsyncStorageOperation(operation, fallback = null) {
     try {
-      console.log('🔄 ErrorHandler: Ejecutando operación AsyncStorage...');
+      console.log('📄 ErrorHandler: Ejecutando operación AsyncStorage...');
       const result = await operation();
       console.log('✅ ErrorHandler: Operación AsyncStorage exitosa');
       return result;
     } catch (error) {
       console.error('❌ ErrorHandler: AsyncStorage operation failed:', error);
-      console.log('🔄 ErrorHandler: Usando fallback:', fallback);
+      console.log('📄 ErrorHandler: Usando fallback:', fallback);
       return fallback;
     }
   }
@@ -48,9 +49,9 @@ export class ErrorHandler {
    */
   static safeJsonParse(jsonString, defaultValue = null) {
     try {
-      console.log('🔄 ErrorHandler: Parseando JSON...', jsonString ? 'con datos' : 'sin datos');
+      console.log('📄 ErrorHandler: Parseando JSON...', jsonString ? 'con datos' : 'sin datos');
       if (!jsonString) {
-        console.log('🔄 ErrorHandler: JSON vacío, usando defaultValue');
+        console.log('📄 ErrorHandler: JSON vacío, usando defaultValue');
         return defaultValue;
       }
       const parsed = JSON.parse(jsonString);
@@ -59,7 +60,7 @@ export class ErrorHandler {
       return result;
     } catch (error) {
       console.error('❌ ErrorHandler: JSON parse failed:', error);
-      console.log('🔄 ErrorHandler: Usando defaultValue:', defaultValue);
+      console.log('📄 ErrorHandler: Usando defaultValue:', defaultValue);
       return defaultValue;
     }
   }
@@ -70,7 +71,7 @@ export class ErrorHandler {
   static handleError(error, title = 'Error', customMessage = null, showAlert = true) {
     // Evitar múltiples alertas simultáneas
     if (this.isHandling) {
-      console.log('🔄 ErrorHandler: Ya manejando un error, ignorando...');
+      console.log('📄 ErrorHandler: Ya manejando un error, ignorando...');
       return;
     }
     
@@ -225,50 +226,52 @@ export class ErrorHandler {
 }
 
 /**
- * Hook personalizado para operaciones seguras de AsyncStorage
+ * ✅ Hook personalizado OPTIMIZADO para operaciones seguras de AsyncStorage
  */
 export const useAsyncStorage = () => {
-  const getMuestras = async (operacionId) => {
+  // ✅ Memoizar todas las funciones con useCallback
+  const getMuestras = useCallback(async (operacionId) => {
     const data = await ErrorHandler.getStorageData(`muestras_${operacionId}`);
     const parsed = ErrorHandler.safeJsonParse(data, []);
     return ErrorHandler.sanitizeData(parsed, 'muestras');
-  };
+  }, []);
 
-  const setMuestras = async (operacionId, muestras) => {
+  const setMuestras = useCallback(async (operacionId, muestras) => {
     const sanitized = ErrorHandler.sanitizeData(muestras, 'muestras');
     return await ErrorHandler.setStorageData(`muestras_${operacionId}`, sanitized);
-  };
+  }, []);
 
-  const getLotes = async (operacionId) => {
+  const getLotes = useCallback(async (operacionId) => {
     const data = await ErrorHandler.getStorageData(`lotes_${operacionId}`);
     const parsed = ErrorHandler.safeJsonParse(data, []);
     return ErrorHandler.sanitizeData(parsed, 'lotes');
-  };
+  }, []);
 
-  const setLotes = async (operacionId, lotes) => {
+  const setLotes = useCallback(async (operacionId, lotes) => {
     const sanitized = ErrorHandler.sanitizeData(lotes, 'lotes');
     return await ErrorHandler.setStorageData(`lotes_${operacionId}`, sanitized);
-  };
+  }, []);
 
-  const getSubFenologicos = async (operacionId) => {
+  const getSubFenologicos = useCallback(async (operacionId) => {
     const data = await ErrorHandler.getStorageData(`subFenologicos_${operacionId}`);
     const parsed = ErrorHandler.safeJsonParse(data, {});
     return ErrorHandler.sanitizeData(parsed, 'subFenologicos');
-  };
+  }, []);
 
-  const setSubFenologicos = async (operacionId, subFenologicos) => {
+  const setSubFenologicos = useCallback(async (operacionId, subFenologicos) => {
     const sanitized = ErrorHandler.sanitizeData(subFenologicos, 'subFenologicos');
     return await ErrorHandler.setStorageData(`subFenologicos_${operacionId}`, sanitized);
-  };
+  }, []);
 
-  return {
+  // ✅ Memoizar el objeto de retorno para evitar recreaciones
+  return useMemo(() => ({
     getMuestras,
     setMuestras,
     getLotes,
     setLotes,
     getSubFenologicos,
     setSubFenologicos
-  };
+  }), [getMuestras, setMuestras, getLotes, setLotes, getSubFenologicos, setSubFenologicos]);
 };
 
 export default ErrorHandler;

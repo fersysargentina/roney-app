@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { 
   Modal, 
   View, 
@@ -15,15 +15,18 @@ import {
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function MuestraTipo3Modal({ visible, onClose, onGuardar, valoresIniciales = {}, esEdicion = false }) {
+export default function MuestraTipo3Modal({ 
+  visible, 
+  onClose, 
+  onGuardar, 
+  valoresIniciales = {}, 
+  esEdicion = false 
+}) {
   // DEFINICIÓN DE ESTADOS LOCALES (12 DATOS + GPS)
-  // Datos 1 al 4 existentes 
   const [dato_1, setDato_1] = useState(valoresIniciales.dato_1 || ''); // Vainas en el suelo
   const [dato_2, setDato_2] = useState(valoresIniciales.dato_2 || ''); // Vainas Abiertas 1
   const [dato_3, setDato_3] = useState(valoresIniciales.dato_3 || ''); // Vainas Sanas 1
   const [dato_4, setDato_4] = useState(valoresIniciales.dato_4 || ''); // Vainas Abiertas 2
-  
-  // Nuevos 8 datos (dato_5 a dato_12)
   const [dato_5, setDato_5] = useState(valoresIniciales.dato_5 || ''); // Vainas Sanas 2
   const [dato_6, setDato_6] = useState(valoresIniciales.dato_6 || ''); // Vainas Abiertas 3
   const [dato_7, setDato_7] = useState(valoresIniciales.dato_7 || ''); // Vainas Sanas 3
@@ -32,127 +35,163 @@ export default function MuestraTipo3Modal({ visible, onClose, onGuardar, valores
   const [dato_10, setDato_10] = useState(valoresIniciales.dato_10 || ''); // Vainas Abiertas 5
   const [dato_11, setDato_11] = useState(valoresIniciales.dato_11 || ''); // Vainas Sanas 5
   const [dato_12, setDato_12] = useState(valoresIniciales.dato_12 || ''); // Defoliación
-
   const [coordenada, setCoordenada] = useState(valoresIniciales.coordenada || '');
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [loading] = useState(false);
 
-  // ACTUALIZACIÓN DE ESTADOS AL CAMBIAR valoresIniciales
-  useEffect(() => {
-    setDato_1(valoresIniciales.dato_1 || '');
-    setDato_2(valoresIniciales.dato_2 || '');
-    setDato_3(valoresIniciales.dato_3 || '');
-    setDato_4(valoresIniciales.dato_4 || '');
-    setDato_5(valoresIniciales.dato_5 || '');
-    setDato_6(valoresIniciales.dato_6 || '');
-    setDato_7(valoresIniciales.dato_7 || '');
-    setDato_8(valoresIniciales.dato_8 || '');
-    setDato_9(valoresIniciales.dato_9 || '');
-    setDato_10(valoresIniciales.dato_10 || '');
-    setDato_11(valoresIniciales.dato_11 || '');
-    setDato_12(valoresIniciales.dato_12 || '');
-    setCoordenada(valoresIniciales.coordenada || '');
-  }, [valoresIniciales]);
+  // ✅ Ref para verificar si está montado
+  const isMountedRef = useRef(true);
 
+  // ✅ Cleanup al desmontar
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // ✅ Actualizar valores iniciales con verificación de montaje
+  useEffect(() => {
+    if (visible) {
+      setDato_1(valoresIniciales.dato_1 || '');
+      setDato_2(valoresIniciales.dato_2 || '');
+      setDato_3(valoresIniciales.dato_3 || '');
+      setDato_4(valoresIniciales.dato_4 || '');
+      setDato_5(valoresIniciales.dato_5 || '');
+      setDato_6(valoresIniciales.dato_6 || '');
+      setDato_7(valoresIniciales.dato_7 || '');
+      setDato_8(valoresIniciales.dato_8 || '');
+      setDato_9(valoresIniciales.dato_9 || '');
+      setDato_10(valoresIniciales.dato_10 || '');
+      setDato_11(valoresIniciales.dato_11 || '');
+      setDato_12(valoresIniciales.dato_12 || '');
+      setCoordenada(valoresIniciales.coordenada || '');
+    }
+  }, [visible, valoresIniciales]);
+
+  // ✅ Auto-obtener coordenadas en modo creación
   useEffect(() => {
     if (!esEdicion && visible && !valoresIniciales.coordenada) {
       actualizarCoordenada();
     }
-  }, [visible]);
+  }, [visible, esEdicion, valoresIniciales.coordenada]);
 
-  // HANDLE GUARDAR (ADAPTADO A OBJETO)
-  const handleGuardar = () => {
-    // Valida los 12 campos y la coordenada
-    if (
-        !dato_1.trim() || !dato_2.trim() || !dato_3.trim() || !dato_4.trim() ||
-        !dato_5.trim() || !dato_6.trim() || !dato_7.trim() || !dato_8.trim() ||
-        !dato_9.trim() || !dato_10.trim() || !dato_11.trim() || !dato_12.trim() ||
-        !coordenada.trim()
-    ) {
-      Alert.alert('Error', 'Todos los campos de datos y la coordenada son obligatorios');
-      return;
-    }
-
-    // Empaqueta todos los 12 datos y la coordenada en un objeto
-    const datosMuestra = {
-        dato_1: dato_1,
-        dato_2: dato_2,
-        dato_3: dato_3,
-        dato_4: dato_4,
-        dato_5: dato_5,
-        dato_6: dato_6,
-        dato_7: dato_7,
-        dato_8: dato_8,
-        dato_9: dato_9,
-        dato_10: dato_10,
-        dato_11: dato_11,
-        dato_12: dato_12,
-        coordenada: coordenada
-    };
-
-    onGuardar(datosMuestra);
-    onClose();
-  };
-
-  const handleCerrar = () => {
-    setDato_1(valoresIniciales.dato_1 || '');
-    setDato_2(valoresIniciales.dato_2 || '');
-    setDato_3(valoresIniciales.dato_3 || '');
-    setDato_4(valoresIniciales.dato_4 || '');
-    setDato_5(valoresIniciales.dato_5 || '');
-    setDato_6(valoresIniciales.dato_6 || '');
-    setDato_7(valoresIniciales.dato_7 || '');
-    setDato_8(valoresIniciales.dato_8 || '');
-    setDato_9(valoresIniciales.dato_9 || '');
-    setDato_10(valoresIniciales.dato_10 || '');
-    setDato_11(valoresIniciales.dato_11 || '');
-    setDato_12(valoresIniciales.dato_12 || '');
-    
-    setCoordenada(valoresIniciales.coordenada || '');
-    onClose();
-  };
-
-
-  const actualizarCoordenada = async () => {
+  // ✅ Actualizar coordenada memoizada
+  const actualizarCoordenada = useCallback(async () => {
     if (esEdicion) return;
     
-    setLoadingGPS(true);
+    if (isMountedRef.current) {
+      setLoadingGPS(true);
+    }
 
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       
       if (status !== 'granted') {
         Alert.alert('Error', 'Se necesita permiso de ubicación para obtener las coordenadas GPS');
-        setCoordenada('Error: Sin permisos de ubicación');
-        setLoadingGPS(false);
+        if (isMountedRef.current) {
+          setCoordenada('Error: Sin permisos de ubicación');
+        }
         return;
       }
 
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
+      const location = await Promise.race([
+        Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('GPS timeout')), 10000)
+        )
+      ]);
 
       const coords = `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`;
-      setCoordenada(coords);
-      Alert.alert('Éxito', 'Coordenadas GPS actualizadas');
+      
+      if (isMountedRef.current) {
+        setCoordenada(coords);
+        Alert.alert('Éxito', 'Coordenadas GPS actualizadas');
+      }
     } catch (error) {
       console.error('Error obteniendo coordenadas:', error);
-      Alert.alert('Error', 'No se pudieron obtener las coordenadas GPS');
-      setCoordenada('Error obteniendo coordenadas');
+      if (isMountedRef.current) {
+        Alert.alert('Error', 'No se pudieron obtener las coordenadas GPS');
+        setCoordenada('Error obteniendo coordenadas');
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setLoadingGPS(false);
+      }
+    }
+  }, [esEdicion]);
+
+  // ✅ Validación de campos memoizada (12 datos + coordenada)
+  const camposValidos = useMemo(() => {
+    return dato_1.trim() && dato_2.trim() && dato_3.trim() && dato_4.trim() &&
+           dato_5.trim() && dato_6.trim() && dato_7.trim() && dato_8.trim() &&
+           dato_9.trim() && dato_10.trim() && dato_11.trim() && dato_12.trim() &&
+           coordenada.trim();
+  }, [dato_1, dato_2, dato_3, dato_4, dato_5, dato_6, dato_7, dato_8, dato_9, dato_10, dato_11, dato_12, coordenada]);
+
+  // ✅ Guardar memoizado
+  const handleGuardar = useCallback(() => {
+    if (!camposValidos) {
+      Alert.alert('Error', 'Todos los campos de datos y la coordenada son obligatorios');
+      return;
     }
 
-    setLoadingGPS(false);
-  };
+    const datosMuestra = {
+      dato_1: dato_1,
+      dato_2: dato_2,
+      dato_3: dato_3,
+      dato_4: dato_4,
+      dato_5: dato_5,
+      dato_6: dato_6,
+      dato_7: dato_7,
+      dato_8: dato_8,
+      dato_9: dato_9,
+      dato_10: dato_10,
+      dato_11: dato_11,
+      dato_12: dato_12,
+      coordenada: coordenada
+    };
 
-  // Función auxiliar para verificar si todos los campos están llenos (para deshabilitar el botón)
-  const isFormValid = () => {
-      return (
-          dato_1.trim() && dato_2.trim() && dato_3.trim() && dato_4.trim() &&
-          dato_5.trim() && dato_6.trim() && dato_7.trim() && dato_8.trim() &&
-          dato_9.trim() && dato_10.trim() && dato_11.trim() && dato_12.trim() &&
-          coordenada.trim()
-      );
-  };
+    onGuardar(datosMuestra);
+    onClose();
+  }, [camposValidos, dato_1, dato_2, dato_3, dato_4, dato_5, dato_6, dato_7, dato_8, dato_9, dato_10, dato_11, dato_12, coordenada, onGuardar, onClose]);
+
+  // ✅ Cerrar memoizado con reset de valores
+  const handleCerrar = useCallback(() => {
+    setDato_1(valoresIniciales.dato_1 || '');
+    setDato_2(valoresIniciales.dato_2 || '');
+    setDato_3(valoresIniciales.dato_3 || '');
+    setDato_4(valoresIniciales.dato_4 || '');
+    setDato_5(valoresIniciales.dato_5 || '');
+    setDato_6(valoresIniciales.dato_6 || '');
+    setDato_7(valoresIniciales.dato_7 || '');
+    setDato_8(valoresIniciales.dato_8 || '');
+    setDato_9(valoresIniciales.dato_9 || '');
+    setDato_10(valoresIniciales.dato_10 || '');
+    setDato_11(valoresIniciales.dato_11 || '');
+    setDato_12(valoresIniciales.dato_12 || '');
+    setCoordenada(valoresIniciales.coordenada || '');
+    onClose();
+  }, [valoresIniciales, onClose]);
+
+  // ✅ Título memoizado
+  const titulo = useMemo(() => {
+    return esEdicion ? 'Editar Muestra R4-R7' : 'Nueva Muestra R4-R7 (12 Datos)';
+  }, [esEdicion]);
+
+  // ✅ Estilos dinámicos memoizados
+  const coordsInputStyle = useMemo(() => [
+    styles.input, 
+    styles.coordsInput,
+    esEdicion && styles.coordsInputDisabled
+  ], [esEdicion]);
+
+  const saveButtonStyle = useMemo(() => [
+    styles.button, 
+    styles.saveButton,
+    !camposValidos && styles.saveButtonDisabled
+  ], [camposValidos]);
 
   return (
     <Modal
@@ -170,9 +209,7 @@ export default function MuestraTipo3Modal({ visible, onClose, onGuardar, valores
         >
           <View style={styles.modalContainer}>
             <View style={styles.header}>
-              <Text style={styles.titulo}>
-                {esEdicion ? 'Editar Muestra R4-R7' : 'Nueva Muestra R4-R7 (12 Datos)'}
-              </Text>
+              <Text style={styles.titulo}>{titulo}</Text>
               <TouchableOpacity 
                 onPress={handleCerrar} 
                 accessibilityRole="button" 
@@ -190,11 +227,7 @@ export default function MuestraTipo3Modal({ visible, onClose, onGuardar, valores
                 ) : (
                   <>
                     <TextInput
-                      style={[
-                        styles.input, 
-                        styles.coordsInput,
-                        esEdicion && styles.coordsInputDisabled
-                      ]}
+                      style={coordsInputStyle}
                       placeholder="Coordenadas GPS (lat, long)"
                       value={coordenada}
                       onChangeText={setCoordenada}
@@ -218,7 +251,6 @@ export default function MuestraTipo3Modal({ visible, onClose, onGuardar, valores
                 )}
               </View>
 
-              
               <Text style={styles.label}>Vainas en el suelo:</Text>
               <TextInput
                 style={styles.input}
@@ -252,7 +284,7 @@ export default function MuestraTipo3Modal({ visible, onClose, onGuardar, valores
               <Text style={styles.label}>Vainas Abiertas (Nudo 2):</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Ingrese dato 4"
+                placeholder="Vainas Abiertas (Nudo 2)"
                 value={dato_4}
                 onChangeText={setDato_4}
                 keyboardType="numeric"
@@ -348,13 +380,9 @@ export default function MuestraTipo3Modal({ visible, onClose, onGuardar, valores
                 </TouchableOpacity>
                 
                 <TouchableOpacity
-                  style={[
-                    styles.button, 
-                    styles.saveButton,
-                    !isFormValid() && styles.saveButtonDisabled
-                  ]}
+                  style={saveButtonStyle}
                   onPress={handleGuardar}
-                  disabled={!isFormValid()}
+                  disabled={!camposValidos}
                 >
                   <Text style={styles.saveButtonText}>Guardar</Text>
                 </TouchableOpacity>

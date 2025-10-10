@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,9 @@ import LoteItem from '../components/LoteItem';
 import EditarLoteModal from '../components/modals/EditarLoteModal';
 import { ErrorHandler } from '../utils/ErrorHandler';
 
+// ✅ Constantes fuera del componente
+const LOTE_ITEM_HEIGHT = 200; // Ajusta según tu LoteItem real
+
 export default function LotesScreen({ route, navigation }) {
   const { operacionId, roney_op } = route.params || {};
   const [lotes, setLotes] = useState([]);
@@ -20,6 +23,16 @@ export default function LotesScreen({ route, navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [loteSeleccionado, setLoteSeleccionado] = useState(null);
   const [cultivo, setCultivo] = useState('soja');
+
+  // ✅ Ref para verificar si el componente está montado
+  const isMountedRef = useRef(true);
+
+  // ✅ Cleanup al desmontar
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     console.log('🔧 LotesScreen: Inicializando...', { operacionId, roney_op });
@@ -36,79 +49,100 @@ export default function LotesScreen({ route, navigation }) {
     cargarLotes();
   }, [operacionId]);
 
-  // Escucha cambios cuando se regresa de otras pantallas
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      cargarLotes();
-    });
-    return unsubscribe;
-  }, [navigation]);
-
-  const cargarLotes = useCallback(async () => {
-    console.log('📂 LotesScreen: Cargando lotes...', operacionId);
-    try {
-      const data = await ErrorHandler.getStorageData(`lotes_${operacionId}`);
-      const lotesCargados = ErrorHandler.safeJsonParse(data, []);
-      const lotesValidados = ErrorHandler.sanitizeData(lotesCargados, 'lotes');
-      console.log('✅ LotesScreen: Lotes cargados:', lotesValidados.length);
-      setLotes(lotesValidados);
-    } catch (e) {
-      console.error('❌ LotesScreen: Error cargando lotes:', e);
-      ErrorHandler.handleError(e, 'Error de Carga', 'No se pudieron cargar los lotes');
-    }
-  }, [operacionId]);
-
+  // ✅ Cargar datos con verificación de montaje
   const cargarDatosOperacion = useCallback(async () => {
     try {
       const data = await AsyncStorage.getItem('operaciones');
       if (data) {
         const operaciones = JSON.parse(data);
         const operacionActual = operaciones.find(op => op.id === operacionId);
-        if (operacionActual) {
+        if (operacionActual && isMountedRef.current) {
           setCultivo(operacionActual.cultivo || 'soja');
         }
       }
     } catch (e) {
-      console.error('Error cargando datos de operación:', e);
+      if (isMountedRef.current) {
+        console.error('Error cargando datos de operación:', e);
+      }
     }
   }, [operacionId]);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await cargarLotes();
-    setRefreshing(false);
-  }, []);
+  // ✅ Cargar lotes con verificación de montaje
+  const cargarLotes = useCallback(async () => {
+    console.log('📂 LotesScreen: Cargando lotes...', operacionId);
+    try {
+      const data = await ErrorHandler.getStorageData(`lotes_${operacionId}`);
+      const lotesCargados = ErrorHandler.safeJsonParse(data, []);
+      const lotesValidados = ErrorHandler.sanitizeData(lotesCargados, 'lotes');
+      
+      console.log('✅ LotesScreen: Lotes cargados:', lotesValidados.length);
+      
+      if (isMountedRef.current) {
+        setLotes(lotesValidados);
+      }
+    } catch (e) {
+      console.error('❌ LotesScreen: Error cargando lotes:', e);
+      if (isMountedRef.current) {
+        ErrorHandler.handleError(e, 'Error de Carga', 'No se pudieron cargar los lotes');
+      }
+    }
+  }, [operacionId]);
 
-  const abrirModalEdicion = (lote) => {
+  // ✅ Listener con cleanup correcto
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (isMountedRef.current) {
+        cargarLotes();
+      }
+    });
+    return unsubscribe;
+  }, [navigation, cargarLotes]);
+
+  // ✅ onRefresh con verificación de montaje
+  const onRefresh = useCallback(async () => {
+    if (isMountedRef.current) {
+      setRefreshing(true);
+    }
+    await cargarLotes();
+    if (isMountedRef.current) {
+      setRefreshing(false);
+    }
+  }, [cargarLotes]);
+
+  const abrirModalEdicion = useCallback((lote) => {
     setLoteSeleccionado(lote);
     setModalVisible(true);
-  };
+  }, []);
 
-  const cerrarModal = () => {
+  const cerrarModal = useCallback(() => {
     setModalVisible(false);
     setLoteSeleccionado(null);
-  };
+  }, []);
 
-  const actualizarLote = async (loteActualizado) => {
+  const actualizarLote = useCallback(async (loteActualizado) => {
     try {
       const nuevosLotes = lotes.map(lote => 
         lote.id === loteActualizado.id ? loteActualizado : lote
       );
       await AsyncStorage.setItem(`lotes_${operacionId}`, JSON.stringify(nuevosLotes));
-      setLotes(nuevosLotes);
-      cerrarModal();
+      
+      if (isMountedRef.current) {
+        setLotes(nuevosLotes);
+        cerrarModal();
+      }
     } catch (e) {
-      Alert.alert('Error', 'No se pudo actualizar el lote');
+      if (isMountedRef.current) {
+        Alert.alert('Error', 'No se pudo actualizar el lote');
+      }
     }
-  };
+  }, [lotes, operacionId, cerrarModal]);
 
-  const eliminarLote = async (loteId) => {
+  const eliminarLote = useCallback(async (loteId) => {
     try {
-      // Obtener el lote a eliminar
       const loteAEliminar = lotes.find(l => l.id === loteId);
       if (!loteAEliminar) return;
 
-      // Liberar las muestras (cambiar su loteId a null)
+      // Liberar las muestras
       const muestrasData = await AsyncStorage.getItem(`muestras_${operacionId}`);
       if (muestrasData) {
         const muestras = JSON.parse(muestrasData);
@@ -124,17 +158,21 @@ export default function LotesScreen({ route, navigation }) {
       // Eliminar el lote
       const nuevosLotes = lotes.filter(lote => lote.id !== loteId);
       await AsyncStorage.setItem(`lotes_${operacionId}`, JSON.stringify(nuevosLotes));
-      setLotes(nuevosLotes);
-
-      Alert.alert('✓ Completado', 'Lote eliminado y muestras liberadas');
+      
+      if (isMountedRef.current) {
+        setLotes(nuevosLotes);
+        Alert.alert('✔ Completado', 'Lote eliminado y muestras liberadas');
+      }
     } catch (e) {
-      Alert.alert('Error', 'No se pudo eliminar el lote');
+      if (isMountedRef.current) {
+        Alert.alert('Error', 'No se pudo eliminar el lote');
+      }
     }
-  };
+  }, [lotes, operacionId]);
 
-  const liberarMuestra = async (loteId, muestraId) => {
+  const liberarMuestra = useCallback(async (loteId, muestraId) => {
     try {
-      // Actualizar la muestra para liberar su loteId
+      // Actualizar la muestra
       const muestrasData = await AsyncStorage.getItem(`muestras_${operacionId}`);
       if (muestrasData) {
         const muestras = JSON.parse(muestrasData);
@@ -147,12 +185,11 @@ export default function LotesScreen({ route, navigation }) {
         await AsyncStorage.setItem(`muestras_${operacionId}`, JSON.stringify(muestrasActualizadas));
       }
 
-      // Actualiza el lote removiendo la muestra de su lista
+      // Actualizar el lote
       const nuevosLotes = lotes.map(lote => {
         if (lote.id === loteId) {
           const nuevasMuestrasIds = lote.muestrasIds.filter(id => id !== muestraId);
           
-          // Recalcular daño real si hay muestras restantes
           let nuevoDañoReal = 0;
           if (nuevasMuestrasIds.length > 0 && muestrasData) {
             const muestras = JSON.parse(muestrasData);
@@ -167,76 +204,96 @@ export default function LotesScreen({ route, navigation }) {
           };
         }
         return lote;
-      }).filter(lote => lote.muestrasIds.length > 0); 
+      }).filter(lote => lote.muestrasIds.length > 0);
 
       await AsyncStorage.setItem(`lotes_${operacionId}`, JSON.stringify(nuevosLotes));
-      setLotes(nuevosLotes);
-
+      
+      if (isMountedRef.current) {
+        setLotes(nuevosLotes);
+      }
+      
       return true;
     } catch (e) {
-      Alert.alert('Error', 'No se pudo liberar la muestra');
+      if (isMountedRef.current) {
+        Alert.alert('Error', 'No se pudo liberar la muestra');
+      }
       return false;
     }
-  };
+  }, [lotes, operacionId]);
 
-  const navegarAMuestras = () => {
+  const navegarAMuestras = useCallback(() => {
     navigation.navigate('Muestras', { 
       operacionId, 
       roney_op 
     });
-  };
+  }, [navigation, operacionId, roney_op]);
 
-  const renderLote = ({ item }) => (
+  // ✅ Memoizar totalHectareas
+  const totalHectareas = useMemo(() => {
+    return lotes.reduce((sum, lote) => sum + lote.hectareas, 0);
+  }, [lotes]);
+
+  // ✅ Memoizar renderLote
+  const renderLote = useCallback(({ item }) => (
     <LoteItem
       lote={item}
       onPress={() => abrirModalEdicion(item)}
       onDelete={eliminarLote}
     />
-  );
+  ), [abrirModalEdicion, eliminarLote]);
 
-  const totalHectareas = lotes.reduce((sum, lote) => sum + lote.hectareas, 0);
+  // ✅ Memoizar keyExtractor
+  const keyExtractor = useCallback((item) => item.id, []);
+
+  // ✅ Memoizar getItemLayout
+  const getItemLayout = useCallback((data, index) => ({
+    length: LOTE_ITEM_HEIGHT,
+    offset: LOTE_ITEM_HEIGHT * index,
+    index,
+  }), []);
+
+  // ✅ Memoizar EmptyComponent
+  const EmptyComponent = useMemo(() => (
+    <View style={styles.emptyContainer}>
+      <Text style={styles.emptyIcon}>📦</Text>
+      <Text style={styles.emptyTitle}>No hay lotes creados</Text>
+      <Text style={styles.emptyText}>
+        Ve a la pantalla de muestras para crear tu primer lote
+      </Text>
+      <TouchableOpacity
+        style={styles.emptyButton}
+        onPress={navegarAMuestras}
+      >
+        <Text style={styles.emptyButtonText}>Ir a Muestras</Text>
+      </TouchableOpacity>
+    </View>
+  ), [navegarAMuestras]);
 
   return (
     <View style={styles.container}>
-      {/* <View style={styles.header}>
-        <Text style={styles.headerTitle}>Lotes - {roney_op}</Text>
-        <TouchableOpacity
-          style={styles.muestrasBtn}
-          onPress={navegarAMuestras}
-        >
-          <Text style={styles.btnText}>Ver Muestras</Text>
-        </TouchableOpacity>
-      </View> */}
-
       {lotes.length > 0 && (
         <View style={styles.statsContainer}>
-          {/* <Text style={styles.statsText}>📊 Total de lotes: {lotes.length}</Text> */}
           <Text style={styles.statsText}>🌾 Total hectáreas: {totalHectareas.toFixed(1)} ha</Text>
         </View>
       )}
 
       <FlatList
         data={lotes}
-        keyExtractor={(item) => item.id}
+        keyExtractor={keyExtractor}
         renderItem={renderLote}
+        getItemLayout={getItemLayout}
+        // ✅ Optimizaciones de performance
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={8}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={8}
+        windowSize={5}
+        // ✅ RefreshControl
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>📦</Text>
-            <Text style={styles.emptyTitle}>No hay lotes creados</Text>
-            <Text style={styles.emptyText}>
-              Ve a la pantalla de muestras para crear tu primer lote
-            </Text>
-            <TouchableOpacity
-              style={styles.emptyButton}
-              onPress={navegarAMuestras}
-            >
-              <Text style={styles.emptyButtonText}>Ir a Muestras</Text>
-            </TouchableOpacity>
-          </View>
-        }
+        // ✅ EmptyComponent memoizado
+        ListEmptyComponent={EmptyComponent}
       />
 
       <EditarLoteModal
@@ -257,32 +314,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-  },
-  header: {
-    backgroundColor: '#fff',
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    flex: 1,
-  },
-  muestrasBtn: {
-    backgroundColor: '#007bff',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  btnText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
   },
   statsContainer: {
     backgroundColor: '#fff',

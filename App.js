@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -27,8 +27,8 @@ import LotesScreen from './src/screens/LotesScreen';
 
 const Stack = createStackNavigator();
 
-// Componente para la aplicación principal (una vez activada)
-function MainApp() {
+// ✅ Componente MainApp memoizado
+const MainApp = React.memo(() => {
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Operaciones">
@@ -54,7 +54,9 @@ function MainApp() {
       </Stack.Navigator>
     </NavigationContainer>
   );
-}
+});
+
+MainApp.displayName = 'MainApp';
 
 export default function App() {
   const [isActivated, setIsActivated] = useState(false);
@@ -63,6 +65,7 @@ export default function App() {
   const [licenseKey, setLicenseKey] = useState('');
   const [validating, setValidating] = useState(false);
 
+  // ✅ Inicialización memoizada
   useEffect(() => {
     // Inicializar manejo de crashes
     CrashHandler.initialize();
@@ -73,7 +76,8 @@ export default function App() {
     checkActivation();
   }, []);
 
-  const checkActivation = async () => {
+  // ✅ checkActivation memoizado
+  const checkActivation = useCallback(async () => {
     try {
       const activated = await LicenseManager.isLicenseActivated();
       setIsActivated(activated);
@@ -86,16 +90,18 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const copyDeviceId = () => {
+  // ✅ copyDeviceId memoizado
+  const copyDeviceId = useCallback(() => {
     if (deviceInfo?.deviceId) {
       Clipboard.setString(deviceInfo.deviceId);
       Alert.alert('✓ Copiado', 'ID del dispositivo copiado al portapapeles');
     }
-  };
+  }, [deviceInfo?.deviceId]);
 
-  const handleActivation = async () => {
+  // ✅ handleActivation memoizado
+  const handleActivation = useCallback(async () => {
     if (!licenseKey.trim()) {
       Alert.alert('Error', 'Por favor ingresa la clave de licencia');
       return;
@@ -103,38 +109,66 @@ export default function App() {
 
     setValidating(true);
 
-    // Validar la clave
-    const isValid = await LicenseManager.validateLicenseKey(licenseKey);
-    
-    if (isValid) {
-      // Guardar que fue validada
-      await LicenseManager.saveLicenseValidation();
+    try {
+      // Validar la clave
+      const isValid = await LicenseManager.validateLicenseKey(licenseKey);
       
-      Alert.alert(
-        '🎉 ¡Activación Exitosa!',
-        'Tu aplicación ha sido activada correctamente',
-        [{ text: 'Continuar', onPress: () => setIsActivated(true) }]
-      );
-    } else {
-      Alert.alert(
-        '❌ Clave Inválida',
-        'La clave ingresada no es válida para este dispositivo. Verifica e intenta nuevamente.'
-      );
+      if (isValid) {
+        // Guardar que fue validada
+        await LicenseManager.saveLicenseValidation();
+        
+        Alert.alert(
+          '🎉 ¡Activación Exitosa!',
+          'Tu aplicación ha sido activada correctamente',
+          [{ text: 'Continuar', onPress: () => setIsActivated(true) }]
+        );
+      } else {
+        Alert.alert(
+          '❌ Clave Inválida',
+          'La clave ingresada no es válida para este dispositivo. Verifica e intenta nuevamente.'
+        );
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Ocurrió un error durante la validación');
+      console.error('Validation error:', error);
+    } finally {
+      setValidating(false);
     }
-    
-    setValidating(false);
-  };
+  }, [licenseKey]);
+
+  // ✅ handleDevReset memoizado (solo para desarrollo)
+  const handleDevReset = useCallback(async () => {
+    await LicenseManager.resetLicense();
+    setIsActivated(false);
+    setLicenseKey('');
+    Alert.alert('Licencia reseteada (solo dev)');
+  }, []);
+
+  // ✅ Componente de carga memoizado
+  const LoadingView = useMemo(() => (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0066cc" />
+        <Text style={styles.loadingText}>Verificando licencia...</Text>
+      </View>
+    </SafeAreaView>
+  ), []);
+
+  // ✅ Device info box memoizado
+  const DeviceInfoBox = useMemo(() => (
+    <View style={styles.deviceInfoBox}>
+      <Text style={styles.deviceInfoText}>
+        📱 {deviceInfo?.model}
+      </Text>
+      <Text style={styles.deviceInfoText}>
+        {deviceInfo?.platform === 'android' ? '🤖' : '🍎'} {deviceInfo?.platform}
+      </Text>
+    </View>
+  ), [deviceInfo?.model, deviceInfo?.platform]);
 
   // Loader de carga
   if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0066cc" />
-          <Text style={styles.loadingText}>Verificando licencia...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return LoadingView;
   }
 
   // Pantalla de activación
@@ -145,7 +179,10 @@ export default function App() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.flex}
         >
-          <ScrollView contentContainerStyle={styles.scrollContainer}>
+          <ScrollView 
+            contentContainerStyle={styles.scrollContainer}
+            keyboardShouldPersistTaps="handled"
+          >
             <View style={styles.activationContainer}>
               
               {/* Header */}
@@ -178,14 +215,7 @@ export default function App() {
                   <Text style={styles.copyButtonText}>📋 Copiar ID</Text>
                 </TouchableOpacity>
 
-                <View style={styles.deviceInfoBox}>
-                  <Text style={styles.deviceInfoText}>
-                    📱 {deviceInfo?.model}
-                  </Text>
-                  <Text style={styles.deviceInfoText}>
-                    {deviceInfo?.platform === 'android' ? '🤖' : '🍎'} {deviceInfo?.platform}
-                  </Text>
-                </View>
+                {DeviceInfoBox}
               </View>
 
               {/* Divider */}
@@ -240,11 +270,7 @@ export default function App() {
           {__DEV__ && (
             <TouchableOpacity 
               style={styles.devResetButton}
-              onPress={async () => {
-                await LicenseManager.resetLicense();
-                setIsActivated(false);
-                Alert.alert('Licencia reseteada (solo dev)');
-              }}
+              onPress={handleDevReset}
             >
               <Text style={styles.devResetText}>🔧 Reset License (DEV)</Text>
             </TouchableOpacity>
