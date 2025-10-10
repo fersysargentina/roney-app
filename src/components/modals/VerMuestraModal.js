@@ -10,7 +10,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { girasolDesfo } from '../../utils/tablas';
 
-// Configuración de labels por cultivo y tipo
 const LABELS_CONFIG = {
   soja: {
     '1': [ // V1-V5
@@ -418,7 +417,7 @@ const ESTADOS_NOMBRES = {
     '5': 'Pastoso duro (Z.85/89)',
     '6': 'Próx. a madurez (Z.90/99)'
   },
-  // Agregar más cultivos...
+  // Agregar maiz
 };
 
 export default function VerMuestraModal({ 
@@ -430,7 +429,6 @@ export default function VerMuestraModal({
 }) {
   if (!muestra) return null;
 
-  // Obtener los labels correspondientes
   const getLabels = () => {
     const cultivoConfig = LABELS_CONFIG[cultivo];
     if (!cultivoConfig) return [];
@@ -441,7 +439,6 @@ export default function VerMuestraModal({
     return tipoConfig;
   };
 
-  // Obtener el nombre del estado fenológico
   const getNombreEstado = () => {
     const cultivoEstados = ESTADOS_NOMBRES[cultivo];
     if (!cultivoEstados) return `Tipo ${tipoFenologico}`;
@@ -452,7 +449,6 @@ export default function VerMuestraModal({
   const labels = getLabels();
   const datos = muestra.datos || {};
 
-  // Función para renderizar cada campo de dato
   const renderDataField = (label, key, index) => {
     const value = datos[key];
     
@@ -524,7 +520,6 @@ export default function VerMuestraModal({
                 </View>
               </View>
 
-              {/* Coordenadas GPS */}
               {datos.coordenada && (
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>📍 Coordenadas GPS</Text>
@@ -535,7 +530,6 @@ export default function VerMuestraModal({
                 </View>
               )}
 
-              {/* Datos de la Muestra */}
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>📊 Datos de la Muestra</Text>
                 <View style={styles.dataContainer}>

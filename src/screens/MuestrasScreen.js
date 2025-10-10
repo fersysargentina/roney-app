@@ -370,15 +370,8 @@ export default function MuestrasScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.agrega} onPress={abrirModalSegunTipo}>
-          <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold' }}>+</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.lotesBtn}
-          onPress={() => navigation.navigate('Lotes', { operacionId, roney_op })}
-        >
-          <Text style={styles.btnText}>Lotes</Text>
-        </TouchableOpacity>
+      
+    
         <Picker
           selectedValue={fenologicoSeleccionado}
           style={styles.picker}
@@ -393,6 +386,16 @@ export default function MuestrasScreen({ route, navigation }) {
             />
           ))}
         </Picker>
+        <TouchableOpacity
+          style={styles.lotesBtn}
+          onPress={() => navigation.navigate('Lotes', { operacionId, roney_op })}
+        >
+          <Text style={styles.btnText}>Lotes</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.agrega} onPress={abrirModalSegunTipo}>
+          <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold' }}>+</Text>
+        </TouchableOpacity>
+   
       </View>
 
       <FlatList
@@ -400,7 +403,7 @@ export default function MuestrasScreen({ route, navigation }) {
         keyExtractor={(item) => item.id}
         renderItem={renderMuestra}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>No hay muestras disponibles del Tipo {tipoActual}</Text>
+          <Text style={styles.emptyText}>No hay muestras cargadas correspondientes al estado fenológico seleccionado</Text>
         }
       />
 
@@ -575,7 +578,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     flex: 1,
     minWidth: 140,
-    color: '#000'
+    color: '#000',
   },
   pickerItem: {
     color: '#000'
@@ -583,7 +586,7 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: 'center',
     marginTop: 50,
-    fontSize: 16,
+    fontSize: 18,
     color: '#999',
   },
   footer: {

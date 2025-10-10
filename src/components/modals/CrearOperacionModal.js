@@ -19,7 +19,6 @@ export default function CrearOperacionModal({
 
   const handleGuardar = () => {
     if (!roneyOp.trim() || !cultivo.trim()) {
-      // Validación simple
       return;
     }
     onGuardar(roneyOp, cultivo);
@@ -31,6 +30,18 @@ export default function CrearOperacionModal({
     setRoneyOp(valoresIniciales.roney_op || '');
     setCultivo(valoresIniciales.cultivo || '');
     onClose();
+  };
+
+  const camposCompletos = roneyOp.trim() && cultivo.trim();
+
+  const getNombreCultivo = (value) => {
+    const cultivos = {
+      'soja': 'Soja',
+      'maiz': 'Maíz',
+      'trigo': 'Trigo',
+      'girasol': 'Girasol'
+    };
+    return cultivos[value] || value;
   };
 
   return (
@@ -66,27 +77,50 @@ export default function CrearOperacionModal({
                 returnKeyType="next"
                 editable
               />
-              <View style={styles.input}>
-                <Picker
-                  selectedValue={cultivo}
-                  onValueChange={setCultivo}
-                  style={{ width: '100%', color: '#000' }}
-                >
-                  <Picker.Item label="Selecciona un cultivo..." value="" style={{ color: '#000' }} />
-                  <Picker.Item label="Soja" value="soja" style={{ color: '#000' }} />
-                  <Picker.Item label="Maíz" value="maiz" style={{ color: '#000' }} />
-                  <Picker.Item label="Trigo" value="trigo" style={{ color: '#000' }} />
-                  <Picker.Item label="Girasol" value="girasol" style={{ color: '#000' }} />
-                </Picker>
-              </View>
+              
+              {!modoEdicion ? (
+                <View style={styles.input}>
+                  <Picker
+                    selectedValue={cultivo}
+                    onValueChange={setCultivo}
+                    style={{ width: '100%', color: '#000' }}
+                  >
+                    <Picker.Item label="Selecciona un cultivo..." value="" style={{ color: '#000' }} />
+                    <Picker.Item label="Soja" value="soja" style={{ color: '#000' }} />
+                    <Picker.Item label="Maíz" value="maiz" style={{ color: '#000' }} />
+                    <Picker.Item label="Trigo" value="trigo" style={{ color: '#000' }} />
+                    <Picker.Item label="Girasol" value="girasol" style={{ color: '#000' }} />
+                  </Picker>
+                </View>
+              ) : (
+                <View style={[styles.input, styles.inputDisabled]}>
+                  <Text style={styles.cultivoTexto}>
+                    🌾 Cultivo: {getNombreCultivo(cultivo)}
+                  </Text>
+                </View>
+              )}
+
               <View style={styles.botones}>
-                <Button title="Cancelar" onPress={handleCerrar} color="#888" />
-                <Button
-                  title={modoEdicion ? 'Guardar Cambios' : 'Guardar'}
+                <TouchableOpacity 
+                  style={styles.cancelButton}
+                  onPress={handleCerrar}
+                >
+                  <Text style={styles.cancelButtonText}>Cancelar</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.saveButton,
+                    !camposCompletos && styles.saveButtonDisabled,
+                    camposCompletos && !modoEdicion && styles.saveButtonActive 
+                  ]}
                   onPress={handleGuardar}
-                  color="#007bff"
-                  disabled={!roneyOp.trim() || !cultivo.trim()}
-                />
+                  disabled={!camposCompletos}
+                >
+                  <Text style={styles.saveButtonText}>
+                    {modoEdicion ? 'Guardar Cambios' : 'Guardar'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </ScrollView>
           </View>
@@ -135,11 +169,51 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 14,
     fontSize: 16,
+    backgroundColor: '#fff',
+  },
+  inputDisabled: {
+    backgroundColor: '#f0f0f0',
+    borderColor: '#ddd',
+  },
+  cultivoTexto: {
+    fontSize: 16,
+    color: '#333',
+    padding: 2,
   },
   botones: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 10,
     gap: 10,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#6c757d',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  saveButton: {
+    flex: 1,
+    backgroundColor: '#007bff',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  saveButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  saveButtonActive: {
+    backgroundColor: '#28a745', 
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

@@ -39,7 +39,7 @@ export default function MuestraTipo2Modal({ visible, onClose, onGuardar, valores
   }, [visible]);
 
   const handleGuardar = () => {
-    // 1. Validar todos los 9 datos y la coordenada
+    // Valida todos los 9 datos y la coordenada
     if (
         !dato_1.trim() || 
         !dato_2.trim() || 
@@ -50,13 +50,13 @@ export default function MuestraTipo2Modal({ visible, onClose, onGuardar, valores
         !dato_7.trim() || 
         !dato_8.trim() || 
         !dato_9.trim() ||
-        !coordenada.trim() // Asegúrate de validar la coordenada también
+        !coordenada.trim() 
     ) {
         Alert.alert('Error', 'Todos los campos de datos y la coordenada son obligatorios');
         return;
     }
 
-    // 2. Empaquetar los 9 datos y la coordenada en un solo objeto
+    // Empaqueta los 9 datos y la coordenada en un solo objeto
     const datosMuestra = {
         dato_1: dato_1,
         dato_2: dato_2,
@@ -70,7 +70,7 @@ export default function MuestraTipo2Modal({ visible, onClose, onGuardar, valores
         coordenada: coordenada
     };
     
-    // 3. Llamada correcta, pasando UN SOLO OBJETO
+    // Llamada correcta, pasando UN SOLO OBJETO
     onGuardar(datosMuestra); 
     onClose(); // Cerrar el modal después de guardar
 };
@@ -89,8 +89,6 @@ const handleCerrar = () => {
   
   // Resetear la coordenada
   setCoordenada(valoresIniciales.coordenada || '');
-  
-  // Cerrar el modal
   onClose();
 };
 
@@ -110,7 +108,6 @@ const handleCerrar = () => {
         return;
       }
 
-      // Obtener ubicación actual
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
@@ -156,7 +153,6 @@ const handleCerrar = () => {
             </View>
             
             <ScrollView keyboardShouldPersistTaps="handled">
-              {/* Coordenadas GPS - PRIMERO para que se vea la carga */}
               <Text style={styles.label}>Coordenadas GPS:</Text>
               <View style={styles.gpsContainer}>
                 {loading ? (
@@ -175,7 +171,6 @@ const handleCerrar = () => {
                       editable={!esEdicion}
                     />
                     
-                    {/* Botón de actualizar GPS solo visible en creación */}
                     {!esEdicion && (
                       <TouchableOpacity
                         style={styles.gpsButton}
@@ -193,7 +188,6 @@ const handleCerrar = () => {
                 )}
               </View>
 
-              {/* Campos de datos */}
               <Text style={styles.label}>Pérdida en D:</Text>
               <TextInput
                 style={styles.input}
@@ -320,6 +314,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? 40 : 0, 
   },
   avoider: {
     width: '100%',

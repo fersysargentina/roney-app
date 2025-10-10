@@ -70,7 +70,7 @@ export default function MuestraGirasolModal({
   };
 
   const handleGuardar = () => {
-    // Validar que todos los 23 campos estén completos
+    // Valida que todos los 23 campos estén completos
     const allFieldsValid = DATOS_FIELDS.every(key => data[key].trim());
     
     if (!allFieldsValid) {
@@ -78,10 +78,8 @@ export default function MuestraGirasolModal({
       return;
     }
     
-    // Crear objeto completo con todos los datos
     const datosCompletos = { ...data, coordenada };
     
-    // Llamar a onGuardar pasando el objeto completo
     onGuardar(datosCompletos);
   };
 
@@ -122,9 +120,9 @@ export default function MuestraGirasolModal({
     setLoadingGPS(false);
   };
 
-  // Obtener el nombre del estado fenológico para el título
+  // Obtiene el nombre del estado fenológico para el título
   const getTituloEstado = () => {
-    // Mapear el valor del estado a su nombre legible
+    // Mapea el valor del estado a su nombre legible
     const estados = {
       '1': 'V1-V11',
       '2': 'V12-Vn',
@@ -141,7 +139,7 @@ export default function MuestraGirasolModal({
     return estados[estadoFenologico] || 'Trigo';
   };
 
-  // Renderizar los 23 inputs
+  // Renderiza los 6 inputs
   const renderDataInputs = () => {
     return DATOS_FIELDS.map((key, index) => {
       const labelText = LABELS[index];
@@ -195,7 +193,6 @@ export default function MuestraGirasolModal({
             </View>
             
             <ScrollView keyboardShouldPersistTaps="handled">
-              {/* Coordenadas GPS */}
               <Text style={styles.label}>Coordenadas GPS:</Text>
               <View style={styles.gpsContainer}>
                 {loading ? (
@@ -231,7 +228,6 @@ export default function MuestraGirasolModal({
                 )}
               </View>
 
-              {/* Campos de datos dinámicos */}
               {renderDataInputs()}
               
               <View style={styles.botones}>

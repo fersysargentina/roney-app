@@ -10,7 +10,7 @@ import {
 export default function MuestraItem({ item, isSelected, onOpenModal, onToggleSelect, onDelete, isInLote = false }) {
   const formatPorcentaje = (n) => {
     const num = Number(n) || 0;
-    const trunc = Math.trunc(num * 10) / 10; // sin redondeo, truncado a 1 decimal
+    const trunc = Math.trunc(num * 10) / 10; 
     return trunc.toFixed(1).replace('.', ',');
   };
   
@@ -91,7 +91,6 @@ export default function MuestraItem({ item, isSelected, onOpenModal, onToggleSel
       </View>
 
       <View style={styles.content}>
-        {/* Mostrar porcentaje de daño */}
         <View style={styles.dañoContainer}>
           <View style={styles.headerLeft}>
             <Text style={styles.nombre}>{item.nombre}</Text>
@@ -115,14 +114,12 @@ export default function MuestraItem({ item, isSelected, onOpenModal, onToggleSel
         </View>
       </View>
 
-      {/* Indicador de selección */}
       {isSelected && !isInLote && (
         <View style={styles.selectionIndicator}>
           <Text style={styles.selectionText}>✓ SELECCIONADA</Text>
         </View>
       )}
 
-      {/* Mensaje para muestras en lote */}
       {isInLote && (
         <View style={styles.loteMessage}>
           <Text style={styles.loteMessageText}>

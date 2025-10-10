@@ -16,8 +16,8 @@ import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function MuestraTipo3Modal({ visible, onClose, onGuardar, valoresIniciales = {}, esEdicion = false }) {
-  // 1. DEFINICIÓN DE ESTADOS LOCALES (12 DATOS + GPS)
-  // Datos 1 al 4 existentes (usamos nombres descriptivos como sugerencia)
+  // DEFINICIÓN DE ESTADOS LOCALES (12 DATOS + GPS)
+  // Datos 1 al 4 existentes 
   const [dato_1, setDato_1] = useState(valoresIniciales.dato_1 || ''); // Vainas en el suelo
   const [dato_2, setDato_2] = useState(valoresIniciales.dato_2 || ''); // Vainas Abiertas 1
   const [dato_3, setDato_3] = useState(valoresIniciales.dato_3 || ''); // Vainas Sanas 1
@@ -37,7 +37,7 @@ export default function MuestraTipo3Modal({ visible, onClose, onGuardar, valores
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [loading] = useState(false);
 
-  // 2. ACTUALIZACIÓN DE ESTADOS AL CAMBIAR valoresIniciales
+  // ACTUALIZACIÓN DE ESTADOS AL CAMBIAR valoresIniciales
   useEffect(() => {
     setDato_1(valoresIniciales.dato_1 || '');
     setDato_2(valoresIniciales.dato_2 || '');
@@ -60,9 +60,9 @@ export default function MuestraTipo3Modal({ visible, onClose, onGuardar, valores
     }
   }, [visible]);
 
-  // 3. HANDLE GUARDAR (ADAPTADO A OBJETO)
+  // HANDLE GUARDAR (ADAPTADO A OBJETO)
   const handleGuardar = () => {
-    // Validar los 12 campos y la coordenada
+    // Valida los 12 campos y la coordenada
     if (
         !dato_1.trim() || !dato_2.trim() || !dato_3.trim() || !dato_4.trim() ||
         !dato_5.trim() || !dato_6.trim() || !dato_7.trim() || !dato_8.trim() ||
@@ -73,7 +73,7 @@ export default function MuestraTipo3Modal({ visible, onClose, onGuardar, valores
       return;
     }
 
-    // Empaquetar todos los 12 datos y la coordenada en un objeto
+    // Empaqueta todos los 12 datos y la coordenada en un objeto
     const datosMuestra = {
         dato_1: dato_1,
         dato_2: dato_2,
@@ -90,13 +90,11 @@ export default function MuestraTipo3Modal({ visible, onClose, onGuardar, valores
         coordenada: coordenada
     };
 
-    onGuardar(datosMuestra); // Llamar con el objeto
+    onGuardar(datosMuestra);
     onClose();
   };
 
-  // 4. HANDLE CERRAR (ADAPTADO A 12 DATOS)
   const handleCerrar = () => {
-    // Resetear los 12 estados
     setDato_1(valoresIniciales.dato_1 || '');
     setDato_2(valoresIniciales.dato_2 || '');
     setDato_3(valoresIniciales.dato_3 || '');
@@ -130,7 +128,6 @@ export default function MuestraTipo3Modal({ visible, onClose, onGuardar, valores
         return;
       }
 
-      // Obtener ubicación actual
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
@@ -186,7 +183,6 @@ export default function MuestraTipo3Modal({ visible, onClose, onGuardar, valores
             </View>
             
             <ScrollView keyboardShouldPersistTaps="handled">
-              {/* Coordenadas GPS */}
               <Text style={styles.label}>Coordenadas GPS:</Text>
               <View style={styles.gpsContainer}>
                 {loading ? (
@@ -205,7 +201,6 @@ export default function MuestraTipo3Modal({ visible, onClose, onGuardar, valores
                       editable={!esEdicion}
                     />
                     
-                    {/* Botón de actualizar GPS solo visible en creación */}
                     {!esEdicion && (
                       <TouchableOpacity
                         style={styles.gpsButton}
@@ -223,7 +218,6 @@ export default function MuestraTipo3Modal({ visible, onClose, onGuardar, valores
                 )}
               </View>
 
-              {/* Campos de datos (12 en total) */}
               
               <Text style={styles.label}>Vainas en el suelo:</Text>
               <TextInput
@@ -390,7 +384,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 24,
     elevation: 5,
-    maxHeight: '90%', // Ajustado para que quepa mejor en pantalla con muchos campos
+    maxHeight: '90%', 
   },
   header: {
     flexDirection: 'row',

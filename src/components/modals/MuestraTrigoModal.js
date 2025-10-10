@@ -20,7 +20,6 @@ import { Ionicons } from '@expo/vector-icons';
 const DATOS_COUNT = 23;
 const DATOS_FIELDS = Array.from({ length: DATOS_COUNT }, (_, i) => `dato_${i + 1}`);
 
-// Etiquetas específicas para trigo (ajusta según tus necesidades)
 const LABELS = [
   'Pérdidas en D',  // dato_1
   'Colgadas en D',  // dato_2
@@ -70,13 +69,12 @@ export default function MuestraTrigoModal({
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Sincronizar estado al cambiar valoresIniciales
+  // Sincroniza estado al cambiar valoresIniciales
   useEffect(() => {
     setData(initializeDataState(valoresIniciales));
     setCoordenada(valoresIniciales.coordenada || '');
   }, [valoresIniciales]);
 
-  // Obtener GPS solo en creación
   useEffect(() => {
     if (!esEdicion && visible && !valoresIniciales.coordenada) {
       actualizarCoordenada();
@@ -89,7 +87,7 @@ export default function MuestraTrigoModal({
   };
 
   const handleGuardar = () => {
-    // Validar que todos los 23 campos estén completos
+    // Valida que todos los 23 campos estén completos
     const allFieldsValid = DATOS_FIELDS.every(key => data[key].trim());
     
     if (!allFieldsValid) {
@@ -97,10 +95,10 @@ export default function MuestraTrigoModal({
       return;
     }
     
-    // Crear objeto completo con todos los datos
+    // Crea objeto completo con todos los datos
     const datosCompletos = { ...data, coordenada };
     
-    // Llamar a onGuardar pasando el objeto completo
+    // Llama a onGuardar pasando el objeto completo
     onGuardar(datosCompletos);
   };
 
@@ -141,9 +139,7 @@ export default function MuestraTrigoModal({
     setLoadingGPS(false);
   };
 
-  // Obtener el nombre del estado fenológico para el título
   const getTituloEstado = () => {
-    // Mapear el valor del estado a su nombre legible
     const estados = {
       '1': 'Espigamiento (Z.50/59)',
       '2': 'Floración (Z.60/69)',
@@ -155,7 +151,6 @@ export default function MuestraTrigoModal({
     return estados[estadoFenologico] || 'Trigo';
   };
 
-  // Renderizar los 23 inputs
   const renderDataInputs = () => {
     return DATOS_FIELDS.map((key, index) => {
       const labelText = LABELS[index];
@@ -212,7 +207,6 @@ export default function MuestraTrigoModal({
             </View>
             
             <ScrollView keyboardShouldPersistTaps="handled">
-              {/* Coordenadas GPS */}
               <Text style={styles.label}>Coordenadas GPS:</Text>
               <View style={styles.gpsContainer}>
                 {loading ? (
@@ -248,7 +242,6 @@ export default function MuestraTrigoModal({
                 )}
               </View>
 
-              {/* Campos de datos dinámicos */}
               {renderDataInputs()}
               
               <View style={styles.botones}>
@@ -281,7 +274,7 @@ export default function MuestraTrigoModal({
 }
 
 const styles = StyleSheet.create({
-  safeArea: { // ✅ Nuevo estilo
+  safeArea: { 
     flex: 1,
   },
   overlay: {
@@ -290,7 +283,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 40 : 0, // ✅ Padding extra para Android
+    paddingTop: Platform.OS === 'android' ? 40 : 0, 
   },
   avoider: {
     width: '100%',

@@ -84,7 +84,7 @@ export default function CerrarLoteModal({
     return sumaDaños / muestrasSeleccionadas.length;
   }, [muestrasSeleccionadas]);
 
-  // Función para obtener el display del fenológico (igual que en EditarLoteModal)
+  // Función para obtener el display del fenológico
   const getFenologicoDisplay = () => {
     return tipoFenologicoLabel || tipoFenologicoSeleccionado || '-';
   };
@@ -115,7 +115,7 @@ export default function CerrarLoteModal({
                   📊 Muestras seleccionadas: {muestrasSeleccionadas.length}
                 </Text>
                 <Text style={styles.infoText}>
-                  🧬 Tipo fenológico: {getFenologicoDisplay()}
+                  🧬 Estado fenológico: {getFenologicoDisplay()}
                 </Text>
                 {muestrasSeleccionadas.length === 0 && (
                   <Text style={styles.warningText}>

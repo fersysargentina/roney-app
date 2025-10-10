@@ -36,7 +36,7 @@ export default function LotesScreen({ route, navigation }) {
     cargarLotes();
   }, [operacionId]);
 
-  // Escuchar cambios cuando se regrese de otras pantallas
+  // Escucha cambios cuando se regresa de otras pantallas
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       cargarLotes();
@@ -147,7 +147,7 @@ export default function LotesScreen({ route, navigation }) {
         await AsyncStorage.setItem(`muestras_${operacionId}`, JSON.stringify(muestrasActualizadas));
       }
 
-      // Actualizar el lote removiendo la muestra de su lista
+      // Actualiza el lote removiendo la muestra de su lista
       const nuevosLotes = lotes.map(lote => {
         if (lote.id === loteId) {
           const nuevasMuestrasIds = lote.muestrasIds.filter(id => id !== muestraId);
@@ -167,7 +167,7 @@ export default function LotesScreen({ route, navigation }) {
           };
         }
         return lote;
-      }).filter(lote => lote.muestrasIds.length > 0); // Eliminar lotes sin muestras
+      }).filter(lote => lote.muestrasIds.length > 0); 
 
       await AsyncStorage.setItem(`lotes_${operacionId}`, JSON.stringify(nuevosLotes));
       setLotes(nuevosLotes);

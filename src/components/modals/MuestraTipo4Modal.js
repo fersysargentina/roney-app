@@ -10,7 +10,9 @@ import {
   Platform, 
   ScrollView,
   ActivityIndicator,
-  Alert
+  Alert,
+  SafeAreaView
+
 } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,7 +41,7 @@ export default function MuestraTipo4Modal({
   esEdicion = false 
 }) {
   
-  // Función para inicializar el estado de los datos (dato_1 a dato_21)
+  //Inicializa el estado de los datos (dato_1 a dato_21)
   const initializeDataState = (initialValues) => {
     return DATOS_FIELDS.reduce((acc, key) => {
       acc[key] = initialValues[key] || '';
@@ -52,26 +54,26 @@ export default function MuestraTipo4Modal({
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Sincronizar estado al cambiar valoresIniciales (para edición/reset)
+  // Sincroniza estado al cambiar valoresIniciales (para edición/reset)
   useEffect(() => {
     setData(initializeDataState(valoresIniciales));
     setCoordenada(valoresIniciales.coordenada || '');
   }, [valoresIniciales]);
 
-  // Obtener GPS solo en creación y si es visible
+  // Obtiene GPS solo en creación y si es visible
   useEffect(() => {
     if (!esEdicion && visible && !valoresIniciales.coordenada) {
       actualizarCoordenada();
     }
   }, [visible, esEdicion]);
 
-  // Función para actualizar un campo específico del estado 'data'
+  // Actualiza un campo específico del estado 'data'
   const handleDataChange = (key, text) => {
     setData(prev => ({ ...prev, [key]: text }));
   };
 
   const handleGuardar = () => {
-    // 1. Validar que todos los 21 campos de datos no estén vacíos
+    // Valida que todos los 21 campos de datos no estén vacíos
     const allFieldsValid = DATOS_FIELDS.every(key => data[key].trim());
     
     if (!allFieldsValid) {
@@ -79,15 +81,12 @@ export default function MuestraTipo4Modal({
       return;
     }
     
-    // 2. CREAR UN ÚNICO OBJETO DE DATOS que incluye los 21 campos y la coordenada
+    // CREAA UN ÚNICO OBJETO DE DATOS que incluye los 21 campos y la coordenada
     const datosCompletos = { ...data, coordenada };
-    
-    // 3. LLAMAR A onGuardar pasando el OBJETO COMPLETO
     onGuardar(datosCompletos);
   };
 
   const handleCerrar = () => {
-    // Resetear el estado basado en valoresIniciales
     setData(initializeDataState(valoresIniciales));
     setCoordenada(valoresIniciales.coordenada || '');
     onClose();
@@ -124,11 +123,10 @@ export default function MuestraTipo4Modal({
     setLoadingGPS(false);
   };
 
-  // --- RENDERIZACIÓN DE LOS 21 INPUTS ---
   const renderDataInputs = () => {
     return DATOS_FIELDS.map((key, index) => {
       const labelText = LABELS[index];
-      const placeholderText = LABELS[index]; // Placeholder sin los dos puntos
+      const placeholderText = LABELS[index]; 
 
       return (
         <React.Fragment key={key}>
@@ -157,6 +155,8 @@ export default function MuestraTipo4Modal({
       statusBarTranslucent
       onRequestClose={handleCerrar}
     >
+      <SafeAreaView style={styles.safeArea}>
+
       <View style={styles.overlay}>
         <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
@@ -177,7 +177,6 @@ export default function MuestraTipo4Modal({
             </View>
             
             <ScrollView keyboardShouldPersistTaps="handled">
-              {/* Coordenadas GPS */}
               <Text style={styles.label}>Coordenadas GPS:</Text>
               <View style={styles.gpsContainer}>
                 {loading ? (
@@ -196,7 +195,6 @@ export default function MuestraTipo4Modal({
                       editable={!esEdicion}
                     />
                     
-                    {/* Botón de actualizar GPS solo visible en creación */}
                     {!esEdicion && (
                       <TouchableOpacity
                         style={styles.gpsButton}
@@ -214,7 +212,6 @@ export default function MuestraTipo4Modal({
                 )}
               </View>
 
-              {/* Campos de datos generados dinámicamente */}
               {renderDataInputs()}
               
               <View style={styles.botones}>
@@ -241,17 +238,22 @@ export default function MuestraTipo4Modal({
           </View>
         </KeyboardAvoidingView>
       </View>
+      </SafeAreaView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: { 
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? 40 : 0, 
   },
   avoider: {
     width: '100%',

@@ -69,13 +69,13 @@ export default function MuestraMaizModal({
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Sincronizar estado al cambiar valoresIniciales
+  // Sincroniza estado al cambiar valoresIniciales
   useEffect(() => {
     setData(initializeDataState(valoresIniciales));
     setCoordenada(valoresIniciales.coordenada || '');
   }, [valoresIniciales]);
 
-  // Obtener GPS solo en creación
+  // Obtiene GPS solo en creación
   useEffect(() => {
     if (!esEdicion && visible && !valoresIniciales.coordenada) {
       actualizarCoordenada();

@@ -59,7 +59,7 @@ export default function MuestraTipo1Modal({
         return;
       }
 
-      // Obtener ubicación actual
+      // Obtiene ubicación actual
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
@@ -82,7 +82,6 @@ export default function MuestraTipo1Modal({
       return;
     }
     
-    // 💡 SOLUCIÓN: Empaquetar todos los datos en un objeto antes de guardar
     const datosMuestra = {
       dato_1: dato_1,
       dato_2: dato_2,
@@ -91,8 +90,8 @@ export default function MuestraTipo1Modal({
       coordenada: coordenada
     };
     
-    onGuardar(datosMuestra); // <-- Llamada correcta, pasando UN SOLO OBJETO
-    onClose(); // Llama a onClose aquí para cerrar el modal después de guardar
+    onGuardar(datosMuestra); 
+    onClose(); // Cierra el modal después de guardar
 };
 
 const handleCerrar = () => {
@@ -133,7 +132,6 @@ const handleCerrar = () => {
             </View>
             
             <ScrollView keyboardShouldPersistTaps="handled">
-              {/* Coordenadas GPS - PRIMERO para que se vea la carga */}
               <Text style={styles.label}>Coordenadas GPS:</Text>
               <View style={styles.gpsContainer}>
                 {loading ? (
@@ -152,7 +150,6 @@ const handleCerrar = () => {
                       editable={!esEdicion}
                     />
                     
-                    {/* Botón de actualizar GPS solo visible en creación */}
                     {!esEdicion && (
                       <TouchableOpacity
                         style={styles.gpsButton}
@@ -170,7 +167,6 @@ const handleCerrar = () => {
                 )}
               </View>
 
-              {/* Campos de datos */}
               <Text style={styles.label}>Pérdida en D:</Text>
               <TextInput
                 style={styles.input}

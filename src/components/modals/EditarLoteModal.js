@@ -19,7 +19,7 @@ export default function EditarLoteModal({
   visible, 
   lote, 
   operacionId,
-  cultivo = 'soja', // <-- AGREGAR EL CULTIVO COMO PROP
+  cultivo = 'soja', 
   onClose, 
   onActualizar,
   onLiberarMuestra,
@@ -134,13 +134,13 @@ export default function EditarLoteModal({
     );
   };
 
-  // NUEVO: Función para abrir el modal de ver muestra
+  //Función para abrir el modal de ver muestra
   const handleVerMuestra = (muestra) => {
     setMuestraSeleccionada(muestra);
     setVerMuestraModalVisible(true);
   };
 
-  // NUEVO: Función para cerrar el modal de ver muestra
+  // Función para cerrar el modal de ver muestra
   const handleCerrarVerMuestra = () => {
     setVerMuestraModalVisible(false);
     setMuestraSeleccionada(null);
@@ -156,7 +156,6 @@ export default function EditarLoteModal({
 
   const renderMuestra = ({ item }) => (
     <View style={styles.muestraItem}>
-      {/* MODIFICADO: Hacer que toda la info sea clickeable */}
       <TouchableOpacity 
         style={styles.muestraInfo}
         onPress={() => handleVerMuestra(item)}
@@ -166,20 +165,20 @@ export default function EditarLoteModal({
           <Text style={styles.muestraNombre}>{item.nombre}</Text>
           <Text style={styles.verDetalleText}>👁️ Ver</Text>
         </View>
-        <Text style={styles.muestraDetalles}>
-          Tipo {item.tipo} • {item.fecha}
-        </Text>
+        {/* <Text style={styles.muestraDetalles}>
+          {/* Tipo {item.tipo} • {item.fecha} 
+        </Text> */}
         <Text style={styles.muestraDaño}>
           Daño: {item.datos.porcentajeDaño || 0}%
         </Text>
       </TouchableOpacity>
       
-      <TouchableOpacity
+      {/* <TouchableOpacity
         style={styles.liberarButton}
         onPress={() => handleLiberarMuestra(item.id)}
       >
         <Text style={styles.liberarButtonText}>↩️</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
     </View>
   );
 
@@ -309,7 +308,6 @@ export default function EditarLoteModal({
         </View>
       </KeyboardAvoidingView>
 
-      {/* NUEVO: Modal de ver muestra (modal dentro del modal) */}
       <VerMuestraModal
         visible={verMuestraModalVisible}
         onClose={handleCerrarVerMuestra}
@@ -453,7 +451,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   muestraDaño: {
-    fontSize: 12,
+    fontSize: 16,
     color: '#dc3545',
     fontWeight: '600',
   },
