@@ -137,6 +137,38 @@ export default function MuestrasScreen({ route, navigation }) {
     }
   }, [operacionId]);
 
+  // ✅ Recalcular daño cuando cambia fenológico
+const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = null) => {
+  try {
+    const fenologicoParaCalculo = fenologicoParam ?? fenologicoSeleccionado;
+    const tipoMapeado = mapSeleccionToTipo(fenologicoParaCalculo);
+    
+    const muestrasActualizadas = muestras.map(muestra => {
+      // Solo recalcular muestras del tipo fenológico actual y que no estén en lotes
+      if (muestra.tipo === tipoMapeado && !muestra.loteId) {
+        const nuevoPorcentajeDaño = calculoDeDaño(
+          muestra.datos,
+          fenologicoParaCalculo,
+          cultivo
+        );
+        
+        return {
+          ...muestra,
+          datos: {
+            ...muestra.datos,
+            porcentajeDaño: nuevoPorcentajeDaño
+          }
+        };
+      }
+      return muestra;
+    });
+
+    await guardarMuestras(muestrasActualizadas);
+  } catch (e) {
+    console.error('Error recalculando daño:', e);
+  }
+}, [muestras, fenologicoSeleccionado, cultivo, mapSeleccionToTipo, guardarMuestras]);
+
   // ✅ Funciones de modal memoizadas
   const abrirModalSegunTipo = useCallback(() => {
     setMuestraEnEdicion(null);
@@ -195,7 +227,8 @@ export default function MuestrasScreen({ route, navigation }) {
   const handleCambioFenologico = useCallback(async (nuevoFenologico) => {
     setFenologicoSeleccionado(nuevoFenologico);
     setMuestrasSeleccionadas(new Set());
-  }, []);
+    await recalcularDañoMuestrasActuales(nuevoFenologico);
+  }, [recalcularDañoMuestrasActuales]);
 
   // ✅ Borrar muestra memoizado
   const borrarMuestra = useCallback((id) => {
