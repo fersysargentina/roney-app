@@ -14,6 +14,9 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
+import { DraftService } from '../../services/DraftService';
+
+const DRAFT_KEY = 'muestra_tipo3_draft';
 
 export default function MuestraTipo3Modal({ 
   visible, 
@@ -23,72 +26,116 @@ export default function MuestraTipo3Modal({
   esEdicion = false 
 }) {
   // DEFINICIÓN DE ESTADOS LOCALES (12 DATOS + GPS)
-  const [dato_1, setDato_1] = useState(valoresIniciales.dato_1 || ''); // Vainas en el suelo
-  const [dato_2, setDato_2] = useState(valoresIniciales.dato_2 || ''); // Vainas Abiertas 1
-  const [dato_3, setDato_3] = useState(valoresIniciales.dato_3 || ''); // Vainas Sanas 1
-  const [dato_4, setDato_4] = useState(valoresIniciales.dato_4 || ''); // Vainas Abiertas 2
-  const [dato_5, setDato_5] = useState(valoresIniciales.dato_5 || ''); // Vainas Sanas 2
-  const [dato_6, setDato_6] = useState(valoresIniciales.dato_6 || ''); // Vainas Abiertas 3
-  const [dato_7, setDato_7] = useState(valoresIniciales.dato_7 || ''); // Vainas Sanas 3
-  const [dato_8, setDato_8] = useState(valoresIniciales.dato_8 || ''); // Vainas Abiertas 4
-  const [dato_9, setDato_9] = useState(valoresIniciales.dato_9 || ''); // Vainas Sanas 4
-  const [dato_10, setDato_10] = useState(valoresIniciales.dato_10 || ''); // Vainas Abiertas 5
-  const [dato_11, setDato_11] = useState(valoresIniciales.dato_11 || ''); // Vainas Sanas 5
-  const [dato_12, setDato_12] = useState(valoresIniciales.dato_12 || ''); // Defoliación
+  const [dato_1, setDato_1] = useState(valoresIniciales.dato_1 || '');
+  const [dato_2, setDato_2] = useState(valoresIniciales.dato_2 || '');
+  const [dato_3, setDato_3] = useState(valoresIniciales.dato_3 || '');
+  const [dato_4, setDato_4] = useState(valoresIniciales.dato_4 || '');
+  const [dato_5, setDato_5] = useState(valoresIniciales.dato_5 || '');
+  const [dato_6, setDato_6] = useState(valoresIniciales.dato_6 || '');
+  const [dato_7, setDato_7] = useState(valoresIniciales.dato_7 || '');
+  const [dato_8, setDato_8] = useState(valoresIniciales.dato_8 || '');
+  const [dato_9, setDato_9] = useState(valoresIniciales.dato_9 || '');
+  const [dato_10, setDato_10] = useState(valoresIniciales.dato_10 || '');
+  const [dato_11, setDato_11] = useState(valoresIniciales.dato_11 || '');
+  const [dato_12, setDato_12] = useState(valoresIniciales.dato_12 || '');
   const [coordenada, setCoordenada] = useState(valoresIniciales.coordenada || '');
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [loading] = useState(false);
 
-  // ✅ Ref para verificar si está montado
   const isMountedRef = useRef(true);
 
-  // ✅ Cleanup al desmontar
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
     };
   }, []);
 
-  // ✅ Actualizar valores iniciales con verificación de montaje
   useEffect(() => {
     if (visible) {
-      setDato_1(valoresIniciales.dato_1 || '');
-      setDato_2(valoresIniciales.dato_2 || '');
-      setDato_3(valoresIniciales.dato_3 || '');
-      setDato_4(valoresIniciales.dato_4 || '');
-      setDato_5(valoresIniciales.dato_5 || '');
-      setDato_6(valoresIniciales.dato_6 || '');
-      setDato_7(valoresIniciales.dato_7 || '');
-      setDato_8(valoresIniciales.dato_8 || '');
-      setDato_9(valoresIniciales.dato_9 || '');
-      setDato_10(valoresIniciales.dato_10 || '');
-      setDato_11(valoresIniciales.dato_11 || '');
-      setDato_12(valoresIniciales.dato_12 || '');
-      setCoordenada(valoresIniciales.coordenada || '');
+      if (!esEdicion) {
+        DraftService.getDraft(DRAFT_KEY).then(draft => {
+          if (draft && isMountedRef.current) {
+            setDato_1(draft.dato_1 || valoresIniciales.dato_1 || '');
+            setDato_2(draft.dato_2 || valoresIniciales.dato_2 || '');
+            setDato_3(draft.dato_3 || valoresIniciales.dato_3 || '');
+            setDato_4(draft.dato_4 || valoresIniciales.dato_4 || '');
+            setDato_5(draft.dato_5 || valoresIniciales.dato_5 || '');
+            setDato_6(draft.dato_6 || valoresIniciales.dato_6 || '');
+            setDato_7(draft.dato_7 || valoresIniciales.dato_7 || '');
+            setDato_8(draft.dato_8 || valoresIniciales.dato_8 || '');
+            setDato_9(draft.dato_9 || valoresIniciales.dato_9 || '');
+            setDato_10(draft.dato_10 || valoresIniciales.dato_10 || '');
+            setDato_11(draft.dato_11 || valoresIniciales.dato_11 || '');
+            setDato_12(draft.dato_12 || valoresIniciales.dato_12 || '');
+            setCoordenada(draft.coordenada || valoresIniciales.coordenada || '');
+            return;
+          }
+          if (isMountedRef.current) {
+            setDato_1(valoresIniciales.dato_1 || '');
+            setDato_2(valoresIniciales.dato_2 || '');
+            setDato_3(valoresIniciales.dato_3 || '');
+            setDato_4(valoresIniciales.dato_4 || '');
+            setDato_5(valoresIniciales.dato_5 || '');
+            setDato_6(valoresIniciales.dato_6 || '');
+            setDato_7(valoresIniciales.dato_7 || '');
+            setDato_8(valoresIniciales.dato_8 || '');
+            setDato_9(valoresIniciales.dato_9 || '');
+            setDato_10(valoresIniciales.dato_10 || '');
+            setDato_11(valoresIniciales.dato_11 || '');
+            setDato_12(valoresIniciales.dato_12 || '');
+            setCoordenada(valoresIniciales.coordenada || '');
+          }
+        });
+      } else {
+        setDato_1(valoresIniciales.dato_1 || '');
+        setDato_2(valoresIniciales.dato_2 || '');
+        setDato_3(valoresIniciales.dato_3 || '');
+        setDato_4(valoresIniciales.dato_4 || '');
+        setDato_5(valoresIniciales.dato_5 || '');
+        setDato_6(valoresIniciales.dato_6 || '');
+        setDato_7(valoresIniciales.dato_7 || '');
+        setDato_8(valoresIniciales.dato_8 || '');
+        setDato_9(valoresIniciales.dato_9 || '');
+        setDato_10(valoresIniciales.dato_10 || '');
+        setDato_11(valoresIniciales.dato_11 || '');
+        setDato_12(valoresIniciales.dato_12 || '');
+        setCoordenada(valoresIniciales.coordenada || '');
+      }
     }
-  }, [visible, valoresIniciales]);
+  }, [visible, valoresIniciales, esEdicion]);
 
-  // ✅ Auto-obtener coordenadas en modo creación
+  useEffect(() => {
+    if (visible && !esEdicion) {
+      DraftService.saveDraft(DRAFT_KEY, { dato_1, dato_2, dato_3, dato_4, dato_5, dato_6, dato_7, dato_8, dato_9, dato_10, dato_11, dato_12, coordenada });
+    }
+  }, [visible, esEdicion, dato_1, dato_2, dato_3, dato_4, dato_5, dato_6, dato_7, dato_8, dato_9, dato_10, dato_11, dato_12, coordenada]);
+
+  const visibleRef = useRef(visible);
+  useEffect(() => {
+    visibleRef.current = visible;
+  }, [visible]);
+
   useEffect(() => {
     if (!esEdicion && visible && !valoresIniciales.coordenada) {
       actualizarCoordenada();
     }
   }, [visible, esEdicion, valoresIniciales.coordenada]);
 
-  // ✅ Actualizar coordenada memoizada
   const actualizarCoordenada = useCallback(async () => {
-    if (esEdicion) return;
+    if (esEdicion || !visibleRef.current) return;
     
-    if (isMountedRef.current) {
+    if (isMountedRef.current && visibleRef.current) {
       setLoadingGPS(true);
     }
 
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       
+      if (!isMountedRef.current || !visibleRef.current) return;
+
       if (status !== 'granted') {
-        Alert.alert('Error', 'Se necesita permiso de ubicación para obtener las coordenadas GPS');
-        if (isMountedRef.current) {
+        if (isMountedRef.current && visibleRef.current) {
+          Alert.alert('Error', 'Se necesita permiso de ubicación para obtener las coordenadas GPS');
           setCoordenada('Error: Sin permisos de ubicación');
         }
         return;
@@ -96,27 +143,28 @@ export default function MuestraTipo3Modal({
 
       const location = await Promise.race([
         Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
+          accuracy: Location.Accuracy.Balanced,
         }),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('GPS timeout')), 10000)
+          setTimeout(() => reject(new Error('GPS timeout')), 8000)
         )
       ]);
 
+      if (!isMountedRef.current || !visibleRef.current) return;
+
       const coords = `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`;
       
-      if (isMountedRef.current) {
+      if (isMountedRef.current && visibleRef.current) {
         setCoordenada(coords);
         Alert.alert('Éxito', 'Coordenadas GPS actualizadas');
       }
     } catch (error) {
+      if (!isMountedRef.current || !visibleRef.current) return;
       console.error('Error obteniendo coordenadas:', error);
-      if (isMountedRef.current) {
-        Alert.alert('Error', 'No se pudieron obtener las coordenadas GPS');
-        setCoordenada('Error obteniendo coordenadas');
-      }
+      Alert.alert('Error', 'No se pudieron obtener las coordenadas GPS');
+      setCoordenada('Error obteniendo coordenadas');
     } finally {
-      if (isMountedRef.current) {
+      if (isMountedRef.current && visibleRef.current) {
         setLoadingGPS(false);
       }
     }
@@ -153,12 +201,14 @@ export default function MuestraTipo3Modal({
       coordenada: coordenada
     };
 
+    DraftService.clearDraft(DRAFT_KEY);
     onGuardar(datosMuestra);
     onClose();
   }, [camposValidos, dato_1, dato_2, dato_3, dato_4, dato_5, dato_6, dato_7, dato_8, dato_9, dato_10, dato_11, dato_12, coordenada, onGuardar, onClose]);
 
   // ✅ Cerrar memoizado con reset de valores
   const handleCerrar = useCallback(() => {
+    DraftService.clearDraft(DRAFT_KEY);
     setDato_1(valoresIniciales.dato_1 || '');
     setDato_2(valoresIniciales.dato_2 || '');
     setDato_3(valoresIniciales.dato_3 || '');

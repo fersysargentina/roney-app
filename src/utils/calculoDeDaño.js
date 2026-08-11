@@ -8,9 +8,22 @@ import {
   trigo,
   girasolReduccion,
   girasolDesfo
-  // maizReduccion, // Descomentar cuando estén disponibles
-  // maizDesfo
 } from './tablas';
+
+/**
+ * Parsea y sanitiza valores numéricos ingresados por el usuario.
+ * Maneja comas decimales (ej. "2,5" -> 2.5), cadenas vacías y NaN.
+ * @param {any} val - Valor a parsear
+ * @returns {number} Número válido o 0
+ */
+export function parseInputNumber(val) {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  const str = String(val).replace(',', '.').trim();
+  if (!str) return 0;
+  const parsed = parseFloat(str);
+  return isNaN(parsed) ? 0 : parsed;
+}
 
 /**
  * Calcula el porcentaje de daño basado en los parámetros de entrada
@@ -30,24 +43,33 @@ export function calculoDeDaño(datos, fenologico, cultivo) {
       fenologicoNum
     });
 
+    let resultado = 0;
+
     // Routing por tipo de cultivo
     switch (cultivoNormalizado) {
       case 'trigo':
-        return calcularDañoTrigo(datos, fenologico);
+        resultado = calcularDañoTrigo(datos, fenologico);
+        break;
       
       case 'girasol':
-        return calcularDañoGirasol(datos, fenologico);
+        resultado = calcularDañoGirasol(datos, fenologico);
+        break;
       
       case 'maiz':
-        return calcularDañoMaiz(datos, fenologico);
+        resultado = calcularDañoMaiz(datos, fenologico);
+        break;
       
       case 'soja':
       default:
-        return calcularDañoSoja(datos, fenologico);
+        resultado = calcularDañoSoja(datos, fenologico);
+        break;
     }
 
+    const numResultado = parseInputNumber(resultado);
+    return Math.min(100, Math.max(0, numResultado));
+
   } catch (error) {
-    console.warn('Error en calculoDeDaño:', error);
+    console.error('❌ Error en calculoDeDaño:', error);
     return 0;
   }
 }
@@ -112,13 +134,12 @@ function calcularDañoSoja(datos, fenologico) {
 
 /**
  * Cálculo para estados vegetativos V1-VN de SOJA
- * Usa: dato_1 (pérdida en D), dato_2 (restante en D), dato_3 (nudos perdidos), dato_4 (defoliación)
  */
 function calcularDañoVegetativo(datos, fenologicoLabel) {
-  const d1 = parseFloat(datos?.dato_1) || 0;
-  const d2 = parseFloat(datos?.dato_2) || 0;
-  const d3 = parseFloat(datos?.dato_3) || 0; // nudos perdidos
-  const d4 = parseFloat(datos?.dato_4) || 0; // defoliación
+  const d1 = parseInputNumber(datos?.dato_1);
+  const d2 = parseInputNumber(datos?.dato_2);
+  const d3 = parseInputNumber(datos?.dato_3); // nudos perdidos
+  const d4 = parseInputNumber(datos?.dato_4); // defoliación
 
   const totalD = d1 + d2;
   const porcePlantasPerdidas = totalD > 0 ? (d1 / totalD) * 100 : 0;
@@ -127,34 +148,34 @@ function calcularDañoVegetativo(datos, fenologicoLabel) {
   let coefi, coefi2, coefi3;
   
   if (fenologicoLabel === 'v1-v5') {
-    coefi = danPorReduccion['v1-v5'].dan;
-    coefi2 = danPorNudos['v1-v5'].dan;
-    coefi3 = danPorDesfo['v1-v5'].dan;
+    coefi = danPorReduccion?.['v1-v5']?.dan || {};
+    coefi2 = danPorNudos?.['v1-v5']?.dan || {};
+    coefi3 = danPorDesfo?.['v1-v5']?.dan || {};
   } else if (fenologicoLabel === 'v6-v8') {
-    coefi = danPorReduccion['v6-v8'].dan;
-    coefi2 = danPorNudos['v6-v8'].dan;
-    coefi3 = danPorDesfo['v6-v8'].dan;
+    coefi = danPorReduccion?.['v6-v8']?.dan || {};
+    coefi2 = danPorNudos?.['v6-v8']?.dan || {};
+    coefi3 = danPorDesfo?.['v6-v8']?.dan || {};
   } else {
-    coefi = danPorReduccion['v9-vn'].dan;
-    coefi2 = danPorNudos['v9-vn'].dan;
-    coefi3 = danPorDesfo['v9-vn'].dan;
+    coefi = danPorReduccion?.['v9-vn']?.dan || {};
+    coefi2 = danPorNudos?.['v9-vn']?.dan || {};
+    coefi3 = danPorDesfo?.['v9-vn']?.dan || {};
   }
 
   // Cálculo por reducción de plantas
-  const indiceA = Math.floor(porcePlantasPerdidas);
-  const porcentajeA = parseFloat(coefi?.[indiceA] ?? 0) || 0;
-  const cpr = 100 - porcentajeA;
+  const indiceA = Math.max(0, Math.min(100, Math.floor(porcePlantasPerdidas)));
+  const porcentajeA = parseInputNumber(coefi?.[indiceA] ?? 0);
+  const cpr = Math.max(0, 100 - porcentajeA);
 
   // Cálculo por nudos perdidos
-  const indiceC = Math.floor(d3);
-  const porcentajeC = parseFloat(coefi2?.[indiceC] ?? 0) || 0;
-  const porcentajeE = parseFloat(((porcentajeC * cpr) / 100));
+  const indiceC = Math.max(0, Math.min(100, Math.floor(d3)));
+  const porcentajeC = parseInputNumber(coefi2?.[indiceC] ?? 0);
+  const porcentajeE = (porcentajeC * cpr) / 100;
 
   // Cálculo por defoliación
-  const cprf = 100 - porcentajeA - porcentajeE;
-  const indiceD = Math.floor(d4);
-  const porcentajeD = parseFloat(coefi3?.[indiceD] ?? 0) || 0;
-  const porcentajeG = parseFloat(((porcentajeD * cprf) / 100));
+  const cprf = Math.max(0, 100 - porcentajeA - porcentajeE);
+  const indiceD = Math.max(0, Math.min(100, Math.floor(d4)));
+  const porcentajeD = parseInputNumber(coefi3?.[indiceD] ?? 0);
+  const porcentajeG = (porcentajeD * cprf) / 100;
 
   const porcentaje = porcentajeG + porcentajeE + porcentajeA;
   
@@ -165,34 +186,34 @@ function calcularDañoVegetativo(datos, fenologicoLabel) {
     total: porcentaje
   });
 
-  return porcentaje.toFixed(1);
+  return parseFloat(porcentaje.toFixed(1));
 }
 
 /**
  * Cálculo para estados reproductivos R1-R3.5 de SOJA
  */
 function calcularDañoReproductivo(datos, fenologicoLabel) {
-  const d1 = parseFloat(datos?.dato_1) || 0;
-  const d2 = parseFloat(datos?.dato_2) || 0;
-  const d3 = parseFloat(datos?.dato_3) || 0;
-  const d4 = parseFloat(datos?.dato_4) || 0;
-  const d5 = parseFloat(datos?.dato_5) || 0;
-  const d6 = parseFloat(datos?.dato_6) || 0;
-  const d7 = parseFloat(datos?.dato_7) || 0;
-  const d8 = parseFloat(datos?.dato_8) || 0;
-  const d9 = parseFloat(datos?.dato_9) || 0;
+  const d1 = parseInputNumber(datos?.dato_1);
+  const d2 = parseInputNumber(datos?.dato_2);
+  const d3 = parseInputNumber(datos?.dato_3);
+  const d4 = parseInputNumber(datos?.dato_4);
+  const d5 = parseInputNumber(datos?.dato_5);
+  const d6 = parseInputNumber(datos?.dato_6);
+  const d7 = parseInputNumber(datos?.dato_7);
+  const d8 = parseInputNumber(datos?.dato_8);
+  const d9 = parseInputNumber(datos?.dato_9);
 
   const totalD = d1 + d2;
   const danA = totalD > 0 ? (d1 / totalD) * 100 : 0;
-  const cpr = 100 - danA;
+  const cpr = Math.max(0, 100 - danA);
 
   const nudosRemanentes = [d4, d5, d6, d7, d8].filter(n => n > 0);
   const promedioNudosRemanentes = nudosRemanentes.length > 0 
       ? nudosRemanentes.reduce((a, b) => a + b, 0) / nudosRemanentes.length 
       : 0;
 
-  const porcentajeNudosPerdidos = d3 > 0 ? (100 - ((promedioNudosRemanentes / d3) * 100)) : 0;
-  const indiceNudos = Math.round(porcentajeNudosPerdidos);
+  const porcentajeNudosPerdidos = d3 > 0 ? Math.max(0, (100 - ((promedioNudosRemanentes / d3) * 100))) : 0;
+  const indiceNudos = Math.max(0, Math.min(100, Math.round(porcentajeNudosPerdidos)));
 
   let coefi4 = {};
   let coefi5 = {};
@@ -202,12 +223,12 @@ function calcularDañoReproductivo(datos, fenologicoLabel) {
       coefi5 = danPorDesfoR1?.[fenologicoLabel]?.dan || {};
   }
 
-  const danC = parseFloat(coefi4?.[indiceNudos] ?? 0) || 0;
+  const danC = parseInputNumber(coefi4?.[indiceNudos] ?? 0);
   const danNetoE = (danC * cpr) / 100;
   
-  const cprF = 100 - danA - danNetoE;
-  const indiceDefoliacion = Math.round(d9);
-  const danG = parseFloat(coefi5?.[indiceDefoliacion] ?? 0) || 0;
+  const cprF = Math.max(0, 100 - danA - danNetoE);
+  const indiceDefoliacion = Math.max(0, Math.min(100, Math.round(d9)));
+  const danG = parseInputNumber(coefi5?.[indiceDefoliacion] ?? 0);
   const danH = (cprF * danG) / 100;
 
   const porcentaje = danA + danNetoE + danH;
@@ -221,32 +242,33 @@ function calcularDañoReproductivo(datos, fenologicoLabel) {
       total: porcentaje
   });
 
-  return porcentaje.toFixed(1);
+  return parseFloat(porcentaje.toFixed(1));
 }
 
 /**
  * Cálculo para estados R4-R6.5 de SOJA
  */
 function calcularReproductivo47(datos, fenologicoLabel) {
-  const d1 = parseFloat(datos?.dato_1) || 0;
-  const d2 = parseFloat(datos?.dato_2) || 0;
-  const d3 = parseFloat(datos?.dato_3) || 0;
-  const d4 = parseFloat(datos?.dato_4) || 0;
-  const d5 = parseFloat(datos?.dato_5) || 0;
-  const d6 = parseFloat(datos?.dato_6) || 0;
-  const d7 = parseFloat(datos?.dato_7) || 0;
-  const d8 = parseFloat(datos?.dato_8) || 0;
-  const d9 = parseFloat(datos?.dato_9) || 0;
-  const d10 = parseFloat(datos?.dato_10) || 0;
-  const d11 = parseFloat(datos?.dato_11) || 0;
-  const d12 = parseFloat(datos?.dato_12) || 0;
+  const d1 = parseInputNumber(datos?.dato_1);
+  const d2 = parseInputNumber(datos?.dato_2);
+  const d3 = parseInputNumber(datos?.dato_3);
+  const d4 = parseInputNumber(datos?.dato_4);
+  const d5 = parseInputNumber(datos?.dato_5);
+  const d6 = parseInputNumber(datos?.dato_6);
+  const d7 = parseInputNumber(datos?.dato_7);
+  const d8 = parseInputNumber(datos?.dato_8);
+  const d9 = parseInputNumber(datos?.dato_9);
+  const d10 = parseInputNumber(datos?.dato_10);
+  const d11 = parseInputNumber(datos?.dato_11);
+  const d12 = parseInputNumber(datos?.dato_12);
 
   const vainasTotales = d1 + d2 + d3 + d4 + d5 + d6 + d7 + d8 + d9 + d10 + d11;
   const vainasDañadas = d1 + d2 + d4 + d6 + d8 + d10;
   const danA = vainasTotales > 0 ? (vainasDañadas / vainasTotales) * 100 : 0;
-  const cprb = 100 - danA;
+  const cprb = Math.max(0, 100 - danA);
 
-  const indiceDefoliacion = String(Math.round(d12));
+  const idxDef = Math.max(0, Math.min(100, Math.round(d12)));
+  const indiceDefoliacion = String(idxDef);
 
   let coefiDefoliacion = {};
   const fenologicosR4 = ['r4', 'r4.5', 'r5', 'r6', 'r6.5'];
@@ -255,8 +277,8 @@ function calcularReproductivo47(datos, fenologicoLabel) {
       coefiDefoliacion = danPorDesfoR4?.[fenologicoLabel]?.dan || {};
   }
 
-  const danG = indiceDefoliacion !== '0' 
-      ? parseFloat(coefiDefoliacion?.[indiceDefoliacion] ?? 0) 
+  const danG = idxDef !== 0 
+      ? parseInputNumber(coefiDefoliacion?.[indiceDefoliacion] ?? 0) 
       : 0;
 
   const danNetoD = (cprb * danG) / 100;
@@ -271,38 +293,38 @@ function calcularReproductivo47(datos, fenologicoLabel) {
       total: porcentaje.toFixed(1)
   });
 
-  return porcentaje.toFixed(1);
+  return parseFloat(porcentaje.toFixed(1));
 }
 
 /**
  * Cálculo para estados avanzados R8 de SOJA
  */
 function calcularDañoAvanzado(datos, fenologicoLabel) {
-  const d1 = parseFloat(datos?.dato_1) || 0;
-  const d2 = parseFloat(datos?.dato_2) || 0;
-  const d3 = parseFloat(datos?.dato_3) || 0;
-  const d4 = parseFloat(datos?.dato_4) || 0;
-  const d5 = parseFloat(datos?.dato_5) || 0;
-  const d6 = parseFloat(datos?.dato_6) || 0;
-  const d7 = parseFloat(datos?.dato_7) || 0;
-  const d8 = parseFloat(datos?.dato_8) || 0;
-  const d9 = parseFloat(datos?.dato_9) || 0;
-  const d10 = parseFloat(datos?.dato_10) || 0;
-  const d11 = parseFloat(datos?.dato_11) || 0;
-  const d12 = parseFloat(datos?.dato_12) || 0;
-  const d13 = parseFloat(datos?.dato_13) || 0;
-  const d14 = parseFloat(datos?.dato_14) || 0;
-  const d15 = parseFloat(datos?.dato_15) || 0;
-  const d16 = parseFloat(datos?.dato_16) || 0;
-  const d17 = parseFloat(datos?.dato_17) || 0;
-  const d18 = parseFloat(datos?.dato_18) || 0;
-  const d19 = parseFloat(datos?.dato_19) || 0;
-  const d20 = parseFloat(datos?.dato_20) || 0;
-  const d21 = parseFloat(datos?.dato_21) || 0;
+  const d1 = parseInputNumber(datos?.dato_1);
+  const d2 = parseInputNumber(datos?.dato_2);
+  const d3 = parseInputNumber(datos?.dato_3);
+  const d4 = parseInputNumber(datos?.dato_4);
+  const d5 = parseInputNumber(datos?.dato_5);
+  const d6 = parseInputNumber(datos?.dato_6);
+  const d7 = parseInputNumber(datos?.dato_7);
+  const d8 = parseInputNumber(datos?.dato_8);
+  const d9 = parseInputNumber(datos?.dato_9);
+  const d10 = parseInputNumber(datos?.dato_10);
+  const d11 = parseInputNumber(datos?.dato_11);
+  const d12 = parseInputNumber(datos?.dato_12);
+  const d13 = parseInputNumber(datos?.dato_13);
+  const d14 = parseInputNumber(datos?.dato_14);
+  const d15 = parseInputNumber(datos?.dato_15);
+  const d16 = parseInputNumber(datos?.dato_16);
+  const d17 = parseInputNumber(datos?.dato_17);
+  const d18 = parseInputNumber(datos?.dato_18);
+  const d19 = parseInputNumber(datos?.dato_19);
+  const d20 = parseInputNumber(datos?.dato_20);
+  const d21 = parseInputNumber(datos?.dato_21);
 
   const condicionSuma = d1 + d2 + d3;
   if (condicionSuma <= 0) {
-      return "";
+      return 0; // ✅ Corregido de "" a 0
   }
 
   const numerador = d1 + d2 + d4 + d6 + d8 + d10 + d12 + d14 + d16 + d18 + d20;
@@ -324,97 +346,73 @@ function calcularDañoAvanzado(datos, fenologicoLabel) {
 function calcularDañoTrigo(datos, estadoFenologico) {
   const fenologicoNum = parseInt(estadoFenologico, 10);
   
-  // Mapeo de estados fenológicos de trigo
-  let fenologicoLabel = 'Espigamiento (Z.50/59)'; // Default
+  let fenologicoLabel = 'Espigamiento (Z.50/59)';
   
   if (!isNaN(fenologicoNum)) {
     switch (fenologicoNum) {
-      case 1:
-        fenologicoLabel = 'Espigamiento (Z.50/59)'; // Espigamiento
-        break;
-      case 2:
-        fenologicoLabel = 'Floración (Z.60/69)'; // Floración
-        break;
-      case 3:
-        fenologicoLabel = 'Lechoso (Z.70/79)'; // Lechoso
-        break;
-      case 4:
-        fenologicoLabel = 'Pastoso blando (Z.80/84)'; // Pastoso blando
-        break;
-      case 5:
-        fenologicoLabel = 'Pastoso duro (Z.85/89)'; // Pastoso duro
-        break;
-      case 6:
-        fenologicoLabel = 'Próx. a mudurez (Z.90/99)'; // Próx. a madurez
-        break;
-      default:
-        fenologicoLabel = 'Espigamiento (Z.50/59)';
+      case 1: fenologicoLabel = 'Espigamiento (Z.50/59)'; break;
+      case 2: fenologicoLabel = 'Floración (Z.60/69)'; break;
+      case 3: fenologicoLabel = 'Lechoso (Z.70/79)'; break;
+      case 4: fenologicoLabel = 'Pastoso blando (Z.80/84)'; break;
+      case 5: fenologicoLabel = 'Pastoso duro (Z.85/89)'; break;
+      case 6: fenologicoLabel = 'Próx. a mudurez (Z.90/99)'; break;
+      default: fenologicoLabel = 'Espigamiento (Z.50/59)';
     }
   }
 
   console.log('🌾 Calculando daño TRIGO para:', fenologicoLabel);
 
-// Extraer todos los datos (dato_1 a dato_23)
-const data = {};
-for (let i = 1; i <= 23; i++) {
-    data[`d${i}`] = parseFloat(datos[`dato_${i}`]) || 0;
+  const data = {};
+  for (let i = 1; i <= 23; i++) {
+      data[`d${i}`] = parseInputNumber(datos[`dato_${i}`]);
+  }
+
+  const totenD = data.d1 + data.d2 + data.d3;
+
+  let espigasPerdidasA = 0;
+  if (totenD > 0) {
+    espigasPerdidasA = (data.d1 / totenD) * 100;
+  }
+
+  const idxTrigo = Math.max(0, Math.min(100, Math.floor(espigasPerdidasA)));
+  const indiceDeTrigo = String(idxTrigo);
+
+  let coefiTrigo = {};
+  const fenologicosTrigo = ['Espigamiento (Z.50/59)', 'Floración (Z.60/69)', 'Lechoso (Z.70/79)', 'Pastoso blando (Z.80/84)', 'Pastoso duro (Z.85/89)', 'Próx. a mudurez (Z.90/99)'];
+
+  if (fenologicosTrigo.includes(fenologicoLabel)) {
+      coefiTrigo = trigo?.[fenologicoLabel]?.dan || {};
+  }
+
+  const danB = idxTrigo !== 0 
+      ? parseInputNumber(coefiTrigo?.[indiceDeTrigo] ?? 0) 
+      : 0;
+
+  const danC = espigasPerdidasA + danB;
+
+  const numerador = data.d4 + data.d6 + data.d8 + data.d10 + data.d12 + data.d14 + data.d16 + data.d18 + data.d20 + data.d22;
+  const denominador = data.d5 + data.d7 + data.d9 + data.d11 + data.d13 + data.d15 + data.d17 + data.d19 + data.d21 + data.d23;
+
+  let danE = 0; // ✅ Inicializado a 0 en lugar de undefined
+  if (denominador > 0) {
+    danE = (numerador / denominador) * 100;
+  }
+
+  const danF = (danE * Math.max(0, 100 - danC)) / 100;
+  const danTot = danC + danF;
+
+  console.log('📊 Cálculo TRIGO:', {
+      estadoFenologico: fenologicoLabel,
+      totenD: totenD.toFixed(2),
+      espigasPerdidasPorcentaje: espigasPerdidasA.toFixed(2),
+      indiceTabla: indiceDeTrigo,
+      danTabla: danB.toFixed(2),
+      danE: danE.toFixed(2),
+      total: danTot.toFixed(2)
+  });
+
+  return parseFloat(danTot.toFixed(1));
 }
-
-// Cálculo de espigas perdidas
-const totenD = data.d1 + data.d2 + data.d3;
-
-let espigasPerdidasA = 0;
-if (totenD !== 0) {
-  espigasPerdidasA = (data.d1 / totenD) * 100;
-}
-
-// Convertir a índice para buscar en la tabla
-const indiceDeTrigo = String(Math.floor(espigasPerdidasA));
-
-// Obtener coeficientes de la tabla de trigo (similar a danPorDesfoR4)
-// Asumiendo que tienes una tabla 'trigo' importada que tiene esta estructura:
-// trigo = { 'z50-z59': { dan: { '0': 0, '1': 0.5, '2': 1.0, ... } }, ... }
-let coefiTrigo = {};
-
-// Lista de todos los estados fenológicos de trigo
-const fenologicosTrigo = ['Espigamiento (Z.50/59)', 'Floración (Z.60/69)', 'Lechoso (Z.70/79)', 'Pastoso blando (Z.80/84)', 'Pastoso duro (Z.85/89)', 'Próx. a mudurez (Z.90/99)'];
-
-if (fenologicosTrigo.includes(fenologicoLabel)) {
-    coefiTrigo = trigo?.[fenologicoLabel]?.dan || {};
-}
-
-// Obtener el daño de la tabla usando el índice
-const danB = indiceDeTrigo !== '0' 
-    ? parseFloat(coefiTrigo?.[indiceDeTrigo] ?? 0) 
-    : 0;
-
-const danC = espigasPerdidasA + danB;
-// El resultado es el daño obtenido de la tabla
-const resultado = danB;
-
-const numerador = data.d4 + data.d6 + data.d8 + data.d10 + data.d12 + data.d14 + data.d16 + data.d18 + data.d20 + data.d22;
-const denominador = data.d5 + data.d7 + data.d9 + data.d11 + data.d13 + data.d15 + data.d17 + data.d19 + data.d21 + data.d23;
-
-let danE;
-if (denominador!= 0){
-  danE = (numerador/denominador)*100;
-}
-
-const danF = danE*(100-danC)/100
-const danTot = danC + danF;
-
-console.log('📊 Cálculo TRIGO:', {
-    estadoFenologico: fenologicoLabel,
-    totenD: totenD.toFixed(2),
-    espigasPerdidasPorcentaje: espigasPerdidasA.toFixed(2),
-    indiceTabla: indiceDeTrigo,
-    danTabla: danB.toFixed(2),
-    resultado: resultado
-});
-
-return parseFloat(danTot.toFixed(1));
-}
-
 
 /**
  * ============================================================================
@@ -430,105 +428,64 @@ function calcularDañoGirasol(datos, fenologico) {
 
   if (!isNaN(fenologicoNum)) {
     switch (fenologicoNum) {
-      case 1:
-        fenologicoLabel = 'V1-V11'; 
-        break;
-      case 2:
-        fenologicoLabel = 'V12-Vn'; 
-        break;
-      case 3:
-        fenologicoLabel = 'R1 (estrella)'; 
-        break;
-      case 4:
-        fenologicoLabel = 'R2 (botón a 0,5 - 2 cm)'; 
-        break;
-      case 5:
-        fenologicoLabel = 'R3 (botón a + de 2 cm)';
-        break;
-      case 6:
-        fenologicoLabel = 'R4 (apertura inflorescencia)'; 
-        break;
-      case 7:
-        fenologicoLabel = 'R5 (inicio floración)'; 
-        break;
-      case 8:
-        fenologicoLabel = 'R6 (fin floración)'; 
-        break;
-      case 9:
-        fenologicoLabel = 'R7 (envés capítulo inicio amarilleo)'; 
-        break;
-      case 10:
-        fenologicoLabel = 'R8 (envés capítulo amarillo)'; 
-        break;
-      case 11:
-        fenologicoLabel = 'R9 (brácteas amarillo/marrón)'; 
-        break;
-      default:
-        fenologicoLabel = 'V1-V11';
+      case 1: fenologicoLabel = 'V1-V11'; break;
+      case 2: fenologicoLabel = 'V12-Vn'; break;
+      case 3: fenologicoLabel = 'R1 (estrella)'; break;
+      case 4: fenologicoLabel = 'R2 (botón a 0,5 - 2 cm)'; break;
+      case 5: fenologicoLabel = 'R3 (botón a + de 2 cm)'; break;
+      case 6: fenologicoLabel = 'R4 (apertura inflorescencia)'; break;
+      case 7: fenologicoLabel = 'R5 (inicio floración)'; break;
+      case 8: fenologicoLabel = 'R6 (fin floración)'; break;
+      case 9: fenologicoLabel = 'R7 (envés capítulo inicio amarilleo)'; break;
+      case 10: fenologicoLabel = 'R8 (envés capítulo amarillo)'; break;
+      case 11: fenologicoLabel = 'R9 (brácteas amarillo/marrón)'; break;
+      default: fenologicoLabel = 'V1-V11';
     }
   }
 
-  // Extraer todos los datos (dato_1 a dato_5)
-const data = {};
-for (let i = 1; i <= 5; i++) {
-    data[`d${i}`] = parseFloat(datos[`dato_${i}`]) || 0;
-}
+  const data = {};
+  for (let i = 1; i <= 5; i++) {
+      data[`d${i}`] = parseInputNumber(datos[`dato_${i}`]);
+  }
 
-// Cálculo de espigas perdidas
-const totenD = data.d1 + data.d2 + data.d3;
+  const totenD = data.d1 + data.d2 + data.d3;
 
-let plantasPerdidas = 0;
-if (totenD !== 0) {
-  plantasPerdidas = (data.d1 / totenD) * 100;
-}
+  let plantasPerdidas = totenD > 0 ? (data.d1 / totenD) * 100 : 0;
+  let plantasImproduct = totenD > 0 ? (data.d2 / totenD) * 100 : 0;
 
-let plantasImproduct = 0;
-if (totenD !== 0) {
-  plantasImproduct = (data.d2 / totenD) * 100;
-}
+  const idxGir = Math.max(0, Math.min(100, Math.floor(plantasPerdidas)));
+  const indiceGirasol = String(idxGir);
 
-// Convertir a índice para buscar en la tabla
-const indiceGirasol = String(Math.floor(plantasPerdidas));
+  let coefiGirasol = {};
+  const fenologicosGirasol = ['V1-V11', 'V12-Vn', 'R1 (estrella)', 'R2 (botón a 0,5 - 2 cm)', 'R3 (botón a + de 2 cm)', 'R4 (apertura inflorescencia)', 'R5 (inicio floración)', 'R6 (fin floración)','R7 (envés capítulo inicio amarilleo)', 'R8 (envés capítulo amarillo)', 'R9 (brácteas amarillo/marrón)'];
 
-let coefiGirasol = {};
+  if (fenologicosGirasol.includes(fenologicoLabel)) {
+      coefiGirasol = girasolReduccion?.[fenologicoLabel]?.dan || {};
+  }
 
-// Lista de todos los estados fenológicos de trigo
-const fenologicosGirasol = ['V1-V11', 'V12-Vn', 'R1 (estrella)', 'R2 (botón a 0,5 - 2 cm)', 'R3 (botón a + de 2 cm)', 'R4 (apertura inflorescencia)', 'R5 (inicio floración)', 'R6 (fin floración)','R7 (envés capítulo inicio amarilleo)', 'R8 (envés capítulo amarillo)', 'R9 (brácteas amarillo/marrón)'];
+  let danA = (idxGir !== 0 ? parseInputNumber(coefiGirasol?.[indiceGirasol] ?? 0) : 0) + plantasImproduct;
 
-if (fenologicosGirasol.includes(fenologicoLabel)) {
-    coefiGirasol = girasolReduccion?.[fenologicoLabel]?.dan || {};
-}
+  const cprB = Math.max(0, 100 - danA);
+  const danE = (data.d4 * cprB) / 100;
+  const cprF = Math.max(0, 100 - danA - danE);
 
-// Obtener el daño de la tabla usando el índice
-let danA = indiceGirasol !== '0' 
-    ? parseFloat(coefiGirasol?.[indiceGirasol] ?? 0) 
-    : 0;
-danA = danA + plantasImproduct;
-
-const cprB = 100-danA;
-const danE = data.d4*cprB/100;
-const cprF = 100 - danA - danE;
-
-const indiceGirasolDesfo = String(Math.floor(data.d5));
-let coefiDesfoGirasol = {};
-if (fenologicosGirasol.includes(fenologicoLabel)) {
-  coefiDesfoGirasol = girasolDesfo?.[fenologicoLabel]?.dan || {};
-};
-
-let danG = indiceGirasolDesfo !== '0' 
-    ? parseFloat(coefiDesfoGirasol?.[indiceGirasolDesfo] ?? 0) 
-    : 0;
-
-const danH = danG * cprF / 100;
-
-const danTot = danA + danE + danH;
-
-
-
-return parseFloat(danTot.toFixed(1));
+  const idxDesfo = Math.max(0, Math.min(100, Math.floor(data.d5)));
+  const indiceGirasolDesfo = String(idxDesfo);
+  let coefiDesfoGirasol = {};
   
-}
+  if (fenologicosGirasol.includes(fenologicoLabel)) {
+    coefiDesfoGirasol = girasolDesfo?.[fenologicoLabel]?.dan || {};
+  }
 
+  let danG = idxDesfo !== 0 
+      ? parseInputNumber(coefiDesfoGirasol?.[indiceGirasolDesfo] ?? 0) 
+      : 0;
+
+  const danH = (danG * cprF) / 100;
+  const danTot = danA + danE + danH;
+
+  return parseFloat(danTot.toFixed(1));
+}
 
 /**
  * ============================================================================
@@ -540,83 +497,31 @@ function calcularDañoMaiz(datos, fenologico) {
   
   console.log('🌽 Calculando daño MAÍZ para estado:', fenologicoNum);
 
-  // Mapeo de estados fenológicos de maíz
-  // 1: V1-V4, 2: V5, 3: V6, 4: V7, 5: V8, 6: V13-VT, 7: R1, 8: R2, 9: R3, 10: R4, 11: R5, 12: R6
-  
   if (fenologicoNum >= 1 && fenologicoNum <= 6) {
-    // Estados vegetativos
     return calcularDañoMaizVegetativo(datos, fenologicoNum);
   } else if (fenologicoNum >= 7 && fenologicoNum <= 12) {
-    // Estados reproductivos
     return calcularDañoMaizReproductivo(datos, fenologicoNum);
   }
   
   return 0;
 }
 
-/**
- * Cálculo para estados vegetativos de MAÍZ
- */
 function calcularDañoMaizVegetativo(datos, fenologicoNum) {
-  // TODO: Implementar cuando tengas las tablas maizReduccion y maizDesfo
-  
-  const d1 = parseFloat(datos?.dato_1) || 0;
-  const d2 = parseFloat(datos?.dato_2) || 0;
-  const d3 = parseFloat(datos?.dato_3) || 0;
-
-  console.log('📊 Cálculo V (MAÍZ):', {
-    fenologico: fenologicoNum,
-    mensaje: 'Pendiente: tablas maizReduccion y maizDesfo'
-  });
-
-  // Implementación temporal
   return 0;
 }
 
-/**
- * Cálculo para estados reproductivos de MAÍZ
- */
 function calcularDañoMaizReproductivo(datos, fenologicoNum) {
-  // TODO: Implementar cuando tengas las tablas específicas de maíz
-  
-  const d1 = parseFloat(datos?.dato_1) || 0;
-  const d2 = parseFloat(datos?.dato_2) || 0;
-
-  console.log('📊 Cálculo R (MAÍZ):', {
-    fenologico: fenologicoNum,
-    mensaje: 'Pendiente: tablas específicas de maíz reproductivo'
-  });
-
-  // Implementación temporal
   return 0;
 }
 
-/**
- * ============================================================================
- * FUNCIONES AUXILIARES (mantener compatibilidad)
- * ============================================================================
- */
-
-/**
- * Obtiene los subFenológicos disponibles para un tipo fenológico
- * @deprecated Esta función puede no ser necesaria con el nuevo sistema
- */
 export function getSubFenologicosPorTipo(fenologico) {
   return [];
 }
 
-/**
- * Verifica si un subFenológico existe para un tipo fenológico dado
- * @deprecated Esta función puede no ser necesaria con el nuevo sistema
- */
 export function existeSubFenologico(fenologico, subFenologico) {
   return false;
 }
 
-/**
- * Obtiene el primer subFenológico disponible para un tipo fenológico
- * @deprecated Esta función puede no ser necesaria con el nuevo sistema
- */
 export function getPrimerSubFenologico(fenologico) {
   return 'sub1';
 }

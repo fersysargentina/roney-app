@@ -8,9 +8,9 @@ import {
   TouchableOpacity, 
   KeyboardAvoidingView, 
   Platform, 
-  ScrollView 
+  ScrollView,
+  FlatList,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 
 // ✅ Constante de mapeo de cultivos (fuera del componente)
 const CULTIVOS_MAP = {
@@ -19,6 +19,13 @@ const CULTIVOS_MAP = {
   'trigo': 'Trigo',
   'girasol': 'Girasol'
 };
+
+const CULTIVOS_LIST = [
+  { value: 'soja', label: 'Soja' },
+  { value: 'maiz', label: 'Maíz' },
+  { value: 'trigo', label: 'Trigo' },
+  { value: 'girasol', label: 'Girasol' },
+];
 
 export default function CrearOperacionModal({
   visible,
@@ -29,6 +36,7 @@ export default function CrearOperacionModal({
 }) {
   const [roneyOp, setRoneyOp] = useState(valoresIniciales.roney_op || '');
   const [cultivo, setCultivo] = useState(valoresIniciales.cultivo || '');
+  const [cultivoModalVisible, setCultivoModalVisible] = useState(false);
 
   // ✅ Sincronizar con valoresIniciales cuando visible cambia
   useEffect(() => {
@@ -133,39 +141,58 @@ export default function CrearOperacionModal({
               />
               
               {!modoEdicion ? (
-                <View style={styles.input}>
-                  <Picker
-                    selectedValue={cultivo}
-                    onValueChange={setCultivo}
-                    style={styles.picker}
+                <>
+                  <TouchableOpacity
+                    style={styles.input}
+                    onPress={() => setCultivoModalVisible(true)}
                   >
-                    <Picker.Item 
-                      label="Selecciona un cultivo..." 
-                      value="" 
-                      style={styles.pickerItem} 
-                    />
-                    <Picker.Item 
-                      label="Soja" 
-                      value="soja" 
-                      style={styles.pickerItem} 
-                    />
-                    <Picker.Item 
-                      label="Maíz" 
-                      value="maiz" 
-                      style={styles.pickerItem} 
-                    />
-                    <Picker.Item 
-                      label="Trigo" 
-                      value="trigo" 
-                      style={styles.pickerItem} 
-                    />
-                    <Picker.Item 
-                      label="Girasol" 
-                      value="girasol" 
-                      style={styles.pickerItem} 
-                    />
-                  </Picker>
-                </View>
+                    <Text style={cultivo ? styles.cultivoTexto : styles.cultivoPlaceholder}>
+                      {cultivo ? `🌾 Cultivo: ${CULTIVOS_MAP[cultivo] || cultivo}` : 'Selecciona un cultivo...'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <Modal
+                    visible={cultivoModalVisible}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setCultivoModalVisible(false)}
+                  >
+                    <View style={styles.modalBg}>
+                      <View style={styles.subModalContainer}>
+                        <Text style={styles.modalTitle}>Seleccionar Cultivo</Text>
+                        <FlatList
+                          data={CULTIVOS_LIST}
+                          keyExtractor={(item) => item.value}
+                          renderItem={({ item }) => (
+                            <TouchableOpacity
+                              style={styles.modalOption}
+                              onPress={() => {
+                                setCultivo(item.value);
+                                setCultivoModalVisible(false);
+                              }}
+                            >
+                              <Text style={[
+                                styles.cultivoTexto,
+                                item.value === cultivo && styles.cultivoSelected
+                              ]}>
+                                {item.label}
+                              </Text>
+                              {item.value === cultivo && (
+                                <Text style={styles.cultivoCheck}>✓</Text>
+                              )}
+                            </TouchableOpacity>
+                          )}
+                        />
+                        <TouchableOpacity
+                          style={styles.modalCloseBtn}
+                          onPress={() => setCultivoModalVisible(false)}
+                        >
+                          <Text style={styles.modalCloseBtnText}>Cancelar</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </Modal>
+                </>
               ) : (
                 <View style={inputDisabledStyle}>
                   <Text style={styles.cultivoTexto}>
@@ -203,26 +230,31 @@ export default function CrearOperacionModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
-    alignItems: 'stretch',
-    paddingHorizontal: 16,
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
   avoider: {
     width: '100%',
+    maxWidth: 420,
   },
   modalContainer: {
     width: '100%',
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 24,
     elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   titulo: {
     fontSize: 20,
@@ -236,7 +268,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 8,
-    padding: 10,
+    padding: 12,
     marginBottom: 14,
     fontSize: 16,
     backgroundColor: '#fff',
@@ -245,17 +277,62 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
     borderColor: '#ddd',
   },
-  picker: {
-    width: '100%',
-    color: '#000',
-  },
-  pickerItem: {
-    color: '#000',
-  },
   cultivoTexto: {
     fontSize: 16,
     color: '#333',
     padding: 2,
+  },
+  cultivoPlaceholder: {
+    fontSize: 16,
+    color: '#999',
+    padding: 2,
+  },
+  cultivoSelected: {
+    color: '#007bff',
+    fontWeight: 'bold',
+  },
+  cultivoCheck: {
+    color: '#007bff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  modalBg: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  subModalContainer: {
+    width: '80%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+    color: '#333',
+  },
+  modalOption: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalCloseBtn: {
+    marginTop: 15,
+    padding: 12,
+    alignItems: 'center',
+  },
+  modalCloseBtnText: {
+    color: '#dc3545',
+    fontSize: 16,
+    fontWeight: '600',
   },
   botones: {
     flexDirection: 'row',

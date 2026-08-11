@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Modal, 
   View, 
@@ -15,6 +15,9 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
+import { DraftService } from '../../services/DraftService';
+
+const DRAFT_KEY = 'muestra_trigo_draft';
 
 // --- CONFIGURACIÓN DE LOS 23 CAMPOS DE DATOS PARA TRIGO ---
 const DATOS_COUNT = 23;
@@ -69,11 +72,32 @@ export default function MuestraTrigoModal({
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Sincroniza estado al cambiar valoresIniciales
+  // Sincroniza estado al cambiar valoresIniciales y recupera borrador si existe
   useEffect(() => {
-    setData(initializeDataState(valoresIniciales));
-    setCoordenada(valoresIniciales.coordenada || '');
-  }, [valoresIniciales]);
+    if (visible) {
+      if (!esEdicion) {
+        DraftService.getDraft(DRAFT_KEY).then(draft => {
+          if (draft) {
+            setData(initializeDataState(draft));
+            setCoordenada(draft.coordenada || valoresIniciales.coordenada || '');
+          } else {
+            setData(initializeDataState(valoresIniciales));
+            setCoordenada(valoresIniciales.coordenada || '');
+          }
+        });
+      } else {
+        setData(initializeDataState(valoresIniciales));
+        setCoordenada(valoresIniciales.coordenada || '');
+      }
+    }
+  }, [visible, valoresIniciales, esEdicion]);
+
+  // Auto-guardado de borrador al escribir
+  useEffect(() => {
+    if (visible && !esEdicion) {
+      DraftService.saveDraft(DRAFT_KEY, { ...data, coordenada });
+    }
+  }, [visible, esEdicion, data, coordenada]);
 
   useEffect(() => {
     if (!esEdicion && visible && !valoresIniciales.coordenada) {
@@ -98,53 +122,66 @@ export default function MuestraTrigoModal({
     // Crea objeto completo con todos los datos
     const datosCompletos = { ...data, coordenada };
     
+    DraftService.clearDraft(DRAFT_KEY);
     // Llama a onGuardar pasando el objeto completo
     onGuardar(datosCompletos);
   };
 
+  const visibleRef = useRef(visible);
+  useEffect(() => {
+    visibleRef.current = visible;
+  }, [visible]);
+
   const handleCerrar = () => {
+    DraftService.clearDraft(DRAFT_KEY);
     setData(initializeDataState(valoresIniciales));
     setCoordenada(valoresIniciales.coordenada || '');
     onClose();
   };
 
   const actualizarCoordenada = async () => {
-    if (esEdicion) return;
+    if (esEdicion || !visibleRef.current) return;
     
     setLoadingGPS(true);
 
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       
+      if (!visibleRef.current) return;
+
       if (status !== 'granted') {
-        Alert.alert('Error', 'Se necesita permiso de ubicación para obtener las coordenadas GPS');
-        setCoordenada('Error: Sin permisos de ubicación');
-        setLoadingGPS(false);
+        if (visibleRef.current) {
+          Alert.alert('Error', 'Se necesita permiso de ubicación para obtener las coordenadas GPS');
+          setCoordenada('Error: Sin permisos de ubicación');
+          setLoadingGPS(false);
+        }
         return;
       }
 
-      // const location = await Location.getCurrentPositionAsync({
-      //   accuracy: Location.Accuracy.High,
-      // });
       const location = await Promise.race([
         Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
+          accuracy: Location.Accuracy.Balanced,
         }),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('GPS timeout')), 10000)
+          setTimeout(() => reject(new Error('GPS timeout')), 8000)
         )
       ]);
+
+      if (!visibleRef.current) return;
 
       const coords = `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`;
       setCoordenada(coords);
       Alert.alert('Éxito', 'Coordenadas GPS actualizadas');
     } catch (error) {
+      if (!visibleRef.current) return;
       console.error('Error obteniendo coordenadas:', error);
       Alert.alert('Error', 'No se pudieron obtener las coordenadas GPS');
       setCoordenada('Error obteniendo coordenadas');
+    } finally {
+      if (visibleRef.current) {
+        setLoadingGPS(false);
+      }
     }
-
-    setLoadingGPS(false);
   };
 
   const getTituloEstado = () => {

@@ -14,6 +14,9 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
+import { DraftService } from '../../services/DraftService';
+
+const DRAFT_KEY = 'muestra_tipo1_draft';
 
 export default function MuestraTipo1Modal({
   visible,
@@ -40,16 +43,48 @@ export default function MuestraTipo1Modal({
     };
   }, []);
 
-  // ✅ Actualizar valores iniciales con verificación de montaje
+  // ✅ Actualizar valores iniciales con verificación de montaje y borrador
   useEffect(() => {
     if (visible) {
-      setDato_1(valoresIniciales.dato_1 || '');
-      setDato_2(valoresIniciales.dato_2 || '');
-      setDato_3(valoresIniciales.dato_3 || '');
-      setDato_4(valoresIniciales.dato_4 || '');
-      setCoordenada(valoresIniciales.coordenada || '');
+      if (!esEdicion) {
+        DraftService.getDraft(DRAFT_KEY).then(draft => {
+          if (draft && isMountedRef.current) {
+            setDato_1(draft.dato_1 || valoresIniciales.dato_1 || '');
+            setDato_2(draft.dato_2 || valoresIniciales.dato_2 || '');
+            setDato_3(draft.dato_3 || valoresIniciales.dato_3 || '');
+            setDato_4(draft.dato_4 || valoresIniciales.dato_4 || '');
+            setCoordenada(draft.coordenada || valoresIniciales.coordenada || '');
+            return;
+          }
+          if (isMountedRef.current) {
+            setDato_1(valoresIniciales.dato_1 || '');
+            setDato_2(valoresIniciales.dato_2 || '');
+            setDato_3(valoresIniciales.dato_3 || '');
+            setDato_4(valoresIniciales.dato_4 || '');
+            setCoordenada(valoresIniciales.coordenada || '');
+          }
+        });
+      } else {
+        setDato_1(valoresIniciales.dato_1 || '');
+        setDato_2(valoresIniciales.dato_2 || '');
+        setDato_3(valoresIniciales.dato_3 || '');
+        setDato_4(valoresIniciales.dato_4 || '');
+        setCoordenada(valoresIniciales.coordenada || '');
+      }
     }
-  }, [visible, valoresIniciales]);
+  }, [visible, valoresIniciales, esEdicion]);
+
+  // Guardar borrador al cambiar los campos
+  useEffect(() => {
+    if (visible && !esEdicion) {
+      DraftService.saveDraft(DRAFT_KEY, { dato_1, dato_2, dato_3, dato_4, coordenada });
+    }
+  }, [visible, esEdicion, dato_1, dato_2, dato_3, dato_4, coordenada]);
+
+  const visibleRef = useRef(visible);
+  useEffect(() => {
+    visibleRef.current = visible;
+  }, [visible]);
 
   // ✅ Auto-obtener coordenadas en modo creación
   useEffect(() => {
@@ -60,18 +95,20 @@ export default function MuestraTipo1Modal({
 
   // ✅ Actualizar coordenada memoizada
   const actualizarCoordenada = useCallback(async () => {
-    if (esEdicion) return;
+    if (esEdicion || !visibleRef.current) return;
     
-    if (isMountedRef.current) {
+    if (isMountedRef.current && visibleRef.current) {
       setLoadingGPS(true);
     }
 
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       
+      if (!isMountedRef.current || !visibleRef.current) return;
+
       if (status !== 'granted') {
-        Alert.alert('Error', 'Se necesita permiso de ubicación para obtener las coordenadas GPS');
-        if (isMountedRef.current) {
+        if (isMountedRef.current && visibleRef.current) {
+          Alert.alert('Error', 'Se necesita permiso de ubicación para obtener las coordenadas GPS');
           setCoordenada('Error: Sin permisos de ubicación');
         }
         return;
@@ -79,27 +116,28 @@ export default function MuestraTipo1Modal({
 
       const location = await Promise.race([
         Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
+          accuracy: Location.Accuracy.Balanced,
         }),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('GPS timeout')), 10000)
+          setTimeout(() => reject(new Error('GPS timeout')), 8000)
         )
       ]);
 
+      if (!isMountedRef.current || !visibleRef.current) return;
+
       const coords = `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`;
       
-      if (isMountedRef.current) {
+      if (isMountedRef.current && visibleRef.current) {
         setCoordenada(coords);
         Alert.alert('Éxito', 'Coordenadas GPS actualizadas');
       }
     } catch (error) {
+      if (!isMountedRef.current || !visibleRef.current) return;
       console.error('Error obteniendo coordenadas:', error);
-      if (isMountedRef.current) {
-        Alert.alert('Error', 'No se pudieron obtener las coordenadas GPS');
-        setCoordenada('Error obteniendo coordenadas');
-      }
+      Alert.alert('Error', 'No se pudieron obtener las coordenadas GPS');
+      setCoordenada('Error obteniendo coordenadas');
     } finally {
-      if (isMountedRef.current) {
+      if (isMountedRef.current && visibleRef.current) {
         setLoadingGPS(false);
       }
     }
@@ -125,12 +163,14 @@ export default function MuestraTipo1Modal({
       coordenada: coordenada
     };
     
+    DraftService.clearDraft(DRAFT_KEY);
     onGuardar(datosMuestra); 
     onClose();
   }, [camposValidos, dato_1, dato_2, dato_3, dato_4, coordenada, onGuardar, onClose]);
 
   // ✅ Cerrar memoizado con reset de valores
   const handleCerrar = useCallback(() => {
+    DraftService.clearDraft(DRAFT_KEY);
     setDato_1(valoresIniciales.dato_1 || '');
     setDato_2(valoresIniciales.dato_2 || '');
     setDato_3(valoresIniciales.dato_3 || '');

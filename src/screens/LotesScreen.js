@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LoteItem from '../components/LoteItem';
@@ -27,22 +28,27 @@ export default function LotesScreen({ route, navigation }) {
   // ✅ Ref para verificar si el componente está montado
   const isMountedRef = useRef(true);
 
-  // ✅ Cleanup al desmontar
+  // ✅ Ref para prevenir navegaciones simultáneas
+  const isNavigatingRef = useRef(false);
+
+  // ✅ Lifecycle con cleanup correcto
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
     };
   }, []);
 
   useEffect(() => {
-    console.log('🔧 LotesScreen: Inicializando...', { operacionId, roney_op });
+    isMountedRef.current = true;
+    isNavigatingRef.current = false;
     if (!operacionId) {
       ErrorHandler.handleError(
         new Error('Missing operation parameters'),
         'Error de Navegación',
         'No se recibieron los datos de la operación'
       );
-      navigation.goBack();
+      if (navigation.canGoBack()) navigation.goBack();
       return;
     }
     cargarDatosOperacion(); 
@@ -54,8 +60,8 @@ export default function LotesScreen({ route, navigation }) {
     try {
       const data = await AsyncStorage.getItem('operaciones');
       if (data) {
-        const operaciones = JSON.parse(data);
-        const operacionActual = operaciones.find(op => op.id === operacionId);
+        const operaciones = ErrorHandler.safeJsonParse(data, []);
+        const operacionActual = Array.isArray(operaciones) ? operaciones.find(op => op.id === operacionId) : null;
         if (operacionActual && isMountedRef.current) {
           setCultivo(operacionActual.cultivo || 'soja');
         }
@@ -145,8 +151,9 @@ export default function LotesScreen({ route, navigation }) {
       // Liberar las muestras
       const muestrasData = await AsyncStorage.getItem(`muestras_${operacionId}`);
       if (muestrasData) {
-        const muestras = JSON.parse(muestrasData);
-        const muestrasActualizadas = muestras.map(muestra => {
+        const muestras = ErrorHandler.safeJsonParse(muestrasData, []);
+        const listaMuestras = Array.isArray(muestras) ? muestras : [];
+        const muestrasActualizadas = listaMuestras.map(muestra => {
           if (loteAEliminar.muestrasIds.includes(muestra.id)) {
             return { ...muestra, loteId: null };
           }
@@ -175,8 +182,9 @@ export default function LotesScreen({ route, navigation }) {
       // Actualizar la muestra
       const muestrasData = await AsyncStorage.getItem(`muestras_${operacionId}`);
       if (muestrasData) {
-        const muestras = JSON.parse(muestrasData);
-        const muestrasActualizadas = muestras.map(muestra => {
+        const muestras = ErrorHandler.safeJsonParse(muestrasData, []);
+        const listaMuestras = Array.isArray(muestras) ? muestras : [];
+        const muestrasActualizadas = listaMuestras.map(muestra => {
           if (muestra.id === muestraId) {
             return { ...muestra, loteId: null };
           }
@@ -192,9 +200,16 @@ export default function LotesScreen({ route, navigation }) {
           
           let nuevoDañoReal = 0;
           if (nuevasMuestrasIds.length > 0 && muestrasData) {
-            const muestras = JSON.parse(muestrasData);
-            const muestrasDelLote = muestras.filter(m => nuevasMuestrasIds.includes(m.id));
-            nuevoDañoReal = muestrasDelLote.reduce((sum, m) => sum + (m.datos.porcentajeDaño || 0), 0) / muestrasDelLote.length;
+            const muestras = ErrorHandler.safeJsonParse(muestrasData, []);
+            const muestrasDelLote = Array.isArray(muestras) ? muestras.filter(m => m && m.id && nuevasMuestrasIds.includes(m.id)) : [];
+            if (muestrasDelLote.length > 0) {
+              const suma = muestrasDelLote.reduce((sum, m) => {
+                const val = parseFloat(String(m?.datos?.porcentajeDaño ?? '0').replace(',', '.'));
+                return sum + (isNaN(val) ? 0 : val);
+              }, 0);
+              nuevoDañoReal = suma / muestrasDelLote.length;
+              if (isNaN(nuevoDañoReal) || !isFinite(nuevoDañoReal)) nuevoDañoReal = 0;
+            }
           }
 
           return {
@@ -222,10 +237,15 @@ export default function LotesScreen({ route, navigation }) {
   }, [lotes, operacionId]);
 
   const navegarAMuestras = useCallback(() => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
     navigation.navigate('Muestras', { 
       operacionId, 
       roney_op 
     });
+    setTimeout(() => {
+      if (isMountedRef.current) isNavigatingRef.current = false;
+    }, 600);
   }, [navigation, operacionId, roney_op]);
 
   // ✅ Memoizar totalHectareas
@@ -282,8 +302,8 @@ export default function LotesScreen({ route, navigation }) {
         keyExtractor={keyExtractor}
         renderItem={renderLote}
         getItemLayout={getItemLayout}
-        // ✅ Optimizaciones de performance
-        removeClippedSubviews={true}
+        // ✅ Optimizaciones de performance seguras
+        removeClippedSubviews={Platform.OS === 'android' ? false : true}
         maxToRenderPerBatch={8}
         updateCellsBatchingPeriod={50}
         initialNumToRender={8}

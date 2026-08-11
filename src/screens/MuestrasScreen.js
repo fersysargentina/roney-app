@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, Alert, FlatList, TouchableOpacity } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import { View, Text, StyleSheet, Alert, FlatList, TouchableOpacity, Platform, BackHandler, Modal } from 'react-native';
 import MuestraItem from '../components/MuestraItem';
 import MuestraTipo1Modal from '../components/modals/MuestraTipo1Modal';
 import MuestraTipo2Modal from '../components/modals/MuestraTipo2Modal';
@@ -38,11 +37,25 @@ export default function MuestrasScreen({ route, navigation }) {
   // ✅ Ref para verificar si el componente está montado
   const isMountedRef = useRef(true);
 
-  // ✅ Cleanup al desmontar
+  // ✅ Ref de navegación para prevenir múltiples navegaciones simultáneas (stress test)
+  const isNavigatingRef = useRef(false);
+
+  // ✅ Cleanup al desmontar (solo ref, el cleanup con operacionId está abajo)
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
     };
+  }, []);
+
+  // ✅ Bloquear boton BACK de Android durante navegación activa
+  useEffect(() => {
+    const onBackPress = () => {
+      if (isNavigatingRef.current) return true; // bloquear si está navegando
+      return false; // comportamiento normal
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backHandler.remove();
   }, []);
 
   // ✅ Función de mapeo memoizada
@@ -51,15 +64,21 @@ export default function MuestrasScreen({ route, navigation }) {
   }, [cultivo]);
 
   useEffect(() => {
+    isMountedRef.current = true;
     if (!roney_op || !operacionId) {
       ErrorHandler.handleError(
         new Error('Missing operation parameters'),
         'Error de Navegación',
         'No se recibieron los datos de la operación'
       );
-      navigation.goBack();
+      if (navigation.canGoBack()) navigation.goBack();
       return;
     }
+    // Resetear selecciones y modales al cambiar de operación
+    setMuestrasSeleccionadas(new Set());
+    setMuestraEnEdicion(null);
+    setModalTipo(null);
+    isNavigatingRef.current = false;
     cargarDatosOperacion();
     inicializarDatos();
   }, [operacionId, roney_op]);
@@ -181,48 +200,71 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
     setMuestraEnEdicion(null);
   }, []);
 
+  // ✅ Navegación a Lotes con debounce para evitar crash por doble tap / back rápido
+  const navegarALotes = useCallback(() => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+    navigation.navigate('Lotes', { operacionId, roney_op });
+    setTimeout(() => {
+      if (isMountedRef.current) isNavigatingRef.current = false;
+    }, 600);
+  }, [navigation, operacionId, roney_op]);
+
   const abrirModalEdicion = useCallback((muestra) => {
     setMuestraEnEdicion(muestra);
     setModalTipo(muestra.tipo);
   }, []);
 
-  const agregarMuestraDesdeModal = useCallback(async (tipo, datosCompletos) => {
-    const porcentajeDaño = calculoDeDaño(datosCompletos, fenologicoSeleccionado, cultivo);
-  
-    console.log('🔍 Debug agregarMuestra:', {
-      cultivo,
-      fenologicoSeleccionado,
-      tipo,
-      datos: datosCompletos,
-      porcentajeDaño
-    });
-    
-    const datosConDaño = { ...datosCompletos, porcentajeDaño };
-  
-    if (muestraEnEdicion) {
-      const nuevasMuestras = muestras.map((m) =>
-        m.id === muestraEnEdicion.id
-          ? { ...m, datos: { ...datosConDaño, coordenada: m.datos?.coordenada } }
-          : m
-      );
-      guardarMuestras(nuevasMuestras);
-    } else {
-      const numeroMuestra = await obtenerSiguienteNumeroMuestra(operacionId, tipo);
-      
-      const nuevaMuestra = {
-        id: Date.now().toString(),
-        tipo,
-        datos: { ...datosConDaño },
-        nombre: `Muestra ${numeroMuestra}`,
-        fecha: new Date().toLocaleDateString(),
-        operacionId: operacionId,
-        loteId: null,
-      };
-      const nuevasMuestras = [...muestras, nuevaMuestra];
-      guardarMuestras(nuevasMuestras);
+  const obtenerSiguienteNumeroMuestra = useCallback(async (opId, tipoMuestra) => {
+    try {
+      const key = `contador_muestras_${opId}_${tipoMuestra}`;
+      const contadorStr = await AsyncStorage.getItem(key);
+      const contador = contadorStr ? parseInt(contadorStr, 10) : 0;
+      const siguiente = (isNaN(contador) ? 0 : contador) + 1;
+      await AsyncStorage.setItem(key, siguiente.toString());
+      return siguiente;
+    } catch (e) {
+      console.error('Error obteniendo contador:', e);
+      return Date.now() % 10000;
     }
-    cerrarModal();
-  }, [muestraEnEdicion, muestras, fenologicoSeleccionado, cultivo, operacionId, guardarMuestras, cerrarModal]);
+  }, []);
+
+  const agregarMuestraDesdeModal = useCallback(async (tipo, datosCompletos) => {
+    try {
+      const porcentajeDaño = calculoDeDaño(datosCompletos, fenologicoSeleccionado, cultivo);
+    
+      
+      const datosConDaño = { ...datosCompletos, porcentajeDaño };
+    
+      if (muestraEnEdicion) {
+        const nuevasMuestras = muestras.map((m) =>
+          m.id === muestraEnEdicion.id
+            ? { ...m, datos: { ...datosConDaño, coordenada: m.datos?.coordenada } }
+            : m
+        );
+        await guardarMuestras(nuevasMuestras);
+      } else {
+        const numeroMuestra = await obtenerSiguienteNumeroMuestra(operacionId, tipo);
+        
+        const nuevaMuestra = {
+          id: Date.now().toString(),
+          tipo,
+          datos: { ...datosConDaño },
+          nombre: `Muestra ${numeroMuestra}`,
+          fecha: new Date().toLocaleDateString(),
+          operacionId: operacionId,
+          loteId: null,
+        };
+        const nuevasMuestras = [...muestras, nuevaMuestra];
+        await guardarMuestras(nuevasMuestras);
+      }
+    } catch (error) {
+      console.error('❌ Error guardando muestra desde modal:', error);
+      Alert.alert('Error', 'Ocurrió un problema al guardar la muestra. Intenta nuevamente.');
+    } finally {
+      cerrarModal();
+    }
+  }, [muestraEnEdicion, muestras, fenologicoSeleccionado, cultivo, operacionId, guardarMuestras, cerrarModal, obtenerSiguienteNumeroMuestra]);
 
   const handleCambioFenologico = useCallback(async (nuevoFenologico) => {
     setFenologicoSeleccionado(nuevoFenologico);
@@ -313,8 +355,8 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
       };
 
       const lotesData = await AsyncStorage.getItem(`lotes_${operacionId}`);
-      const lotes = lotesData ? JSON.parse(lotesData) : [];
-      const nuevosLotes = [...lotes, nuevoLote];
+      const lotes = ErrorHandler.safeJsonParse(lotesData, []);
+      const nuevosLotes = Array.isArray(lotes) ? [...lotes, nuevoLote] : [nuevoLote];
       await AsyncStorage.setItem(`lotes_${operacionId}`, JSON.stringify(nuevosLotes));
 
       const muestrasActualizadas = muestras.map(muestra => {
@@ -333,7 +375,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
           '✅ Lote Creado',
           `Lote "${datosLote.nombreLote}" creado con ${datosLote.muestrasIds.length} muestras`,
           [
-            { text: 'Ver Lotes', onPress: () => navigation.navigate('Lotes', { operacionId, roney_op }) },
+            { text: 'Ver Lotes', onPress: () => navegarALotes() },
             { text: 'Continuar Aquí', style: 'cancel' }
           ]
         );
@@ -345,19 +387,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
     }
   }, [estadosFenologicos, fenologicoSeleccionado, operacionId, muestras, guardarMuestras, navigation, roney_op]);
 
-  const obtenerSiguienteNumeroMuestra = async (operacionId, tipo) => {
-    try {
-      const key = `contador_muestras_${operacionId}_${tipo}`;
-      const contadorStr = await AsyncStorage.getItem(key);
-      const contador = contadorStr ? parseInt(contadorStr, 10) : 0;
-      const siguiente = contador + 1;
-      await AsyncStorage.setItem(key, siguiente.toString());
-      return siguiente;
-    } catch (e) {
-      console.error('Error obteniendo contador:', e);
-      return Date.now() % 10000;
-    }
-  };
+
 
   // ✅ Memoizar tipo actual
   const tipoActual = useMemo(() => {
@@ -389,12 +419,17 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
     if (muestrasSeleccionadas.size === 0) return '0,0';
     
     const muestrasArray = muestras.filter(m => muestrasSeleccionadas.has(m.id));
+    if (muestrasArray.length === 0) return '0,0';
+
     const sumaDanos = muestrasArray.reduce((sum, m) => {
-      const porcentaje = parseFloat(m.datos?.porcentajeDaño) || 0;
-      return sum + porcentaje;
+      const valStr = String(m?.datos?.porcentajeDaño ?? '0').replace(',', '.');
+      const porcentaje = parseFloat(valStr);
+      return sum + (isNaN(porcentaje) ? 0 : porcentaje);
     }, 0);
     
     const promedio = sumaDanos / muestrasArray.length;
+    if (isNaN(promedio) || !isFinite(promedio)) return '0,0';
+    
     const trunc = Math.trunc(promedio * 10) / 10;
     return trunc.toFixed(1).replace('.', ',');
   }, [muestras, muestrasSeleccionadas]);
@@ -421,6 +456,20 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
     index,
   }), []);
 
+  // Estado para el modal nativo del selector fenológico
+  const [fenologicoModalVisible, setFenologicoModalVisible] = useState(false);
+
+  const selectedValueValido = useMemo(() => {
+    if (!estadosFenologicos || estadosFenologicos.length === 0) return undefined;
+    const existe = estadosFenologicos.some(e => e.value === fenologicoSeleccionado);
+    return existe ? fenologicoSeleccionado : estadosFenologicos[0].value;
+  }, [estadosFenologicos, fenologicoSeleccionado]);
+
+  const labelFenologicoActual = useMemo(() => {
+    const estado = estadosFenologicos.find(e => e.value === selectedValueValido);
+    return estado?.label || 'Seleccionar estado';
+  }, [estadosFenologicos, selectedValueValido]);
+
   // ✅ EmptyComponent memoizado
   const EmptyComponent = useMemo(() => (
     <Text style={styles.emptyText}>
@@ -431,23 +480,22 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Picker
-          selectedValue={fenologicoSeleccionado}
-          style={styles.picker}
-          onValueChange={(value) => handleCambioFenologico(value)}
-        >
-          {estadosFenologicos.map((estado) => (
-            <Picker.Item 
-              key={estado.value} 
-              label={estado.label} 
-              value={estado.value} 
-              style={styles.pickerItem}
-            />
-          ))}
-        </Picker>
+        {estadosFenologicos && estadosFenologicos.length > 0 ? (
+          <TouchableOpacity
+            style={styles.selectorBtn}
+            onPress={() => setFenologicoModalVisible(true)}
+          >
+            <Text style={styles.selectorText} numberOfLines={1}>{labelFenologicoActual}</Text>
+            <Text style={styles.selectorArrow}>▾</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.pickerPlaceholder}>
+            <Text style={styles.loadingTextPlaceholder}>Cargando...</Text>
+          </View>
+        )}
         <TouchableOpacity
           style={styles.lotesBtn}
-          onPress={() => navigation.navigate('Lotes', { operacionId, roney_op })}
+          onPress={navegarALotes}
         >
           <Text style={styles.btnText}>Lotes</Text>
         </TouchableOpacity>
@@ -456,14 +504,58 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
         </TouchableOpacity>
       </View>
 
+      <Modal
+        visible={fenologicoModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFenologicoModalVisible(false)}
+      >
+        <View style={styles.modalBg}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Estado Fenológico</Text>
+            <FlatList
+              data={estadosFenologicos}
+              keyExtractor={(item) => item.value}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalOption}
+                  onPress={() => {
+                    setFenologicoModalVisible(false);
+                    if (item.value !== fenologicoSeleccionado) {
+                      handleCambioFenologico(item.value);
+                    }
+                  }}
+                >
+                  <Text style={[
+                    styles.modalOptionText,
+                    item.value === selectedValueValido && styles.modalOptionTextSelected
+                  ]}>
+                    {item.label}
+                  </Text>
+                  {item.value === selectedValueValido && (
+                    <Text style={styles.modalOptionCheck}>✓</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => setFenologicoModalVisible(false)}
+            >
+              <Text style={styles.modalCloseBtnText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <FlatList
         data={muestrasFiltradas}
         keyExtractor={keyExtractor}
         renderItem={renderMuestra}
         getItemLayout={getItemLayout}
         ListEmptyComponent={EmptyComponent}
-        // ✅ Optimizaciones críticas
-        removeClippedSubviews={true}
+        // ✅ Optimizaciones de performance seguras (removeClippedSubviews causa crash en Android al navegar rápido)
+        removeClippedSubviews={Platform.OS === 'android' ? false : true}
         maxToRenderPerBatch={10}
         updateCellsBatchingPeriod={50}
         initialNumToRender={10}
@@ -609,16 +701,79 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-  picker: {
-    height: 50,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
+  selectorBtn: {
     flex: 1,
     minWidth: 140,
+    height: 42,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    justifyContent: 'space-between',
+  },
+  selectorText: {
+    flex: 1,
+    fontSize: 14,
     color: '#000',
   },
-  pickerItem: {
-    color: '#000'
+  selectorArrow: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 4,
+  },
+  modalBg: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '80%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+    color: '#333',
+  },
+  modalOption: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalOptionText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  modalOptionTextSelected: {
+    color: '#007bff',
+    fontWeight: 'bold',
+  },
+  modalOptionCheck: {
+    color: '#007bff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  modalCloseBtn: {
+    marginTop: 15,
+    padding: 12,
+    alignItems: 'center',
+  },
+  modalCloseBtnText: {
+    color: '#dc3545',
+    fontSize: 16,
+    fontWeight: '600',
   },
   emptyText: {
     textAlign: 'center',
@@ -657,5 +812,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  pickerPlaceholder: {
+    flex: 1,
+    height: 50,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  loadingTextPlaceholder: {
+    color: '#888',
+    fontSize: 14,
   },
 });

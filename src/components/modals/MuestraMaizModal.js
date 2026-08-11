@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Modal, 
   View, 
@@ -109,24 +109,29 @@ export default function MuestraMaizModal({
     onClose();
   };
 
+  const visibleRef = useRef(visible);
+  useEffect(() => {
+    visibleRef.current = visible;
+  }, [visible]);
+
   const actualizarCoordenada = async () => {
-    if (esEdicion) return;
+    if (esEdicion || !visibleRef.current) return;
     
     setLoadingGPS(true);
 
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       
+      if (!visibleRef.current) return;
+
       if (status !== 'granted') {
-        Alert.alert('Error', 'Se necesita permiso de ubicación para obtener las coordenadas GPS');
-        setCoordenada('Error: Sin permisos de ubicación');
-        setLoadingGPS(false);
+        if (visibleRef.current) {
+          Alert.alert('Error', 'Se necesita permiso de ubicación para obtener las coordenadas GPS');
+          setCoordenada('Error: Sin permisos de ubicación');
+          setLoadingGPS(false);
+        }
         return;
       }
-
-      // const location = await Location.getCurrentPositionAsync({
-      //   accuracy: Location.Accuracy.High,
-      // });
 
       const location = await Promise.race([
         Location.getCurrentPositionAsync({
@@ -137,16 +142,21 @@ export default function MuestraMaizModal({
         )
       ]);
 
+      if (!visibleRef.current) return;
+
       const coords = `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`;
       setCoordenada(coords);
       Alert.alert('Éxito', 'Coordenadas GPS actualizadas');
     } catch (error) {
+      if (!visibleRef.current) return;
       console.error('Error obteniendo coordenadas:', error);
       Alert.alert('Error', 'No se pudieron obtener las coordenadas GPS');
       setCoordenada('Error obteniendo coordenadas');
+    } finally {
+      if (visibleRef.current) {
+        setLoadingGPS(false);
+      }
     }
-
-    setLoadingGPS(false);
   };
 
   // Obtener el nombre del estado fenológico para el título

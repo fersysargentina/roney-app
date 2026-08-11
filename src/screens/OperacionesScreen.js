@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, FlatList, StyleSheet, Alert, Image, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Alert, Image, TouchableOpacity, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CrearOperacionModal from '../components/modals/CrearOperacionModal';
 import OperacionItem from '../components/OperacionItem';
@@ -18,27 +18,28 @@ export default function OperacionesScreen({ navigation }) {
   // ✅ Ref para verificar si el componente está montado
   const isMountedRef = useRef(true);
 
-  // ✅ Cleanup al desmontar
+  // ✅ Listener de foco con cleanup correcto
   useEffect(() => {
+    isMountedRef.current = true;
+    cargarOperaciones();
+
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (isMountedRef.current) {
+        cargarOperaciones();
+      }
+    });
+
     return () => {
       isMountedRef.current = false;
+      unsubscribe();
     };
-  }, []);
+  }, [navigation, cargarOperaciones]);
 
-  useEffect(() => {
-    console.log('🔧 OperacionesScreen: Inicializando...');
-    cargarOperaciones();
-  }, []);
-
-  // ✅ Cargar operaciones con verificación de montaje
   const cargarOperaciones = useCallback(async () => {
-    console.log('📂 OperacionesScreen: Cargando operaciones...');
     try {
       const data = await ErrorHandler.getStorageData('operaciones');
       const operacionesCargadas = ErrorHandler.safeJsonParse(data, []);
       const operacionesValidadas = ErrorHandler.sanitizeData(operacionesCargadas, 'operaciones');
-      
-      console.log('✅ OperacionesScreen: Operaciones cargadas:', operacionesValidadas.length);
       
       if (isMountedRef.current) {
         setOperaciones(operacionesValidadas);
@@ -51,14 +52,10 @@ export default function OperacionesScreen({ navigation }) {
     }
   }, []);
 
-  // ✅ Guardar operaciones con verificación de montaje
   const guardarOperaciones = useCallback(async (nuevasOperaciones) => {
-    console.log('💾 OperacionesScreen: Guardando operaciones...', nuevasOperaciones.length);
     try {
       const sanitized = ErrorHandler.sanitizeData(nuevasOperaciones, 'operaciones');
       await ErrorHandler.setStorageData('operaciones', sanitized);
-      
-      console.log('✅ OperacionesScreen: Operaciones guardadas exitosamente');
       
       if (isMountedRef.current) {
         setOperaciones(sanitized);
@@ -71,9 +68,7 @@ export default function OperacionesScreen({ navigation }) {
     }
   }, []);
 
-  // ✅ Memoizar handleGuardarOperacion
   const handleGuardarOperacion = useCallback((roney_op, cultivo) => {
-    console.log('🔄 OperacionesScreen: Guardando operación...', { roney_op, cultivo, modoEdicion });
     try {
       if (modoEdicion && operacionSeleccionada) {
         // Editar operación existente
@@ -81,7 +76,6 @@ export default function OperacionesScreen({ navigation }) {
           op.id === operacionSeleccionada.id ? { ...op, roney_op, cultivo } : op
         );
         guardarOperaciones(nuevasOperaciones);
-        console.log('✅ OperacionesScreen: Operación editada');
       } else {
         // Crear nueva operación
         const nuevaOperacion = {
@@ -91,7 +85,6 @@ export default function OperacionesScreen({ navigation }) {
         };
         const nuevasOperaciones = [...operaciones, nuevaOperacion];
         guardarOperaciones(nuevasOperaciones);
-        console.log('✅ OperacionesScreen: Nueva operación creada');
       }
       
       // Cerrar modal y resetear estados
@@ -146,9 +139,16 @@ export default function OperacionesScreen({ navigation }) {
     setModoEdicion(false);
   }, []);
 
-  // ✅ Memoizar navegación a Muestras
+  const isNavigatingRef = useRef(false);
+
+  // ✅ Memoizar navegación a Muestras con Debounce para evitar pantallas duplicadas
   const navegarAMuestras = useCallback((roney_op, operacionId) => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
     navigation.navigate('Muestras', { roney_op, operacionId });
+    setTimeout(() => {
+      isNavigatingRef.current = false;
+    }, 600);
   }, [navigation]);
 
   // ✅ Memoizar renderItem
@@ -211,8 +211,8 @@ export default function OperacionesScreen({ navigation }) {
         getItemLayout={getItemLayout}
         ItemSeparatorComponent={ItemSeparator}
         ListEmptyComponent={EmptyComponent}
-        // ✅ Optimizaciones de performance
-        removeClippedSubviews={true}
+        // ✅ Optimizaciones de performance seguras
+        removeClippedSubviews={Platform.OS === 'android' ? false : true}
         maxToRenderPerBatch={10}
         updateCellsBatchingPeriod={50}
         initialNumToRender={10}

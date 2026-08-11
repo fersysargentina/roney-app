@@ -84,18 +84,20 @@ export default function MuestraTipo4Modal({
 
   // ✅ Actualizar coordenada memoizada
   const actualizarCoordenada = useCallback(async () => {
-    if (esEdicion) return;
+    if (esEdicion || !visibleRef.current) return;
     
-    if (isMountedRef.current) {
+    if (isMountedRef.current && visibleRef.current) {
       setLoadingGPS(true);
     }
 
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       
+      if (!isMountedRef.current || !visibleRef.current) return;
+
       if (status !== 'granted') {
-        Alert.alert('Error', 'Se necesita permiso de ubicación para obtener las coordenadas GPS');
-        if (isMountedRef.current) {
+        if (isMountedRef.current && visibleRef.current) {
+          Alert.alert('Error', 'Se necesita permiso de ubicación para obtener las coordenadas GPS');
           setCoordenada('Error: Sin permisos de ubicación');
         }
         return;
@@ -110,20 +112,21 @@ export default function MuestraTipo4Modal({
         )
       ]);
 
+      if (!isMountedRef.current || !visibleRef.current) return;
+
       const coords = `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`;
       
-      if (isMountedRef.current) {
+      if (isMountedRef.current && visibleRef.current) {
         setCoordenada(coords);
         Alert.alert('Éxito', 'Coordenadas GPS actualizadas');
       }
     } catch (error) {
+      if (!isMountedRef.current || !visibleRef.current) return;
       console.error('Error obteniendo coordenadas:', error);
-      if (isMountedRef.current) {
-        Alert.alert('Error', 'No se pudieron obtener las coordenadas GPS');
-        setCoordenada('Error obteniendo coordenadas');
-      }
+      Alert.alert('Error', 'No se pudieron obtener las coordenadas GPS');
+      setCoordenada('Error obteniendo coordenadas');
     } finally {
-      if (isMountedRef.current) {
+      if (isMountedRef.current && visibleRef.current) {
         setLoadingGPS(false);
       }
     }

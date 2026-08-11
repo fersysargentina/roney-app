@@ -13,6 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ErrorHandler } from '../../utils/ErrorHandler';
 import VerMuestraModal from './VerMuestraModal';
 
 export default function EditarLoteModal({ 
@@ -64,10 +65,10 @@ export default function EditarLoteModal({
     try {
       const data = await AsyncStorage.getItem(`muestras_${operacionId}`);
       if (data) {
-        const todasLasMuestras = JSON.parse(data);
-        const muestrasDelLote = todasLasMuestras.filter(m => 
-          lote.muestrasIds.includes(m.id)
-        );
+        const todasLasMuestras = ErrorHandler.safeJsonParse(data, []);
+        const muestrasDelLote = Array.isArray(todasLasMuestras) ? todasLasMuestras.filter(m => 
+          m && m.id && lote?.muestrasIds?.includes(m.id)
+        ) : [];
         
         if (isMountedRef.current) {
           setMuestras(muestrasDelLote);

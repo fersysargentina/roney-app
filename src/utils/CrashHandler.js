@@ -13,29 +13,47 @@ export class CrashHandler {
   static initialize() {
     if (this.isInitialized) return;
     
-    // Manejo global de errores no capturados
-    const originalHandler = ErrorUtils.getGlobalHandler();
-    
-    ErrorUtils.setGlobalHandler((error, isFatal) => {
-      console.error('Global error caught:', error, 'Fatal:', isFatal);
+    try {
+      // Manejo global de errores no capturados (safe check for global.ErrorUtils)
+      const globalErrorUtils = typeof global !== 'undefined' && global.ErrorUtils ? global.ErrorUtils : null;
       
-      // Log del error para debugging
-      this.logCrash(error, isFatal);
-      
-      // Mostrar alerta solo si no es fatal (para evitar loops)
-      if (!isFatal) {
-        Alert.alert(
-          'Error de Aplicación',
-          'Ha ocurrido un error inesperado. La aplicación continuará funcionando.',
-          [{ text: 'OK' }]
-        );
+      if (globalErrorUtils && typeof globalErrorUtils.getGlobalHandler === 'function') {
+        const originalHandler = globalErrorUtils.getGlobalHandler();
+        
+        globalErrorUtils.setGlobalHandler((error, isFatal) => {
+          console.error('Global error caught:', error, 'Fatal:', isFatal);
+          
+          // Log del error para debugging
+          this.logCrash(error, isFatal);
+          
+          Alert.alert(
+            'Error de Aplicación',
+            'Ha ocurrido un error inesperado. Tus datos están a salvo.',
+            [{ text: 'OK' }]
+          );
+          
+          // En modo desarrollo llamar al handler original para ver la pantalla roja
+          if (typeof __DEV__ !== 'undefined' && __DEV__ && originalHandler) {
+            originalHandler(error, isFatal);
+          }
+        });
       }
-      
-      // Llamar al handler original
-      if (originalHandler) {
-        originalHandler(error, isFatal);
+
+      // Manejo global de promesas no capturadas (Unhandled Rejections)
+      if (typeof global !== 'undefined') {
+        const previousRejectionHandler = global.onunhandledrejection;
+        global.onunhandledrejection = (event) => {
+          const reason = event?.reason || event;
+          console.error('Unhandled Promise Rejection caught:', reason);
+          this.logCrash(reason instanceof Error ? reason : new Error(String(reason)), false);
+          if (typeof previousRejectionHandler === 'function') {
+            previousRejectionHandler(event);
+          }
+        };
       }
-    });
+    } catch (e) {
+      console.warn('CrashHandler initialize failed:', e);
+    }
     
     this.isInitialized = true;
   }
@@ -51,12 +69,18 @@ export class CrashHandler {
         stack: error?.stack || 'No stack trace',
         isFatal,
         platform: require('react-native').Platform.OS,
-        version: '1.0.0' // Cambiar por la versión real de tu app
+        version: '1.0.0'
       };
       
       // Guardar en AsyncStorage para análisis posterior
       const existingCrashes = await AsyncStorage.getItem('@app_crashes');
-      const crashes = existingCrashes ? JSON.parse(existingCrashes) : [];
+      let crashes = [];
+      try {
+        crashes = existingCrashes ? JSON.parse(existingCrashes) : [];
+        if (!Array.isArray(crashes)) crashes = [];
+      } catch (_) {
+        crashes = [];
+      }
       crashes.push(crashLog);
       
       // Mantener solo los últimos 10 crashes
