@@ -133,6 +133,7 @@ export default function CrearOperacionModal({
               <TextInput
                 style={styles.input}
                 placeholder="Nombre de la operación"
+                placeholderTextColor="#444444"
                 value={roneyOp}
                 onChangeText={setRoneyOp}
                 autoFocus
@@ -271,6 +272,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 14,
     fontSize: 16,
+    color: '#000000',
     backgroundColor: '#fff',
   },
   inputDisabled: {
@@ -284,7 +286,7 @@ const styles = StyleSheet.create({
   },
   cultivoPlaceholder: {
     fontSize: 16,
-    color: '#999',
+    color: '#444444',
     padding: 2,
   },
   cultivoSelected: {

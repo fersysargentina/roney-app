@@ -61,7 +61,7 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
           <TextInput
             style={styles.input}
             placeholder="ejemplo@correo.com"
-            placeholderTextColor="#888"
+            placeholderTextColor="#444444"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -72,7 +72,7 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
           <TextInput
             style={styles.input}
             placeholder="••••••••"
-            placeholderTextColor="#888"
+            placeholderTextColor="#444444"
             value={clave}
             onChangeText={setClave}
             secureTextEntry

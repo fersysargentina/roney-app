@@ -233,6 +233,7 @@ export default function MuestraTipo1Modal({
                     <TextInput
                       style={coordsInputStyle}
                       placeholder="Coordenadas GPS (lat, long)"
+                      placeholderTextColor="#444444"
                       value={coordenada}
                       onChangeText={setCoordenada}
                       editable={!esEdicion}
@@ -259,6 +260,7 @@ export default function MuestraTipo1Modal({
               <TextInput
                 style={styles.input}
                 placeholder="Ingrese dato 1"
+                placeholderTextColor="#444444"
                 value={dato_1}
                 onChangeText={setDato_1}
                 keyboardType="numeric"
@@ -269,6 +271,7 @@ export default function MuestraTipo1Modal({
               <TextInput
                 style={styles.input}
                 placeholder="Ingrese dato 2"
+                placeholderTextColor="#444444"
                 value={dato_2}
                 onChangeText={setDato_2}
                 keyboardType="numeric"
@@ -279,6 +282,7 @@ export default function MuestraTipo1Modal({
               <TextInput
                 style={styles.input}
                 placeholder="Ingrese dato 3"
+                placeholderTextColor="#444444"
                 value={dato_3}
                 onChangeText={setDato_3}
                 keyboardType="numeric"
@@ -289,6 +293,7 @@ export default function MuestraTipo1Modal({
               <TextInput
                 style={styles.input}
                 placeholder="Ingrese dato 4"
+                placeholderTextColor="#444444"
                 value={dato_4}
                 onChangeText={setDato_4}
                 keyboardType="numeric"
@@ -363,6 +368,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 14,
     fontSize: 16,
+    color: '#000000',
   },
   coordsInput: {
     flex: 1,

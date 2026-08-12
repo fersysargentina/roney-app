@@ -169,6 +169,7 @@ export default function MuestraGirasolModal({
           <TextInput
             style={styles.input}
             placeholder={labelText}
+            placeholderTextColor="#444444"
             value={data[key]}
             onChangeText={(text) => handleDataChange(key, text)}
             keyboardType="numeric"
@@ -225,6 +226,7 @@ export default function MuestraGirasolModal({
                         esEdicion && styles.coordsInputDisabled
                       ]}
                       placeholder="Coordenadas GPS (lat, long)"
+                      placeholderTextColor="#444444"
                       value={coordenada}
                       onChangeText={setCoordenada}
                       editable={!esEdicion}
@@ -321,6 +323,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 14,
     fontSize: 16,
+    color: '#000000',
   },
   coordsInput: {
     flex: 1,

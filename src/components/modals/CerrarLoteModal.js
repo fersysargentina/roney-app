@@ -169,6 +169,7 @@ export default function CerrarLoteModal({
                 <TextInput
                   style={styles.input}
                   placeholder="Ej: Lote Norte 2024"
+                  placeholderTextColor="#444444"
                   value={nombreLote}
                   onChangeText={setNombreLote}
                   maxLength={50}
@@ -180,6 +181,7 @@ export default function CerrarLoteModal({
                 <TextInput
                   style={styles.input}
                   placeholder="Ej: 25.5"
+                  placeholderTextColor="#444444"
                   value={hectareas}
                   onChangeText={setHectareas}
                   keyboardType="numeric"
@@ -296,6 +298,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
+    color: '#000000',
     backgroundColor: '#fafafa',
   },
   calculatedContainer: {

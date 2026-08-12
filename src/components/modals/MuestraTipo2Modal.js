@@ -284,6 +284,7 @@ export default function MuestraTipo2Modal({
                     <TextInput
                       style={coordsInputStyle}
                       placeholder="Coordenadas GPS (lat, long)"
+                      placeholderTextColor="#444444"
                       value={coordenada}
                       onChangeText={setCoordenada}
                       editable={!esEdicion}
@@ -310,6 +311,7 @@ export default function MuestraTipo2Modal({
               <TextInput
                 style={styles.input}
                 placeholder="Pérdida en D"
+                placeholderTextColor="#444444"
                 value={dato_1}
                 onChangeText={setDato_1}
                 keyboardType="numeric"
@@ -320,6 +322,7 @@ export default function MuestraTipo2Modal({
               <TextInput
                 style={styles.input}
                 placeholder="Restante en D"
+                placeholderTextColor="#444444"
                 value={dato_2}
                 onChangeText={setDato_2}
                 keyboardType="numeric"
@@ -330,6 +333,7 @@ export default function MuestraTipo2Modal({
               <TextInput
                 style={styles.input}
                 placeholder="Nudos originales por Planta"
+                placeholderTextColor="#444444"
                 value={dato_3}
                 onChangeText={setDato_3}
                 keyboardType="numeric"
@@ -340,6 +344,7 @@ export default function MuestraTipo2Modal({
               <TextInput
                 style={styles.input}
                 placeholder="Nudos remanentes 1"
+                placeholderTextColor="#444444"
                 value={dato_4}
                 onChangeText={setDato_4}
                 keyboardType="numeric"
@@ -350,6 +355,7 @@ export default function MuestraTipo2Modal({
               <TextInput
                 style={styles.input}
                 placeholder="Nudos remanentes 2"
+                placeholderTextColor="#444444"
                 value={dato_5}
                 onChangeText={setDato_5}
                 keyboardType="numeric"
@@ -360,6 +366,7 @@ export default function MuestraTipo2Modal({
               <TextInput
                 style={styles.input}
                 placeholder="Nudos remanentes 3"
+                placeholderTextColor="#444444"
                 value={dato_6}
                 onChangeText={setDato_6}
                 keyboardType="numeric"
@@ -370,6 +377,7 @@ export default function MuestraTipo2Modal({
               <TextInput
                 style={styles.input}
                 placeholder="Nudos remanentes 4"
+                placeholderTextColor="#444444"
                 value={dato_7}
                 onChangeText={setDato_7}
                 keyboardType="numeric"
@@ -380,6 +388,7 @@ export default function MuestraTipo2Modal({
               <TextInput
                 style={styles.input}
                 placeholder="Nudos remanentes 5"
+                placeholderTextColor="#444444"
                 value={dato_8}
                 onChangeText={setDato_8}
                 keyboardType="numeric"
@@ -390,6 +399,7 @@ export default function MuestraTipo2Modal({
               <TextInput
                 style={styles.input}
                 placeholder="% Defoliación"
+                placeholderTextColor="#444444"
                 value={dato_9}
                 onChangeText={setDato_9}
                 keyboardType="numeric"
@@ -465,6 +475,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 14,
     fontSize: 16,
+    color: '#000000',
   },
   coordsInput: {
     flex: 1,

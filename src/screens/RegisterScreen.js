@@ -73,7 +73,7 @@ export default function RegisterScreen({ navigation }) {
           <TextInput
             style={styles.input}
             placeholder="Juan Pérez"
-            placeholderTextColor="#888"
+            placeholderTextColor="#444444"
             value={nombre}
             onChangeText={setNombre}
           />
@@ -82,7 +82,7 @@ export default function RegisterScreen({ navigation }) {
           <TextInput
             style={styles.input}
             placeholder="ejemplo@correo.com"
-            placeholderTextColor="#888"
+            placeholderTextColor="#444444"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -93,7 +93,7 @@ export default function RegisterScreen({ navigation }) {
           <TextInput
             style={styles.input}
             placeholder="••••••••"
-            placeholderTextColor="#888"
+            placeholderTextColor="#444444"
             value={clave}
             onChangeText={setClave}
             secureTextEntry
@@ -103,7 +103,7 @@ export default function RegisterScreen({ navigation }) {
           <TextInput
             style={styles.input}
             placeholder="••••••••"
-            placeholderTextColor="#888"
+            placeholderTextColor="#444444"
             value={confirmarClave}
             onChangeText={setConfirmarClave}
             secureTextEntry
