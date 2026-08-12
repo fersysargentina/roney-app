@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DraftService } from '../../services/DraftService';
 
 const DRAFT_KEY = 'muestra_tipo2_draft';
@@ -257,7 +258,7 @@ export default function MuestraTipo2Modal({
       statusBarTranslucent
       onRequestClose={handleCerrar}
     >
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }]}>
         <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
           style={styles.avoider}
@@ -266,6 +267,7 @@ export default function MuestraTipo2Modal({
             <View style={styles.header}>
               <Text style={styles.titulo}>{titulo}</Text>
               <TouchableOpacity 
+                style={styles.closeButton}
                 onPress={handleCerrar} 
                 accessibilityRole="button" 
                 accessibilityLabel="Cerrar"
@@ -455,11 +457,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 20,
+    paddingTop: 4,
   },
   titulo: {
     fontSize: 20,
     fontWeight: 'bold',
     flex: 1,
+    paddingRight: 12,
+  },
+  closeButton: {
+    marginTop: 4,
+    padding: 6,
+    alignSelf: 'center',
   },
   label: {
     fontSize: 16,

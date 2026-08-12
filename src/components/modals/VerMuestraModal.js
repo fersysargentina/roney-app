@@ -8,6 +8,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ✅ Configuraciones como constantes (fuera del componente)
 const LABELS_CONFIG = {
@@ -160,7 +161,7 @@ export default function VerMuestraModal({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }]}>
         <View style={styles.modalContainer}>
           <View style={styles.header}>
             <View style={styles.headerContent}>
@@ -263,6 +264,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
+    paddingTop: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
@@ -288,6 +290,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 12,
+    marginTop: 2,
+    alignSelf: 'center',
   },
   scrollView: {
     maxHeight: '100%',

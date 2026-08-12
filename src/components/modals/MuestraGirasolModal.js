@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // --- CONFIGURACIÓN DE LOS 6 CAMPOS DE DATOS PARA GIRASOL ---
 const DATOS_COUNT = 5;
@@ -50,6 +51,7 @@ export default function MuestraGirasolModal({
   const [coordenada, setCoordenada] = useState(valoresIniciales.coordenada || '');
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [loading, setLoading] = useState(false);
+  const insets = useSafeAreaInsets();
 
   // Sincronizar estado al cambiar valoresIniciales
   useEffect(() => {
@@ -191,7 +193,7 @@ export default function MuestraGirasolModal({
       statusBarTranslucent
       onRequestClose={handleCerrar}
     >
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }]}>
         <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
           style={styles.avoider}
@@ -204,6 +206,7 @@ export default function MuestraGirasolModal({
                   : `Nueva Muestra - ${getTituloEstado()}`}
               </Text>
               <TouchableOpacity 
+                style={styles.closeButton}
                 onPress={handleCerrar} 
                 accessibilityRole="button" 
                 accessibilityLabel="Cerrar"
@@ -303,11 +306,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 20,
+    paddingTop: 4,
   },
   titulo: {
     fontSize: 20,
     fontWeight: 'bold',
     flex: 1,
+    paddingRight: 12,
+  },
+  closeButton: {
+    marginTop: 4,
+    padding: 6,
+    alignSelf: 'center',
   },
   label: {
     fontSize: 16,
