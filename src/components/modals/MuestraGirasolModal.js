@@ -196,6 +196,7 @@ export default function MuestraGirasolModal({
       <View style={[styles.overlay, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }]}>
         <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 12 : 0}
           style={styles.avoider}
         >
           <View style={styles.modalContainer}>

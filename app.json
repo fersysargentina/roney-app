@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "roney_app",
-    "slug": "roney_app",
+    "name": "roney",
+    "slug": "roney",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

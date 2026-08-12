@@ -161,8 +161,8 @@ export default function VerMuestraModal({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={[styles.overlay, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }]}>
-        <View style={styles.modalContainer}>
+      <View style={[styles.overlay, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8, paddingLeft: 16, paddingRight: 16 }]}>
+        <View style={[styles.modalContainer, { marginTop: insets.top + 8, marginBottom: insets.bottom + 8 }]}>
           <View style={styles.header}>
             <View style={styles.headerContent}>
               <Text style={styles.title}>Ver Muestra</Text>
