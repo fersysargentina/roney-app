@@ -116,8 +116,11 @@ export default function MuestrasScreen({ route, navigation }) {
       const muestrasCargadas = ErrorHandler.safeJsonParse(data, []);
       const muestrasValidadas = ErrorHandler.sanitizeData(muestrasCargadas, 'muestras');
       
+      // Ordenar muestras más recientes primero
+      const muestrasOrdenadas = [...muestrasValidadas].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+
       if (isMountedRef.current) {
-        setMuestras(muestrasValidadas);
+        setMuestras(muestrasOrdenadas);
       }
     } catch (e) {
       if (isMountedRef.current) {
@@ -255,7 +258,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
           operacionId: operacionId,
           loteId: null,
         };
-        const nuevasMuestras = [...muestras, nuevaMuestra];
+        const nuevasMuestras = [nuevaMuestra, ...muestras];
         await guardarMuestras(nuevasMuestras);
       }
     } catch (error) {

@@ -16,28 +16,39 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 
-// Importa tu LicenseManager
+// Importa tu LicenseManager y AuthService
 import LicenseManager from './src/utils/LicenseManager';
 import { CrashHandler } from './src/utils/CrashHandler';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { getUserSession, logoutUser, deleteUserAccount } from './src/services/AuthService';
 
 // Importa tus pantallas
 import OperacionesScreen from './src/screens/OperacionesScreen';
 import MuestrasScreen from './src/screens/MuestrasScreen';
 import LotesScreen from './src/screens/LotesScreen';
+import LoginScreen from './src/screens/LoginScreen';
+import RegisterScreen from './src/screens/RegisterScreen';
 
 const Stack = createStackNavigator();
 
 // ✅ Componente MainApp memoizado
-const MainApp = React.memo(() => {
+const MainApp = React.memo(({ userSession, onLogout, onDeleteAccount }) => {
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Operaciones">
         <Stack.Screen
           name="Operaciones"
-          component={OperacionesScreen}
           options={{ headerShown: false }}
-        />
+        >
+          {(props) => (
+            <OperacionesScreen
+              {...props}
+              userSession={userSession}
+              onLogout={onLogout}
+              onDeleteAccount={onDeleteAccount}
+            />
+          )}
+        </Stack.Screen>
         <Stack.Screen
           name="Muestras"
           component={MuestrasScreen}
@@ -59,8 +70,25 @@ const MainApp = React.memo(() => {
 
 MainApp.displayName = 'MainApp';
 
+// ✅ Componente AuthApp memoizado
+const AuthApp = React.memo(({ onLoginSuccess }) => {
+  return (
+    <NavigationContainer>
+      <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Login">
+          {(props) => <LoginScreen {...props} onLoginSuccess={onLoginSuccess} />}
+        </Stack.Screen>
+        <Stack.Screen name="Register" component={RegisterScreen} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+});
+
+AuthApp.displayName = 'AuthApp';
+
 export default function App() {
   const [isActivated, setIsActivated] = useState(false);
+  const [userSession, setUserSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [deviceInfo, setDeviceInfo] = useState(null);
   const [licenseKey, setLicenseKey] = useState('');
@@ -80,6 +108,9 @@ export default function App() {
   // ✅ checkActivation memoizado
   const checkActivation = useCallback(async () => {
     try {
+      const session = await getUserSession();
+      setUserSession(session);
+
       const activated = await LicenseManager.isLicenseActivated();
       setIsActivated(activated);
       if (!activated) {
@@ -92,6 +123,20 @@ export default function App() {
       setLoading(false);
     }
   }, []);
+
+  // ✅ handleLogout
+  const handleLogout = useCallback(async () => {
+    await logoutUser();
+    setUserSession(null);
+  }, []);
+
+  // ✅ handleDeleteAccount
+  const handleDeleteAccount = useCallback(async () => {
+    if (userSession?.email) {
+      await deleteUserAccount(userSession.email);
+    }
+    setUserSession(null);
+  }, [userSession?.email]);
 
   // ✅ copyDeviceId memoizado (usa Share nativo sin requerir expo-clipboard)
   const copyDeviceId = useCallback(() => {
@@ -152,7 +197,7 @@ export default function App() {
     <SafeAreaView style={styles.container}>
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#0066cc" />
-        <Text style={styles.loadingText}>Verificando licencia...</Text>
+        <Text style={styles.loadingText}>Cargando aplicación...</Text>
       </View>
     </SafeAreaView>
   ), []);
@@ -175,110 +220,14 @@ export default function App() {
       <SafeAreaView style={styles.container}>
         {loading ? (
           LoadingView
-        ) : !isActivated ? (
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.flex}
-          >
-            <ScrollView
-              contentContainerStyle={styles.scrollContainer}
-              keyboardShouldPersistTaps="handled"
-            >
-              <View style={styles.activationContainer}>
-
-                {/* Header */}
-                <View style={styles.header}>
-                  <Text style={styles.headerIcon}>🔐</Text>
-                  <Text style={styles.title}>Activación de Licencia</Text>
-                  <Text style={styles.subtitle}>
-                    Sigue estos pasos para activar tu aplicación
-                  </Text>
-                </View>
-
-                {/* Paso 1: Device ID */}
-                <View style={styles.section}>
-                  <Text style={styles.stepNumber}>Paso 1</Text>
-                  <Text style={styles.sectionTitle}>Tu ID de Dispositivo</Text>
-                  <Text style={styles.instructions}>
-                    Comparte este código con el administrador:
-                  </Text>
-
-                  <View style={styles.deviceIdBox}>
-                    <Text style={styles.deviceIdLabel}>ID del Dispositivo</Text>
-                    <Text style={styles.deviceId}>{deviceInfo?.deviceId}</Text>
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.copyButton}
-                    onPress={copyDeviceId}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.copyButtonText}>📋 Copiar ID</Text>
-                  </TouchableOpacity>
-
-                  {DeviceInfoBox}
-                </View>
-
-                {/* Divider */}
-                <View style={styles.divider} />
-
-                {/* Paso 2: Ingresar clave */}
-                <View style={styles.section}>
-                  <Text style={styles.stepNumber}>Paso 2</Text>
-                  <Text style={styles.sectionTitle}>Ingresa tu Clave</Text>
-                  <Text style={styles.instructions}>
-                    Una vez que el administrador te envíe tu clave, ingrésala aquí:
-                  </Text>
-
-                  <TextInput
-                    style={styles.input}
-                    placeholder="XXXXX-XXXXX-XXXXX-XXXXX"
-                    value={licenseKey}
-                    onChangeText={setLicenseKey}
-                    autoCapitalize="characters"
-                    autoCorrect={false}
-                    maxLength={23}
-                    editable={!validating}
-                  />
-
-                  <TouchableOpacity
-                    style={[
-                      styles.activateButton,
-                      validating && styles.activateButtonDisabled
-                    ]}
-                    onPress={handleActivation}
-                    disabled={validating}
-                    activeOpacity={0.7}
-                  >
-                    {validating ? (
-                      <ActivityIndicator color="white" />
-                    ) : (
-                      <Text style={styles.activateButtonText}>
-                        ✓ Activar Licencia
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-
-                {/* Footer */}
-                <Text style={styles.footer}>
-                  ℹ️ La activación es permanente y funciona sin conexión a internet
-                </Text>
-              </View>
-            </ScrollView>
-
-            {/* Botón de desarrollo para resetear (ELIMINAR EN PRODUCCIÓN) */}
-            {__DEV__ && (
-              <TouchableOpacity
-                style={styles.devResetButton}
-                onPress={handleDevReset}
-              >
-                <Text style={styles.devResetText}>🔧 Reset License (DEV)</Text>
-              </TouchableOpacity>
-            )}
-          </KeyboardAvoidingView>
+        ) : !userSession ? (
+          <AuthApp onLoginSuccess={(session) => setUserSession(session)} />
         ) : (
-          <MainApp />
+          <MainApp
+            userSession={userSession}
+            onLogout={handleLogout}
+            onDeleteAccount={handleDeleteAccount}
+          />
         )}
       </SafeAreaView>
     </ErrorBoundary>

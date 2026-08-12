@@ -75,19 +75,18 @@ export default function LotesScreen({ route, navigation }) {
 
   // ✅ Cargar lotes con verificación de montaje
   const cargarLotes = useCallback(async () => {
-    console.log('📂 LotesScreen: Cargando lotes...', operacionId);
     try {
       const data = await ErrorHandler.getStorageData(`lotes_${operacionId}`);
       const lotesCargados = ErrorHandler.safeJsonParse(data, []);
       const lotesValidados = ErrorHandler.sanitizeData(lotesCargados, 'lotes');
       
-      console.log('✅ LotesScreen: Lotes cargados:', lotesValidados.length);
-      
+      // Ordenar lotes más recientes primero
+      const lotesOrdenados = [...lotesValidados].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+
       if (isMountedRef.current) {
-        setLotes(lotesValidados);
+        setLotes(lotesOrdenados);
       }
     } catch (e) {
-      console.error('❌ LotesScreen: Error cargando lotes:', e);
       if (isMountedRef.current) {
         ErrorHandler.handleError(e, 'Error de Carga', 'No se pudieron cargar los lotes');
       }

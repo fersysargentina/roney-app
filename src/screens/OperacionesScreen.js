@@ -2,16 +2,18 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { View, Text, FlatList, StyleSheet, Alert, Image, TouchableOpacity, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CrearOperacionModal from '../components/modals/CrearOperacionModal';
+import PerfilModal from '../components/modals/PerfilModal';
 import OperacionItem from '../components/OperacionItem';
 import { ErrorHandler } from '../utils/ErrorHandler';
 import logo from '../../assets/roney.png';
 
 // ✅ Constantes fuera del componente
-const OPERACION_ITEM_HEIGHT = 100; // Ajusta según tu diseño real de OperacionItem
+const OPERACION_ITEM_HEIGHT = 100;
 
-export default function OperacionesScreen({ navigation }) {
+export default function OperacionesScreen({ navigation, userSession, onLogout, onDeleteAccount }) {
   const [operaciones, setOperaciones] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
+  const [perfilModalVisible, setPerfilModalVisible] = useState(false);
   const [operacionSeleccionada, setOperacionSeleccionada] = useState(null);
   const [modoEdicion, setModoEdicion] = useState(false);
 
@@ -41,8 +43,11 @@ export default function OperacionesScreen({ navigation }) {
       const operacionesCargadas = ErrorHandler.safeJsonParse(data, []);
       const operacionesValidadas = ErrorHandler.sanitizeData(operacionesCargadas, 'operaciones');
       
+      // Ordenar operaciones más recientes primero
+      const operacionesOrdenadas = [...operacionesValidadas].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+
       if (isMountedRef.current) {
-        setOperaciones(operacionesValidadas);
+        setOperaciones(operacionesOrdenadas);
       }
     } catch (e) {
       console.error('❌ OperacionesScreen: Error cargando operaciones:', e);
@@ -77,13 +82,13 @@ export default function OperacionesScreen({ navigation }) {
         );
         guardarOperaciones(nuevasOperaciones);
       } else {
-        // Crear nueva operación
+        // Crear nueva operación al principio de la lista (más reciente primero)
         const nuevaOperacion = {
           id: Date.now().toString(),
           roney_op,
           cultivo,
         };
-        const nuevasOperaciones = [...operaciones, nuevaOperacion];
+        const nuevasOperaciones = [nuevaOperacion, ...operaciones];
         guardarOperaciones(nuevasOperaciones);
       }
       
@@ -196,6 +201,24 @@ export default function OperacionesScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      <View style={styles.userBar}>
+        <TouchableOpacity
+          style={styles.perfilHeaderBtn}
+          onPress={() => setPerfilModalVisible(true)}
+        >
+          <Text style={styles.perfilHeaderBtnText}>👤 Mi Perfil</Text>
+        </TouchableOpacity>
+
+        {onLogout && (
+          <TouchableOpacity
+            style={styles.logoutHeaderBtn}
+            onPress={onLogout}
+          >
+            <Text style={styles.logoutHeaderBtnText}>🚪 Salir</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       <Image source={logo} style={styles.logo} />
       <TouchableOpacity
         style={styles.crearBtn}
@@ -226,6 +249,20 @@ export default function OperacionesScreen({ navigation }) {
         valoresIniciales={valoresInicialesModal}
         modoEdicion={modoEdicion}
       />
+
+      <PerfilModal
+        visible={perfilModalVisible}
+        onClose={() => setPerfilModalVisible(false)}
+        userSession={userSession}
+        onLogout={() => {
+          setPerfilModalVisible(false);
+          if (onLogout) onLogout();
+        }}
+        onDeleteAccount={() => {
+          setPerfilModalVisible(false);
+          if (onDeleteAccount) onDeleteAccount();
+        }}
+      />
     </View>
   );
 }
@@ -237,9 +274,43 @@ const styles = StyleSheet.create({
     paddingTop: 40,
     backgroundColor: '#fff',
   },
+  userBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
+  perfilHeaderBtn: {
+    backgroundColor: '#edf3fc',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#cce0ff',
+  },
+  perfilHeaderBtnText: {
+    color: '#08428b',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  logoutHeaderBtn: {
+    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  logoutHeaderBtnText: {
+    color: '#555',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
   logo: {
     width: 300,
-    height: 150,
+    height: 120,
+    resizeMode: 'contain',
     alignSelf: 'center',
     marginBottom: 16,
   },
