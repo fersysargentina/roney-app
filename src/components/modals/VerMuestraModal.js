@@ -87,6 +87,9 @@ export default function VerMuestraModal({
   cultivo = 'soja',
   tipoFenologico = '1'
 }) {
+  // ✅ Insets de safe area (obligatorio llamar al hook siempre)
+  const insets = useSafeAreaInsets();
+
   // ✅ Labels memoizados
   const labels = useMemo(() => {
     const cultivoConfig = LABELS_CONFIG[cultivo];

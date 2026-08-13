@@ -143,10 +143,9 @@ export default function CerrarLoteModal({
       <KeyboardAvoidingView 
         style={styles.overlay}
         behavior={Platform.select({ ios: 'padding', android: 'padding' })}
-        keyboardVerticalOffset={Platform.OS === 'android' ? -50 : 0}
       >
         <View style={styles.modalContainer}>
-          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
+          <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.header}>
               <Text style={styles.title}>Crear Lote</Text>
               <TouchableOpacity style={styles.closeButton} onPress={handleClose}>

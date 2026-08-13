@@ -42,6 +42,7 @@ export default function MuestraTipo3Modal({
   const [coordenada, setCoordenada] = useState(valoresIniciales.coordenada || '');
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [loading] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const isMountedRef = useRef(true);
 
