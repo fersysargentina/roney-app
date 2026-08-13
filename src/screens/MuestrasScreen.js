@@ -8,7 +8,7 @@ import MuestraTipo4Modal from '../components/modals/MuestraTipo4Modal';
 import CerrarLoteModal from '../components/modals/CerrarLoteModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ErrorHandler } from '../utils/ErrorHandler';
-import { calculoDeDaño } from '../utils/calculoDeDaño';
+import { calculoDeDaño } from '../utils/calculoDeDano';
 import { 
   obtenerEstadosFenologicos, 
   esEstadoValido,

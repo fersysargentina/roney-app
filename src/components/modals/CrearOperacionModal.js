@@ -114,7 +114,8 @@ export default function CrearOperacionModal({
     >
       <View style={styles.overlay}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.select({ ios: 'padding', android: 'padding' })}
+          keyboardVerticalOffset={Platform.OS === 'android' ? -50 : 0}
           style={styles.avoider}
         >
           <View style={styles.modalContainer}>
@@ -129,7 +130,7 @@ export default function CrearOperacionModal({
               </TouchableOpacity>
             </View>
 
-            <ScrollView keyboardShouldPersistTaps="handled">
+            <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
               <TextInput
                 style={styles.input}
                 placeholder="Nombre de la operación"

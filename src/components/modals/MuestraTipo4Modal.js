@@ -207,8 +207,8 @@ export default function MuestraTipo4Modal({
       <SafeAreaView style={styles.safeArea}>
         <View style={[styles.overlay, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }]}>
           <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-            keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 12 : 0}
+            behavior={Platform.select({ ios: 'padding', android: 'padding' })}
+            keyboardVerticalOffset={insets.top + 12}
             style={styles.avoider}
           >
             <View style={styles.modalContainer}>

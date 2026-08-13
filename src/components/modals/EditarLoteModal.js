@@ -220,10 +220,11 @@ export default function EditarLoteModal({
     >
       <KeyboardAvoidingView 
         style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.select({ ios: 'padding', android: 'padding' })}
+        keyboardVerticalOffset={Platform.OS === 'android' ? -50 : 0}
       >
         <View style={styles.modalContainer}>
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
             <View style={styles.header}>
               <Text style={styles.title}>Editar Lote</Text>
               <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
