@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   activateButton: {
-    backgroundColor: '#4caf50',
+    backgroundColor: '#4caf51',
     padding: 16,
     borderRadius: 10,
     alignItems: 'center',
