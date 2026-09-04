@@ -2,21 +2,18 @@
   "expo": {
     "name": "Roney",
     "slug": "roney_app",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/logo.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.roneyapp",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Roney requiere acceso a tu ubicación para obtener las coordenadas GPS exactas (latitud y longitud) al registrar y geolocalizar muestras de lotes en el campo.",
+        "NSCameraUsageDescription": "Roney requiere acceso a la cámara para tomar fotografías del estado del cultivo y adjuntarlas a las muestras de campo.",
+        "NSMicrophoneUsageDescription": "Roney requiere acceso al micrófono para tomar notas de voz explicativas en las muestras de campo."
       }
     },
     "android": {
@@ -36,8 +33,7 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.RECORD_AUDIO"
-      ],
-      "edgeToEdgeEnabled": true
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -47,6 +43,11 @@
         "projectId": "1038a239-1533-415a-b095-2a46e00119bb"
       }
     },
-    "owner": "fersysargentina"
+    "owner": "fersysargentina",
+    "plugins": [
+      "expo-status-bar",
+      "expo-font",
+      "expo-asset"
+    ]
   }
 }
