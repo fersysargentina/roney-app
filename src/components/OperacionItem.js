@@ -3,12 +3,15 @@ import { View, Text, Button, TouchableOpacity, StyleSheet } from 'react-native';
 
 export default React.memo(function OperacionItem({ item, onPress, onBorrar, onMuestras }) {
   
-  // ✅ Título memoizado
+  // Título en una sola línea: Nombre de la operación - nombre del campo - cultivo
   const titulo = useMemo(() => {
-    return `${item.roney_op} - ${item.cultivo}`;
-  }, [item.roney_op, item.cultivo]);
+    const partes = [item.roney_op, item.campo, item.cultivo].filter(
+      p => p && String(p).trim().length > 0
+    );
+    return partes.join(' - ');
+  }, [item.roney_op, item.campo, item.cultivo]);
 
-  // ✅ Handlers memoizados
+  // Handlers memoizados
   const handleBorrar = useCallback(() => {
     onBorrar();
   }, [onBorrar]);
@@ -19,7 +22,9 @@ export default React.memo(function OperacionItem({ item, onPress, onBorrar, onMu
 
   return (
     <TouchableOpacity style={styles.item} onPress={onPress}>
-      <Text style={styles.title}>{titulo}</Text>
+      <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+        {titulo}
+      </Text>
       <View style={styles.itemButtons}>
         <Button
           title="Borrar"
@@ -44,7 +49,9 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
-    marginBottom: 8,
+    fontWeight: 'bold',
+    color: '#222',
+    marginBottom: 10,
   },
   itemButtons: {
     flexDirection: 'row',

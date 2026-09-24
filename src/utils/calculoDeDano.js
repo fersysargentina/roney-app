@@ -35,7 +35,12 @@ export function parseInputNumber(val) {
 export function calculoDeDaño(datos, fenologico, cultivo) {
   try {
     const fenologicoNum = parseInt(fenologico, 10);
-    const cultivoNormalizado = cultivo?.toLowerCase().trim() || 'soja';
+    const rawCultivo = cultivo?.toLowerCase().trim() || '';
+    let cultivoNormalizado = 'soja';
+    if (rawCultivo.includes('soja') || rawCultivo.includes('sija')) cultivoNormalizado = 'soja';
+    else if (rawCultivo.includes('maiz') || rawCultivo.includes('maíz')) cultivoNormalizado = 'maiz';
+    else if (rawCultivo.includes('trigo') || rawCultivo.includes('cebada') || rawCultivo.includes('avena') || rawCultivo.includes('centeno')) cultivoNormalizado = 'trigo';
+    else if (rawCultivo.includes('girasol')) cultivoNormalizado = 'girasol';
 
     console.log('🔍 Calculando daño para:', {
       cultivo: cultivoNormalizado,

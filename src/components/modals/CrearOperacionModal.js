@@ -8,55 +8,74 @@ import {
   TouchableOpacity, 
   KeyboardAvoidingView, 
   Platform, 
-  ScrollView,
-  FlatList,
+  FlatList 
 } from 'react-native';
 
-// ✅ Constante de mapeo de cultivos (fuera del componente)
-const CULTIVOS_MAP = {
-  'soja': 'Soja',
-  'maiz': 'Maíz',
-  'trigo': 'Trigo',
-  'girasol': 'Girasol'
-};
+const CULTIVOS_FINA = [
+  'Trigo',
+  'Cebada',
+  'Avena',
+  'Centeno'
+];
 
-const CULTIVOS_LIST = [
-  { value: 'soja', label: 'Soja' },
-  { value: 'maiz', label: 'Maíz' },
-  { value: 'trigo', label: 'Trigo' },
-  { value: 'girasol', label: 'Girasol' },
+const CULTIVOS_GRUESA = [
+  'Soja de 1.a',
+  'Soja de 2.a',
+  'Maíz',
+  'Maíz Tardío',
+  'Girasol'
 ];
 
 export default function CrearOperacionModal({
   visible,
   onClose,
   onGuardar,
-  valoresIniciales = { roney_op: '', cultivo: '' },
+  valoresIniciales = { roney_op: '', campo: '', campana: '', cultivo: '' },
   modoEdicion = false,
 }) {
   const [roneyOp, setRoneyOp] = useState(valoresIniciales.roney_op || '');
+  const [campo, setCampo] = useState(valoresIniciales.campo || '');
+  const [campana, setCampana] = useState(valoresIniciales.campana || ''); // 'Fina' | 'Gruesa' | ''
   const [cultivo, setCultivo] = useState(valoresIniciales.cultivo || '');
   const [cultivoModalVisible, setCultivoModalVisible] = useState(false);
 
-  // ✅ Sincronizar con valoresIniciales cuando visible cambia
+  // Sincronizar con valoresIniciales cuando visible cambia
   useEffect(() => {
     if (visible) {
       setRoneyOp(valoresIniciales.roney_op || '');
+      setCampo(valoresIniciales.campo || '');
+      setCampana(valoresIniciales.campana || '');
       setCultivo(valoresIniciales.cultivo || '');
     }
   }, [valoresIniciales, visible]);
 
-  // ✅ Validación de campos memoizada
-  const camposCompletos = useMemo(() => {
-    return roneyOp.trim() && cultivo.trim();
-  }, [roneyOp, cultivo]);
-
-  // ✅ Nombre del cultivo memoizado
-  const nombreCultivo = useMemo(() => {
-    return CULTIVOS_MAP[cultivo] || cultivo;
+  // Manejar cambio de campaña: si el cultivo actual no pertenece a la nueva campaña, resetearlo
+  const handleSeleccionarCampana = useCallback((tipo) => {
+    setCampana(tipo);
+    const listaValida = tipo === 'Fina' ? CULTIVOS_FINA : CULTIVOS_GRUESA;
+    if (cultivo && !listaValida.includes(cultivo)) {
+      setCultivo('');
+    }
   }, [cultivo]);
 
-  // ✅ Título memoizado
+  // Lista de cultivos según la campaña seleccionada
+  const cultivosDisponibles = useMemo(() => {
+    if (campana === 'Fina') return CULTIVOS_FINA;
+    if (campana === 'Gruesa') return CULTIVOS_GRUESA;
+    return [];
+  }, [campana]);
+
+  // Validación de campos
+  const camposCompletos = useMemo(() => {
+    return (
+      roneyOp.trim().length > 0 &&
+      campo.trim().length > 0 &&
+      campana.trim().length > 0 &&
+      cultivo.trim().length > 0
+    );
+  }, [roneyOp, campo, campana, cultivo]);
+
+  // Título memoizado
   const titulo = useMemo(() => {
     if (modoEdicion) {
       return valoresIniciales.roney_op || 'Editar Operación';
@@ -64,44 +83,33 @@ export default function CrearOperacionModal({
     return 'Nueva Operación';
   }, [modoEdicion, valoresIniciales.roney_op]);
 
-  // ✅ Texto del botón guardar memoizado
+  // Texto del botón guardar memoizado
   const textoBotonGuardar = useMemo(() => {
     return modoEdicion ? 'Guardar Cambios' : 'Guardar';
   }, [modoEdicion]);
 
-  // ✅ Texto del cultivo display memoizado
-  const cultivoDisplayText = useMemo(() => {
-    return `🌾 Cultivo: ${nombreCultivo}`;
-  }, [nombreCultivo]);
-
-  // ✅ Guardar memoizado
+  // Guardar
   const handleGuardar = useCallback(() => {
-    if (!camposCompletos) {
-      return;
-    }
-    onGuardar(roneyOp, cultivo);
-    setRoneyOp('');
-    setCultivo('');
-  }, [camposCompletos, roneyOp, cultivo, onGuardar]);
+    if (!camposCompletos) return;
 
-  // ✅ Cerrar memoizado
+    onGuardar({
+      roney_op: roneyOp.trim(),
+      campo: campo.trim(),
+      campana,
+      cultivo
+    });
+
+    handleCerrar();
+  }, [camposCompletos, roneyOp, campo, campana, cultivo, onGuardar]);
+
+  // Cerrar y resetear
   const handleCerrar = useCallback(() => {
     setRoneyOp(valoresIniciales.roney_op || '');
+    setCampo(valoresIniciales.campo || '');
+    setCampana(valoresIniciales.campana || '');
     setCultivo(valoresIniciales.cultivo || '');
     onClose();
   }, [valoresIniciales, onClose]);
-
-  // ✅ Estilos dinámicos memoizados
-  const saveButtonStyle = useMemo(() => [
-    styles.saveButton,
-    !camposCompletos && styles.saveButtonDisabled,
-    camposCompletos && !modoEdicion && styles.saveButtonActive
-  ], [camposCompletos, modoEdicion]);
-
-  const inputDisabledStyle = useMemo(() => [
-    styles.input, 
-    styles.inputDisabled
-  ], []);
 
   return (
     <Modal
@@ -114,7 +122,7 @@ export default function CrearOperacionModal({
     >
       <View style={styles.overlay}>
         <KeyboardAvoidingView
-          behavior={Platform.select({ ios: 'padding', android: 'padding' })}
+          behavior={Platform.select({ ios: 'padding', android: undefined })}
           style={styles.avoider}
         >
           <View style={styles.modalContainer}>
@@ -129,79 +137,140 @@ export default function CrearOperacionModal({
               </TouchableOpacity>
             </View>
 
-            <ScrollView keyboardShouldPersistTaps="handled">
+            <View>
+              {/* 1. Nombre de la operación */}
+              <Text style={styles.fieldLabel}>Nombre de la operación</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Nombre de la operación"
-                placeholderTextColor="#444444"
+                placeholder="Ej: Lote 1 - San Pedro"
+                placeholderTextColor="#888"
                 value={roneyOp}
                 onChangeText={setRoneyOp}
-                autoFocus
+                autoFocus={!modoEdicion}
                 returnKeyType="next"
-                editable
               />
-              
-              {!modoEdicion ? (
-                <>
-                  <TouchableOpacity
-                    style={styles.input}
-                    onPress={() => setCultivoModalVisible(true)}
-                  >
-                    <Text style={cultivo ? styles.cultivoTexto : styles.cultivoPlaceholder}>
-                      {cultivo ? `🌾 Cultivo: ${CULTIVOS_MAP[cultivo] || cultivo}` : 'Selecciona un cultivo...'}
-                    </Text>
-                  </TouchableOpacity>
 
-                  <Modal
-                    visible={cultivoModalVisible}
-                    transparent
-                    animationType="slide"
-                    onRequestClose={() => setCultivoModalVisible(false)}
+              {/* 2. Campo */}
+              <Text style={styles.fieldLabel}>Campo</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ej: La Esperanza"
+                placeholderTextColor="#888"
+                value={campo}
+                onChangeText={setCampo}
+                returnKeyType="next"
+              />
+
+              {/* 3. Campaña (Fina / Gruesa) */}
+              <Text style={styles.fieldLabel}>Campaña</Text>
+              <View style={styles.campanaButtonsContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.campanaBtn,
+                    styles.campanaFinaBtn,
+                    campana === 'Fina' && styles.campanaFinaBtnSelected
+                  ]}
+                  onPress={() => handleSeleccionarCampana('Fina')}
+                >
+                  <Text
+                    style={[
+                      styles.campanaBtnText,
+                      styles.campanaFinaBtnText,
+                      campana === 'Fina' && styles.campanaBtnTextSelected
+                    ]}
                   >
-                    <View style={styles.modalBg}>
-                      <View style={styles.subModalContainer}>
-                        <Text style={styles.modalTitle}>Seleccionar Cultivo</Text>
-                        <FlatList
-                          data={CULTIVOS_LIST}
-                          keyExtractor={(item) => item.value}
-                          renderItem={({ item }) => (
-                            <TouchableOpacity
-                              style={styles.modalOption}
-                              onPress={() => {
-                                setCultivo(item.value);
-                                setCultivoModalVisible(false);
-                              }}
-                            >
-                              <Text style={[
-                                styles.cultivoTexto,
-                                item.value === cultivo && styles.cultivoSelected
-                              ]}>
-                                {item.label}
-                              </Text>
-                              {item.value === cultivo && (
-                                <Text style={styles.cultivoCheck}>✓</Text>
-                              )}
-                            </TouchableOpacity>
-                          )}
-                        />
-                        <TouchableOpacity
-                          style={styles.modalCloseBtn}
-                          onPress={() => setCultivoModalVisible(false)}
-                        >
-                          <Text style={styles.modalCloseBtnText}>Cancelar</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </Modal>
-                </>
-              ) : (
-                <View style={inputDisabledStyle}>
-                  <Text style={styles.cultivoTexto}>
-                    {cultivoDisplayText}
+                    {campana === 'Fina' ? '✓ Fina' : 'Fina'}
                   </Text>
-                </View>
-              )}
+                </TouchableOpacity>
 
+                <TouchableOpacity
+                  style={[
+                    styles.campanaBtn,
+                    styles.campanaGruesaBtn,
+                    campana === 'Gruesa' && styles.campanaGruesaBtnSelected
+                  ]}
+                  onPress={() => handleSeleccionarCampana('Gruesa')}
+                >
+                  <Text
+                    style={[
+                      styles.campanaBtnText,
+                      styles.campanaGruesaBtnText,
+                      campana === 'Gruesa' && styles.campanaBtnTextSelected
+                    ]}
+                  >
+                    {campana === 'Gruesa' ? '✓ Gruesa' : 'Gruesa'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 4. Cultivo (dependiente de Campaña) */}
+              <Text style={styles.fieldLabel}>Cultivo</Text>
+              <TouchableOpacity
+                style={[
+                  styles.input,
+                  styles.selectorContainer,
+                  !campana && styles.selectorDisabled
+                ]}
+                onPress={() => {
+                  if (campana) setCultivoModalVisible(true);
+                }}
+                disabled={!campana}
+              >
+                <Text style={cultivo ? styles.cultivoTexto : styles.cultivoPlaceholder}>
+                  {!campana 
+                    ? '⚠️ Primero presione Fina o Gruesa' 
+                    : (cultivo ? `🌾 ${cultivo}` : `Seleccionar cultivo (${campana})...`)
+                  }
+                </Text>
+                <Text style={styles.chevronIcon}>▼</Text>
+              </TouchableOpacity>
+
+              {/* Modal selector de Cultivo */}
+              <Modal
+                visible={cultivoModalVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setCultivoModalVisible(false)}
+              >
+                <View style={styles.modalBg}>
+                  <View style={styles.subModalContainer}>
+                    <Text style={styles.modalTitle}>
+                      Cultivos para Campaña {campana}
+                    </Text>
+                    <FlatList
+                      data={cultivosDisponibles}
+                      keyExtractor={(item) => item}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          style={styles.modalOption}
+                          onPress={() => {
+                            setCultivo(item);
+                            setCultivoModalVisible(false);
+                          }}
+                        >
+                          <Text style={[
+                            styles.modalOptionText,
+                            item === cultivo && styles.modalOptionSelected
+                          ]}>
+                            {item}
+                          </Text>
+                          {item === cultivo && (
+                            <Text style={styles.cultivoCheck}>✓</Text>
+                          )}
+                        </TouchableOpacity>
+                      )}
+                    />
+                    <TouchableOpacity
+                      style={styles.modalCloseBtn}
+                      onPress={() => setCultivoModalVisible(false)}
+                    >
+                      <Text style={styles.modalCloseBtnText}>Cerrar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </Modal>
+
+              {/* Botones inferiores */}
               <View style={styles.botones}>
                 <TouchableOpacity 
                   style={styles.cancelButton}
@@ -211,7 +280,10 @@ export default function CrearOperacionModal({
                 </TouchableOpacity>
                 
                 <TouchableOpacity
-                  style={saveButtonStyle}
+                  style={[
+                    styles.saveButton,
+                    !camposCompletos && styles.saveButtonDisabled
+                  ]}
                   onPress={handleGuardar}
                   disabled={!camposCompletos}
                 >
@@ -220,7 +292,7 @@ export default function CrearOperacionModal({
                   </Text>
                 </TouchableOpacity>
               </View>
-            </ScrollView>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </View>
@@ -231,14 +303,14 @@ export default function CrearOperacionModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 30,
   },
   avoider: {
     width: '100%',
-    maxWidth: 420,
   },
   modalContainer: {
     width: '100%',
@@ -255,48 +327,98 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   titulo: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
+    color: '#222',
   },
   cerrar: {
-    fontSize: 22,
-    color: '#333',
+    fontSize: 26,
+    color: '#666',
+    padding: 6,
+  },
+  fieldLabel: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#222',
+    marginBottom: 8,
+    marginTop: 14,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 14,
-    fontSize: 16,
-    color: '#000000',
+    borderWidth: 1.5,
+    borderColor: '#ced4da',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 0,
+    fontSize: 18,
+    color: '#111',
     backgroundColor: '#fff',
   },
-  inputDisabled: {
-    backgroundColor: '#f0f0f0',
-    borderColor: '#ddd',
+  campanaButtonsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 0,
+  },
+  campanaBtn: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+  },
+  campanaFinaBtn: {
+    borderColor: '#28a745',
+    backgroundColor: '#e8f5e9',
+  },
+  campanaFinaBtnSelected: {
+    backgroundColor: '#28a745',
+  },
+  campanaFinaBtnText: {
+    color: '#1e7e34',
+  },
+  campanaGruesaBtn: {
+    borderColor: '#fd7e14',
+    backgroundColor: '#fff3e0',
+  },
+  campanaGruesaBtnSelected: {
+    backgroundColor: '#fd7e14',
+  },
+  campanaGruesaBtnText: {
+    color: '#d96102',
+  },
+  campanaBtnText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  campanaBtnTextSelected: {
+    color: '#fff',
+  },
+  selectorContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingRight: 14,
+  },
+  selectorDisabled: {
+    backgroundColor: '#f1f3f5',
+    borderColor: '#dee2e6',
+  },
+  chevronIcon: {
+    fontSize: 12,
+    color: '#666',
   },
   cultivoTexto: {
-    fontSize: 16,
-    color: '#333',
-    padding: 2,
+    fontSize: 18,
+    color: '#222',
+    fontWeight: '500',
   },
   cultivoPlaceholder: {
-    fontSize: 16,
-    color: '#444444',
-    padding: 2,
-  },
-  cultivoSelected: {
-    color: '#007bff',
-    fontWeight: 'bold',
-  },
-  cultivoCheck: {
-    color: '#007bff',
-    fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 17,
+    color: '#777',
   },
   modalBg: {
     flex: 1,
@@ -305,18 +427,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   subModalContainer: {
-    width: '80%',
+    width: '85%',
+    maxWidth: 380,
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 20,
-    maxHeight: '70%',
+    maxHeight: '75%',
+    elevation: 6,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
     textAlign: 'center',
-    color: '#333',
+    color: '#222',
   },
   modalOption: {
     paddingVertical: 14,
@@ -326,50 +450,64 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  modalOptionText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  modalOptionSelected: {
+    color: '#007bff',
+    fontWeight: 'bold',
+  },
+  cultivoCheck: {
+    color: '#007bff',
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
   modalCloseBtn: {
     marginTop: 15,
-    padding: 12,
+    paddingVertical: 12,
+    borderRadius: 8,
     alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
   modalCloseBtnText: {
-    color: '#dc3545',
-    fontSize: 16,
+    color: '#555',
+    fontSize: 15,
     fontWeight: '600',
   },
   botones: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 10,
-    gap: 10,
+    marginTop: 20,
+    gap: 14,
   },
   cancelButton: {
     flex: 1,
     backgroundColor: '#6c757d',
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 16,
+    borderRadius: 10,
     alignItems: 'center',
   },
   cancelButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   saveButton: {
     flex: 1,
-    backgroundColor: '#007bff',
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: '#28a745',
+    paddingVertical: 16,
+    borderRadius: 10,
     alignItems: 'center',
   },
   saveButtonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  saveButtonActive: {
-    backgroundColor: '#28a745', 
+    backgroundColor: '#adb5bd',
   },
   saveButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
   },
 });

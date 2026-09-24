@@ -57,12 +57,24 @@ export const ESTADOS_FENOLOGICOS = {
   };
   
 /**
+ * Normaliza el nombre del cultivo a las claves base del sistema: 'soja', 'maiz', 'trigo', 'girasol'
+ */
+export const normalizarCultivo = (cultivo) => {
+  const c = cultivo?.toLowerCase().trim() || '';
+  if (c.includes('soja') || c.includes('sija')) return 'soja';
+  if (c.includes('maiz') || c.includes('maíz')) return 'maiz';
+  if (c.includes('trigo') || c.includes('cebada') || c.includes('avena') || c.includes('centeno')) return 'trigo';
+  if (c.includes('girasol')) return 'girasol';
+  return 'soja';
+};
+
+/**
  * Obtiene los estados fenológicos según el tipo de cultivo
- * @param {string} cultivo - Tipo de cultivo (soja, maiz, trigo, girasol)
+ * @param {string} cultivo - Tipo de cultivo (soja, maiz, trigo, girasol, etc.)
  * @returns {Array} Array de objetos con label y value
  */
 export const obtenerEstadosFenologicos = (cultivo) => {
-    const cultivoNormalizado = cultivo?.toLowerCase().trim();
+    const cultivoNormalizado = normalizarCultivo(cultivo);
     return ESTADOS_FENOLOGICOS[cultivoNormalizado] || ESTADOS_FENOLOGICOS.soja;
   };
   
@@ -122,7 +134,7 @@ export const obtenerEstadosFenologicos = (cultivo) => {
    * @returns {string} Tipo de modal ('1', '2', '3', '4', etc.)
    */
   export const mapearEstadoATipoModal = (cultivo, valorSeleccion) => {
-    const cultivoNormalizado = cultivo?.toLowerCase().trim();
+    const cultivoNormalizado = normalizarCultivo(cultivo);
     const mapeo = MAPEO_TIPO_MODAL[cultivoNormalizado] || MAPEO_TIPO_MODAL.soja;
     
     const valor = parseInt(valorSeleccion, 10);
