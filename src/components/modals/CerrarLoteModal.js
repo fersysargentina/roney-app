@@ -12,6 +12,7 @@ import {
   ScrollView
 } from 'react-native';
 
+
 export default function CerrarLoteModal({ 
   visible, 
   onClose, 
@@ -196,6 +197,7 @@ export default function CerrarLoteModal({
                   <Text style={styles.calculatedNote}>{notaCalculada}</Text>
                 </View>
               </View>
+
             </View>
 
             <View style={styles.buttonContainer}>

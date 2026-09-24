@@ -12,13 +12,12 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Roney requiere acceso a tu ubicación para obtener las coordenadas GPS exactas (latitud y longitud) al registrar y geolocalizar muestras de lotes en el campo.",
-        "NSCameraUsageDescription": "Roney requiere acceso a la cámara para tomar fotografías del estado del cultivo y adjuntarlas a las muestras de campo.",
-        "NSMicrophoneUsageDescription": "Roney requiere acceso al micrófono para tomar notas de voz explicativas en las muestras de campo."
+        "NSCameraUsageDescription": "Roney requiere acceso a la cámara para tomar fotografías del estado del cultivo y adjuntarlas a las muestras de campo."
       }
     },
     "android": {
       "package": "com.roney",
-      "versionCode": 3,
+      "versionCode": 5,
       "userInterfaceStyle": "light",
       "adaptiveIcon": {
         "foregroundImage": "./assets/logo.png",
@@ -29,10 +28,7 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.CAMERA",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.READ_EXTERNAL_STORAGE"
       ]
     },
     "web": {

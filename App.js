@@ -10,8 +10,11 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Share
+  Share,
+  LogBox
 } from 'react-native';
+
+LogBox.ignoreLogs(['InteractionManager has been deprecated']);
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
