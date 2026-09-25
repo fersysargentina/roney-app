@@ -36,10 +36,16 @@ export default React.memo(function LoteItem({ lote, onPress, onDelete }) {
     return lote.muestrasIds.length;
   }, [lote.muestrasIds.length]);
 
-  // ✅ Texto de hectáreas memoizado
-  const hectareasText = useMemo(() => {
-    return `${lote.hectareas} ha`;
-  }, [lote.hectareas]);
+  // ✅ Has. Sembradas/Aseg. con fallback a campo antiguo
+  const hasSembradas = useMemo(() => {
+    const val = lote.hasSembradas ?? lote.hectareas;
+    return val != null ? `${val} ha` : '-';
+  }, [lote.hasSembradas, lote.hectareas]);
+
+  // ✅ Has. Dañadas
+  const hasDañadas = useMemo(() => {
+    return lote.hasDañadas != null ? `${lote.hasDañadas} ha` : '-';
+  }, [lote.hasDañadas]);
 
   // ✅ Texto de daño real memoizado
   const dañoRealText = useMemo(() => {
@@ -85,13 +91,13 @@ export default React.memo(function LoteItem({ lote, onPress, onDelete }) {
 
       <View style={styles.statsContainer}>
         <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Hectáreas</Text>
-          <Text style={styles.statValue}>{hectareasText}</Text>
+          <Text style={styles.statLabel}>Has. Sembradas</Text>
+          <Text style={styles.statValue}>{hasSembradas}</Text>
         </View>
 
         <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Muestras</Text>
-          <Text style={styles.statValue}>{cantidadMuestras}</Text>
+          <Text style={styles.statLabel}>Has. Dañadas</Text>
+          <Text style={styles.statValue}>{hasDañadas}</Text>
         </View>
 
         <View style={styles.statItemWide}>

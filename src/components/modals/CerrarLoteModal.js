@@ -22,8 +22,8 @@ export default function CerrarLoteModal({
   tipoFenologicoLabel
 }) {
   const [nombreLote, setNombreLote] = useState('');
-  const [hectareas, setHectareas] = useState('');
-  const [dañoPactado, setDañoPactado] = useState('');
+  const [hasSembradas, setHasSembradas] = useState('');
+  const [hasDañadas, setHasDañadas] = useState('');
 
   // ✅ Calcular daño real memoizado
   const dañoRealCalculado = useMemo(() => {
@@ -45,11 +45,13 @@ export default function CerrarLoteModal({
   // ✅ Validación de campos memoizada
   const camposValidos = useMemo(() => {
     const nombreValido = nombreLote.trim().length > 0;
-    const hectareasNumero = parseFloat(hectareas);
-    const hectareasValidas = !isNaN(hectareasNumero) && hectareasNumero > 0;
+    const sembNum = parseFloat(hasSembradas);
+    const dañNum = parseFloat(hasDañadas);
+    const sembValidas = !isNaN(sembNum) && sembNum > 0;
+    const dañValidas = !isNaN(dañNum) && dañNum >= 0 && dañNum <= sembNum;
     
-    return nombreValido && hectareasValidas;
-  }, [nombreLote, hectareas]);
+    return nombreValido && sembValidas && dañValidas;
+  }, [nombreLote, hasSembradas, hasDañadas]);
 
   // ✅ Confirmación memoizada
   const handleConfirmar = useCallback(() => {
@@ -59,35 +61,41 @@ export default function CerrarLoteModal({
       return;
     }
 
-    if (!hectareas.trim()) {
-      Alert.alert('Error', 'Debe ingresar las hectáreas del lote');
+    const sembNum = parseFloat(hasSembradas);
+    if (isNaN(sembNum) || sembNum <= 0) {
+      Alert.alert('Error', 'Las Has. Sembradas/Aseg. deben ser un número mayor a 0');
       return;
     }
 
-    const hectareasNumero = parseFloat(hectareas);
-    if (isNaN(hectareasNumero) || hectareasNumero <= 0) {
-      Alert.alert('Error', 'Las hectáreas deben ser un número mayor a 0');
+    const dañNum = parseFloat(hasDañadas);
+    if (isNaN(dañNum) || dañNum < 0) {
+      Alert.alert('Error', 'Las Has. Dañadas deben ser un número mayor o igual a 0');
+      return;
+    }
+
+    if (dañNum > sembNum) {
+      Alert.alert('Error', 'Las Has. Dañadas no pueden superar las Has. Sembradas/Aseg.');
       return;
     }
 
     const datosLote = {
       nombreLote: nombreLote.trim(),
-      hectareas: hectareasNumero,
+      hasSembradas: sembNum,
+      hasDañadas: dañNum,
       dañoReal: Math.round(dañoRealCalculado * 100) / 100,
-      dañoPactado: dañoPactado.trim() ? parseFloat(dañoPactado) : null,
       muestrasIds: muestrasSeleccionadas.map(m => m.id),
       tipoFenologico: tipoFenologicoSeleccionado,
     };
 
     onConfirmar(datosLote);
     handleClose();
-  }, [nombreLote, hectareas, dañoPactado, dañoRealCalculado, muestrasSeleccionadas, tipoFenologicoSeleccionado, onConfirmar]);
+  }, [nombreLote, hasSembradas, hasDañadas, dañoRealCalculado, muestrasSeleccionadas, tipoFenologicoSeleccionado, onConfirmar]);
 
   // ✅ Cierre memoizado
   const handleClose = useCallback(() => {
     setNombreLote('');
-    setHectareas('');
-    setDañoPactado('');
+    setHasSembradas('');
+    setHasDañadas('');
     onClose();
   }, [onClose]);
 
@@ -98,7 +106,7 @@ export default function CerrarLoteModal({
 
   // ✅ Texto de estado fenológico memoizado
   const estadoFenologicoText = useMemo(() => {
-    return `🧬 Estado fenológico: ${fenologicoDisplay}`;
+    return `🧬 Est. fenológico al momento del Siniestro: ${fenologicoDisplay}`;
   }, [fenologicoDisplay]);
 
   // ✅ Mostrar warning si no hay muestras
@@ -166,7 +174,7 @@ export default function CerrarLoteModal({
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Nombre del Lote *</Text>
+                <Text style={styles.label}>Nombre de Lote *</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Ej: Lote Norte 2024"
@@ -178,16 +186,37 @@ export default function CerrarLoteModal({
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Hectáreas *</Text>
+                <Text style={styles.label}>Has. Sembradas/Aseg. *</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Ej: 25.5"
+                  placeholder="Ej: 100"
                   placeholderTextColor="#444444"
-                  value={hectareas}
-                  onChangeText={setHectareas}
+                  value={hasSembradas}
+                  onChangeText={setHasSembradas}
                   keyboardType="numeric"
                   maxLength={10}
                 />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Has. Dañadas *</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    hasDañadas !== '' && parseFloat(hasDañadas) > parseFloat(hasSembradas)
+                      ? styles.inputError
+                      : null
+                  ]}
+                  placeholder="Ej: 60"
+                  placeholderTextColor="#444444"
+                  value={hasDañadas}
+                  onChangeText={setHasDañadas}
+                  keyboardType="numeric"
+                  maxLength={10}
+                />
+                {hasDañadas !== '' && parseFloat(hasDañadas) > parseFloat(hasSembradas) && (
+                  <Text style={styles.errorText}>No puede superar las Has. Sembradas/Aseg.</Text>
+                )}
               </View>
 
               <View style={styles.inputContainer}>
@@ -313,6 +342,16 @@ const styles = StyleSheet.create({
   calculatedContainerEmpty: {
     backgroundColor: '#fff3cd',
     borderColor: '#ffc107',
+  },
+  inputError: {
+    borderColor: '#dc3545',
+    borderWidth: 2,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#dc3545',
+    marginTop: 4,
+    fontWeight: '600',
   },
   calculatedValue: {
     fontSize: 18,

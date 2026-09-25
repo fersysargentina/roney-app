@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 export default React.memo(function MuestraItem({ 
   item, 
@@ -20,6 +21,20 @@ export default React.memo(function MuestraItem({
   const porcentajeDaño = useMemo(() => {
     return `${item.datos?.porcentajeDaño}%`;
   }, [item.datos?.porcentajeDaño]);
+
+  // ✅ Cantidad de fotos tomadas
+  const cantidadFotos = useMemo(() => {
+    if (Array.isArray(item.datos?.fotos) && item.datos.fotos.length > 0) {
+      return item.datos.fotos.length;
+    }
+    if (Array.isArray(item.fotos) && item.fotos.length > 0) {
+      return item.fotos.length;
+    }
+    if (item.datos?.fotoUri || item.fotoUri) {
+      return 1;
+    }
+    return 0;
+  }, [item.datos?.fotos, item.datos?.fotoUri, item.fotos, item.fotoUri]);
 
   // ✅ Estilo del contenedor memoizado
   const containerStyle = useMemo(() => {
@@ -97,23 +112,36 @@ export default React.memo(function MuestraItem({
           )}
           <View style={styles.headerLeft} />
     
-          <TouchableOpacity
-            style={[styles.selectButton, isInLote && styles.deleteButtonDisabled]}
-            onPress={handleToggleSelect}
-            disabled={isInLote}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.selectButtonText}>
-              {selectButtonText}
-            </Text>
-          </TouchableOpacity>
+          {!isInLote && (
+            <TouchableOpacity
+              style={styles.selectButton}
+              onPress={handleToggleSelect}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.selectButtonText}>
+                {selectButtonText}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
       <View style={styles.content}>
         <View style={styles.dañoContainer}>
           <View style={styles.headerLeft}>
-            <Text style={styles.nombre}>{item.nombre}</Text>
+            <View style={styles.nombreRow}>
+              <Text style={[styles.nombre, isInLote && styles.nombreInLote]}>{item.nombre}</Text>
+              <View style={[styles.fotosBadge, cantidadFotos > 0 ? styles.fotosBadgeConFotos : styles.fotosBadgeSinFotos]}>
+                <Ionicons 
+                  name="camera" 
+                  size={13} 
+                  color={cantidadFotos > 0 ? '#198754' : '#6c757d'} 
+                />
+                <Text style={[styles.fotosBadgeText, cantidadFotos > 0 ? styles.fotosTextConFotos : styles.fotosTextSinFotos]}>
+                  {cantidadFotos} {cantidadFotos === 1 ? 'foto' : 'fotos'}
+                </Text>
+              </View>
+            </View>
           </View>
           <TouchableOpacity
             style={deleteButtonStyle}
@@ -124,7 +152,7 @@ export default React.memo(function MuestraItem({
               {deleteIcon}
             </Text>
           </TouchableOpacity>
-          <Text style={styles.dañoValue}>
+          <Text style={[styles.dañoValue, isInLote && styles.dañoValueInLote]}>
             {porcentajeDaño}
           </Text>
         </View>
@@ -168,9 +196,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f8ff',
   },
   containerInLote: {
-    borderColor: '#ffc107',
-    backgroundColor: '#fffbf0',
-    opacity: 0.8,
+    borderColor: '#e0e0e0',
+    backgroundColor: '#f5f5f5',
+    opacity: 0.65,
   },
   header: {
     flexDirection: 'row',
@@ -190,10 +218,46 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 4,
+  },
+  nombreInLote: {
+    color: '#777',
+  },
+  nombreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  fotosBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  fotosBadgeConFotos: {
+    backgroundColor: '#e8f5e9',
+    borderWidth: 1,
+    borderColor: '#c8e6c9',
+  },
+  fotosBadgeSinFotos: {
+    backgroundColor: '#f1f3f5',
+    borderWidth: 1,
+    borderColor: '#dee2e6',
+  },
+  fotosBadgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  fotosTextConFotos: {
+    color: '#198754',
+  },
+  fotosTextSinFotos: {
+    color: '#6c757d',
   },
   loteIndicator: {
-    backgroundColor: '#ffc107',
+    backgroundColor: '#6c757d',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
@@ -201,7 +265,7 @@ const styles = StyleSheet.create({
   loteText: {
     fontSize: 10,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#fff',
   },
   deleteButton: {
     padding: 4,
@@ -240,6 +304,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#dc3545',
   },
+  dañoValueInLote: {
+    color: '#888',
+  },
   selectionIndicator: {
     position: 'absolute',
     top: 8,
@@ -256,15 +323,15 @@ const styles = StyleSheet.create({
   },
   loteMessage: {
     marginTop: 8,
-    padding: 8,
-    backgroundColor: '#fff3cd',
+    padding: 6,
+    backgroundColor: '#e9ecef',
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#ffeaa7',
+    borderColor: '#dee2e6',
   },
   loteMessageText: {
     fontSize: 11,
-    color: '#856404',
+    color: '#6c757d',
     textAlign: 'center',
     fontStyle: 'italic',
   },

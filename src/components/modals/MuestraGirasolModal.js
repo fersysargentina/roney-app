@@ -15,6 +15,8 @@ import {
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import PhotoCapture from '../PhotoCapture';
+import { formatearCoordenadasDMS } from '../../utils/coordenadas';
 
 // --- CONFIGURACIÓN DE LOS 6 CAMPOS DE DATOS PARA GIRASOL ---
 const DATOS_COUNT = 5;
@@ -48,7 +50,8 @@ export default function MuestraGirasolModal({
   };
 
   const [data, setData] = useState(initializeDataState(valoresIniciales));
-  const [coordenada, setCoordenada] = useState(valoresIniciales.coordenada || '');
+  const [coordenada, setCoordenada] = useState(formatearCoordenadasDMS(valoresIniciales.coordenada) || '');
+  const [fotos, setFotos] = useState(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [loading, setLoading] = useState(false);
   const insets = useSafeAreaInsets();
@@ -56,7 +59,8 @@ export default function MuestraGirasolModal({
   // Sincronizar estado al cambiar valoresIniciales
   useEffect(() => {
     setData(initializeDataState(valoresIniciales));
-    setCoordenada(valoresIniciales.coordenada || '');
+    setCoordenada(formatearCoordenadasDMS(valoresIniciales.coordenada) || '');
+    setFotos(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
   }, [valoresIniciales]);
 
   // Obtener GPS solo en creación
@@ -80,14 +84,20 @@ export default function MuestraGirasolModal({
       return;
     }
     
-    const datosCompletos = { ...data, coordenada };
+    const datosCompletos = { 
+      ...data, 
+      coordenada,
+      fotos,
+      fotoUri: fotos[0] || null,
+    };
     
     onGuardar(datosCompletos);
   };
 
   const handleCerrar = () => {
     setData(initializeDataState(valoresIniciales));
-    setCoordenada(valoresIniciales.coordenada || '');
+    setCoordenada(formatearCoordenadasDMS(valoresIniciales.coordenada) || '');
+    setFotos(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
     onClose();
   };
 
@@ -126,7 +136,7 @@ export default function MuestraGirasolModal({
 
       if (!visibleRef.current) return;
 
-      const coords = `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`;
+      const coords = formatearCoordenadasDMS(location.coords.latitude, location.coords.longitude);
       setCoordenada(coords);
       Alert.alert('Éxito', 'Coordenadas GPS actualizadas');
     } catch (error) {
@@ -229,7 +239,7 @@ export default function MuestraGirasolModal({
                         styles.coordsInput,
                         esEdicion && styles.coordsInputDisabled
                       ]}
-                      placeholder="Coordenadas GPS (lat, long)"
+                      placeholder="Coordenadas GPS (grados, min, seg)"
                       placeholderTextColor="#444444"
                       value={coordenada}
                       onChangeText={setCoordenada}
@@ -255,6 +265,12 @@ export default function MuestraGirasolModal({
 
               {renderDataInputs()}
               
+              <PhotoCapture
+                fotos={fotos}
+                onFotosChange={setFotos}
+                coordenada={coordenada}
+              />
+
               <View style={styles.botones}>
                 <TouchableOpacity
                   style={[styles.button, styles.cancelButton]}

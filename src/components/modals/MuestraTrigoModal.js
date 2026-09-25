@@ -10,13 +10,14 @@ import {
   Platform, 
   ScrollView,
   ActivityIndicator,
-  Alert,
-  SafeAreaView
+  Alert
 } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DraftService } from '../../services/DraftService';
+import PhotoCapture from '../PhotoCapture';
+import { formatearCoordenadasDMS } from '../../utils/coordenadas';
 
 const DRAFT_KEY = 'muestra_trigo_draft';
 
@@ -69,7 +70,8 @@ export default function MuestraTrigoModal({
   };
 
   const [data, setData] = useState(initializeDataState(valoresIniciales));
-  const [coordenada, setCoordenada] = useState(valoresIniciales.coordenada || '');
+  const [coordenada, setCoordenada] = useState(formatearCoordenadasDMS(valoresIniciales.coordenada) || '');
+  const [fotos, setFotos] = useState(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [loading, setLoading] = useState(false);
   const insets = useSafeAreaInsets();
@@ -81,15 +83,17 @@ export default function MuestraTrigoModal({
         DraftService.getDraft(DRAFT_KEY).then(draft => {
           if (draft) {
             setData(initializeDataState(draft));
-            setCoordenada(draft.coordenada || valoresIniciales.coordenada || '');
+            setCoordenada(formatearCoordenadasDMS(draft.coordenada || valoresIniciales.coordenada) || '');
           } else {
             setData(initializeDataState(valoresIniciales));
-            setCoordenada(valoresIniciales.coordenada || '');
+            setCoordenada(formatearCoordenadasDMS(valoresIniciales.coordenada) || '');
+            setFotos(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
           }
         });
       } else {
         setData(initializeDataState(valoresIniciales));
-        setCoordenada(valoresIniciales.coordenada || '');
+        setCoordenada(formatearCoordenadasDMS(valoresIniciales.coordenada) || '');
+        setFotos(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
       }
     }
   }, [visible, valoresIniciales, esEdicion]);
@@ -122,7 +126,12 @@ export default function MuestraTrigoModal({
     }
     
     // Crea objeto completo con todos los datos
-    const datosCompletos = { ...data, coordenada };
+    const datosCompletos = { 
+      ...data, 
+      coordenada,
+      fotos,
+      fotoUri: fotos[0] || null,
+    };
     
     DraftService.clearDraft(DRAFT_KEY);
     // Llama a onGuardar pasando el objeto completo
@@ -137,7 +146,8 @@ export default function MuestraTrigoModal({
   const handleCerrar = () => {
     DraftService.clearDraft(DRAFT_KEY);
     setData(initializeDataState(valoresIniciales));
-    setCoordenada(valoresIniciales.coordenada || '');
+    setCoordenada(formatearCoordenadasDMS(valoresIniciales.coordenada) || '');
+    setFotos(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
     onClose();
   };
 
@@ -171,7 +181,7 @@ export default function MuestraTrigoModal({
 
       if (!visibleRef.current) return;
 
-      const coords = `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`;
+      const coords = formatearCoordenadasDMS(location.coords.latitude, location.coords.longitude);
       setCoordenada(coords);
       Alert.alert('Éxito', 'Coordenadas GPS actualizadas');
     } catch (error) {
@@ -269,7 +279,7 @@ export default function MuestraTrigoModal({
                         styles.coordsInput,
                         esEdicion && styles.coordsInputDisabled
                       ]}
-                      placeholder="Coordenadas GPS (lat, long)"
+                      placeholder="Coordenadas GPS (grados, min, seg)"
                       placeholderTextColor="#444444"
                       value={coordenada}
                       onChangeText={setCoordenada}
@@ -295,6 +305,12 @@ export default function MuestraTrigoModal({
 
               {renderDataInputs()}
               
+              <PhotoCapture
+                fotos={fotos}
+                onFotosChange={setFotos}
+                coordenada={coordenada}
+              />
+
               <View style={styles.botones}>
                 <TouchableOpacity
                   style={[styles.button, styles.cancelButton]}

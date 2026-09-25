@@ -16,6 +16,8 @@ import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DraftService } from '../../services/DraftService';
+import PhotoCapture from '../PhotoCapture';
+import { formatearCoordenadasDMS } from '../../utils/coordenadas';
 
 const DRAFT_KEY = 'muestra_tipo1_draft';
 
@@ -30,7 +32,8 @@ export default function MuestraTipo1Modal({
   const [dato_2, setDato_2] = useState(valoresIniciales.dato_2 || '');
   const [dato_3, setDato_3] = useState(valoresIniciales.dato_3 || '');
   const [dato_4, setDato_4] = useState(valoresIniciales.dato_4 || '');
-  const [coordenada, setCoordenada] = useState(valoresIniciales.coordenada || '');
+  const [coordenada, setCoordenada] = useState(formatearCoordenadasDMS(valoresIniciales.coordenada) || '');
+  const [fotos, setFotos] = useState(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [loading, setLoading] = useState(false);
   const insets = useSafeAreaInsets();
@@ -55,7 +58,7 @@ export default function MuestraTipo1Modal({
             setDato_2(draft.dato_2 || valoresIniciales.dato_2 || '');
             setDato_3(draft.dato_3 || valoresIniciales.dato_3 || '');
             setDato_4(draft.dato_4 || valoresIniciales.dato_4 || '');
-            setCoordenada(draft.coordenada || valoresIniciales.coordenada || '');
+            setCoordenada(formatearCoordenadasDMS(draft.coordenada || valoresIniciales.coordenada) || '');
             return;
           }
           if (isMountedRef.current) {
@@ -63,7 +66,8 @@ export default function MuestraTipo1Modal({
             setDato_2(valoresIniciales.dato_2 || '');
             setDato_3(valoresIniciales.dato_3 || '');
             setDato_4(valoresIniciales.dato_4 || '');
-            setCoordenada(valoresIniciales.coordenada || '');
+            setCoordenada(formatearCoordenadasDMS(valoresIniciales.coordenada) || '');
+            setFotos(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
           }
         });
       } else {
@@ -71,7 +75,8 @@ export default function MuestraTipo1Modal({
         setDato_2(valoresIniciales.dato_2 || '');
         setDato_3(valoresIniciales.dato_3 || '');
         setDato_4(valoresIniciales.dato_4 || '');
-        setCoordenada(valoresIniciales.coordenada || '');
+        setCoordenada(formatearCoordenadasDMS(valoresIniciales.coordenada) || '');
+        setFotos(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
       }
     }
   }, [visible, valoresIniciales, esEdicion]);
@@ -127,7 +132,7 @@ export default function MuestraTipo1Modal({
 
       if (!isMountedRef.current || !visibleRef.current) return;
 
-      const coords = `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`;
+      const coords = formatearCoordenadasDMS(location.coords.latitude, location.coords.longitude);
       
       if (isMountedRef.current && visibleRef.current) {
         setCoordenada(coords);
@@ -162,13 +167,15 @@ export default function MuestraTipo1Modal({
       dato_2: dato_2,
       dato_3: dato_3,
       dato_4: dato_4,
-      coordenada: coordenada
+      coordenada: coordenada,
+      fotos: fotos,
+      fotoUri: fotos[0] || null,
     };
     
     DraftService.clearDraft(DRAFT_KEY);
     onGuardar(datosMuestra); 
     onClose();
-  }, [camposValidos, dato_1, dato_2, dato_3, dato_4, coordenada, onGuardar, onClose]);
+  }, [camposValidos, dato_1, dato_2, dato_3, dato_4, coordenada, fotos, onGuardar, onClose]);
 
   // ✅ Cerrar memoizado con reset de valores
   const handleCerrar = useCallback(() => {
@@ -177,7 +184,8 @@ export default function MuestraTipo1Modal({
     setDato_2(valoresIniciales.dato_2 || '');
     setDato_3(valoresIniciales.dato_3 || '');
     setDato_4(valoresIniciales.dato_4 || '');
-    setCoordenada(valoresIniciales.coordenada || '');
+    setCoordenada(formatearCoordenadasDMS(valoresIniciales.coordenada) || '');
+    setFotos(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
     onClose();
   }, [valoresIniciales, onClose]);
 
@@ -236,7 +244,7 @@ export default function MuestraTipo1Modal({
                   <>
                     <TextInput
                       style={coordsInputStyle}
-                      placeholder="Coordenadas GPS (lat, long)"
+                      placeholder="Coordenadas GPS (grados, min, seg)"
                       placeholderTextColor="#444444"
                       value={coordenada}
                       onChangeText={setCoordenada}
@@ -304,6 +312,12 @@ export default function MuestraTipo1Modal({
                 returnKeyType="done"
               />
               
+              <PhotoCapture
+                fotos={fotos}
+                onFotosChange={setFotos}
+                coordenada={coordenada}
+              />
+
               <View style={styles.botones}>
                 <TouchableOpacity
                   style={[styles.button, styles.cancelButton]}

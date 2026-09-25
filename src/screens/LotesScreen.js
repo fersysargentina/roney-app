@@ -73,15 +73,40 @@ export default function LotesScreen({ route, navigation }) {
     }
   }, [operacionId]);
 
-  // ✅ Cargar lotes con verificación de montaje
+  // ✅ Cargar lotes con verificación de montaje y migración de schema
   const cargarLotes = useCallback(async () => {
     try {
       const data = await ErrorHandler.getStorageData(`lotes_${operacionId}`);
       const lotesCargados = ErrorHandler.safeJsonParse(data, []);
-      const lotesValidados = ErrorHandler.sanitizeData(lotesCargados, 'lotes');
-      
-      // Ordenar lotes más recientes primero
-      const lotesOrdenados = [...lotesValidados].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+
+      if (!Array.isArray(lotesCargados)) {
+        if (isMountedRef.current) setLotes([]);
+        return;
+      }
+
+      // Migrar lotes con schema viejo o parcialmente corrupto
+      const migratedLotes = lotesCargados
+        .filter(l => l && l.id && l.nombreLote && Array.isArray(l.muestrasIds))
+        .map(l => {
+          // Si tiene hasSembradas ya está en el nuevo schema
+          if (typeof l.hasSembradas === 'number') return l;
+          // Si tiene hectareas (schema viejo) → migrar
+          if (typeof l.hectareas === 'number') {
+            return { ...l, hasSembradas: l.hectareas, hasDañadas: l.hasDañadas ?? 0 };
+          }
+          // Schema corrupto: asignar 0 para que no crashee
+          return { ...l, hasSembradas: 0, hasDañadas: 0 };
+        });
+
+      // Guardar los lotes migrados de vuelta si hubo cambios
+      const needsSave = lotesCargados.some(
+        (l, i) => migratedLotes[i] && l !== migratedLotes[i]
+      );
+      if (needsSave) {
+        await AsyncStorage.setItem(`lotes_${operacionId}`, JSON.stringify(migratedLotes));
+      }
+
+      const lotesOrdenados = [...migratedLotes].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
       if (isMountedRef.current) {
         setLotes(lotesOrdenados);
@@ -247,9 +272,9 @@ export default function LotesScreen({ route, navigation }) {
     }, 600);
   }, [navigation, operacionId, roney_op]);
 
-  // ✅ Memoizar totalHectareas
+  // ✅ Memoizar totalHectareas (sembradas/aseg.)
   const totalHectareas = useMemo(() => {
-    return lotes.reduce((sum, lote) => sum + lote.hectareas, 0);
+    return lotes.reduce((sum, lote) => sum + (lote.hasSembradas ?? lote.hectareas ?? 0), 0);
   }, [lotes]);
 
   // ✅ Memoizar renderLote

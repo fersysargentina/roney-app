@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { formatearCoordenadasDMS } from '../../utils/coordenadas';
 
 // ✅ Configuraciones como constantes (fuera del componente)
 const LABELS_CONFIG = {
@@ -217,7 +218,7 @@ export default function VerMuestraModal({
                   <Text style={styles.sectionTitle}>📍 Coordenadas GPS</Text>
                   <View style={styles.gpsCard}>
                     <Ionicons name="location" size={20} color="#007bff" />
-                    <Text style={styles.gpsText}>{datos.coordenada}</Text>
+                    <Text style={styles.gpsText}>{formatearCoordenadasDMS(datos.coordenada)}</Text>
                   </View>
                 </View>
               )}

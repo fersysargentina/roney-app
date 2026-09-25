@@ -181,7 +181,8 @@ export class ErrorHandler {
       typeof lote === 'object' &&
       lote.id &&
       lote.nombreLote &&
-      typeof lote.hectareas === 'number' &&
+      // Accept both old schema (hectareas) and new schema (hasSembradas)
+      (typeof lote.hasSembradas === 'number' || typeof lote.hectareas === 'number') &&
       Array.isArray(lote.muestrasIds)
     );
   }

@@ -27,8 +27,8 @@ export default function EditarLoteModal({
   onEliminarLote
 }) {
   const [nombreLote, setNombreLote] = useState('');
-  const [hectareas, setHectareas] = useState('');
-  const [dañoPactado, setDañoPactado] = useState('');
+  const [hasSembradas, setHasSembradas] = useState('');
+  const [hasDañadas, setHasDañadas] = useState('');
   const [muestras, setMuestras] = useState([]);
   const [loading, setLoading] = useState(false);
   
@@ -48,8 +48,9 @@ export default function EditarLoteModal({
   useEffect(() => {
     if (visible && lote) {
       setNombreLote(lote.nombreLote);
-      setHectareas(lote.hectareas.toString());
-      setDañoPactado(lote.dañoPactado ? lote.dañoPactado.toString() : '');
+      // Backward compat: lotes viejos tienen hectareas, nuevos tienen hasSembradas
+      setHasSembradas((lote.hasSembradas ?? lote.hectareas ?? '').toString());
+      setHasDañadas((lote.hasDañadas ?? '').toString());
       cargarMuestrasDelLote();
     }
   }, [visible, lote]);
@@ -90,21 +91,32 @@ export default function EditarLoteModal({
       return;
     }
 
-    const hectareasNumero = parseFloat(hectareas);
-    if (isNaN(hectareasNumero) || hectareasNumero <= 0) {
-      Alert.alert('Error', 'Las hectáreas deben ser un número mayor a 0');
+    const sembNum = parseFloat(hasSembradas);
+    if (isNaN(sembNum) || sembNum <= 0) {
+      Alert.alert('Error', 'Las Has. Sembradas/Aseg. deben ser un número mayor a 0');
+      return;
+    }
+
+    const dañNum = parseFloat(hasDañadas);
+    if (isNaN(dañNum) || dañNum < 0) {
+      Alert.alert('Error', 'Las Has. Dañadas deben ser un número mayor o igual a 0');
+      return;
+    }
+
+    if (dañNum > sembNum) {
+      Alert.alert('Error', 'Las Has. Dañadas no pueden superar las Has. Sembradas/Aseg.');
       return;
     }
 
     const loteActualizado = {
       ...lote,
       nombreLote: nombreLote.trim(),
-      hectareas: hectareasNumero,
-      dañoPactado: dañoPactado.trim() ? parseFloat(dañoPactado) : null,
+      hasSembradas: sembNum,
+      hasDañadas: dañNum,
     };
 
     onActualizar(loteActualizado);
-  }, [nombreLote, hectareas, dañoPactado, lote, onActualizar]);
+  }, [nombreLote, hasSembradas, hasDañadas, lote, onActualizar]);
 
   // ✅ Liberar muestra memoizada
   const handleLiberarMuestra = useCallback((muestraId) => {
@@ -169,8 +181,8 @@ export default function EditarLoteModal({
 
   const handleClose = useCallback(() => {
     setNombreLote('');
-    setHectareas('');
-    setDañoPactado('');
+    setHasSembradas('');
+    setHasDañadas('');
     setMuestras([]);
     onClose();
   }, [onClose]);
@@ -236,7 +248,7 @@ export default function EditarLoteModal({
                 <Text style={styles.sectionTitle}>📋 Información del Lote</Text>
                 
                 <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Nombre del Lote</Text>
+                  <Text style={styles.label}>Nombre de Lote</Text>
                   <TextInput
                     style={styles.input}
                     value={nombreLote}
@@ -246,18 +258,37 @@ export default function EditarLoteModal({
                 </View>
 
                 <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Hectáreas</Text>
+                  <Text style={styles.label}>Has. Sembradas/Aseg.</Text>
                   <TextInput
                     style={styles.input}
-                    value={hectareas}
-                    onChangeText={setHectareas}
+                    value={hasSembradas}
+                    onChangeText={setHasSembradas}
                     keyboardType="numeric"
                     maxLength={10}
                   />
                 </View>
 
                 <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Estado fenológico</Text>
+                  <Text style={styles.label}>Has. Dañadas</Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      hasDañadas !== '' && parseFloat(hasDañadas) > parseFloat(hasSembradas)
+                        ? styles.inputError
+                        : null
+                    ]}
+                    value={hasDañadas}
+                    onChangeText={setHasDañadas}
+                    keyboardType="numeric"
+                    maxLength={10}
+                  />
+                  {hasDañadas !== '' && parseFloat(hasDañadas) > parseFloat(hasSembradas) && (
+                    <Text style={styles.errorText}>No puede superar las Has. Sembradas/Aseg.</Text>
+                  )}
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Est. fenológico al momento del Siniestro</Text>
                   <View style={[styles.input, styles.readOnlyInput]}>
                     <Text style={styles.readOnlyText}>
                       {fenologicoDisplay}
@@ -417,6 +448,16 @@ const styles = StyleSheet.create({
   readOnlyText: {
     fontSize: 16,
     color: '#333',
+  },
+  inputError: {
+    borderColor: '#dc3545',
+    borderWidth: 2,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#dc3545',
+    marginTop: 4,
+    fontWeight: '600',
   },
   helpText: {
     fontSize: 12,
