@@ -26,7 +26,8 @@ export default function MuestraTipo3Modal({
   onClose, 
   onGuardar, 
   valoresIniciales = {}, 
-  esEdicion = false 
+  esEdicion = false,
+  estadoFenologico = '',
 }) {
   // DEFINICIÓN DE ESTADOS LOCALES (12 DATOS + GPS)
   const [dato_1, setDato_1] = useState(valoresIniciales.dato_1 || '');
@@ -208,6 +209,7 @@ export default function MuestraTipo3Modal({
       coordenada: coordenada,
       fotos: fotos,
       fotoUri: fotos[0] || null,
+      estadoFenologico: estadoFenologico,
     };
 
     DraftService.clearDraft(DRAFT_KEY);
@@ -282,6 +284,12 @@ export default function MuestraTipo3Modal({
             </View>
             
             <ScrollView keyboardShouldPersistTaps="handled">
+              {estadoFenologico && (
+                <View style={styles.fenologicoContainer}>
+                  <Text style={styles.label}>Est. Fenológico al momento del Siniestro:</Text>
+                  <Text style={styles.fenologicoValue}>{estadoFenologico}</Text>
+                </View>
+              )}
               <Text style={styles.label}>Coordenadas GPS:</Text>
               <View style={styles.gpsContainer}>
                 {loading ? (
@@ -450,6 +458,7 @@ export default function MuestraTipo3Modal({
                 fotos={fotos}
                 onFotosChange={setFotos}
                 coordenada={coordenada}
+                keyPrefix="tipo3"
               />
 
               <View style={styles.botones}>
@@ -519,6 +528,19 @@ const styles = StyleSheet.create({
     color: '#333',
     marginTop: 10,
     marginBottom: 5,
+  },
+  fenologicoContainer: {
+    marginBottom: 14,
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  fenologicoValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#007bff',
   },
   input: {
     borderWidth: 1,

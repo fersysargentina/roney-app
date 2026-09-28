@@ -15,6 +15,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ErrorHandler } from '../../utils/ErrorHandler';
 import VerMuestraModal from './VerMuestraModal';
+import { formatearCoordenadasDMS } from '../../utils/coordenadas';
 
 export default function EditarLoteModal({ 
   visible, 
@@ -29,8 +30,10 @@ export default function EditarLoteModal({
   const [nombreLote, setNombreLote] = useState('');
   const [hasSembradas, setHasSembradas] = useState('');
   const [hasDañadas, setHasDañadas] = useState('');
+  const [dañoFinal, setDañoFinal] = useState('');
   const [muestras, setMuestras] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [primeraMuestraCoordenada, setPrimeraMuestraCoordenada] = useState('');
   
   const [verMuestraModalVisible, setVerMuestraModalVisible] = useState(false);
   const [muestraSeleccionada, setMuestraSeleccionada] = useState(null);
@@ -51,9 +54,11 @@ export default function EditarLoteModal({
       // Backward compat: lotes viejos tienen hectareas, nuevos tienen hasSembradas
       setHasSembradas((lote.hasSembradas ?? lote.hectareas ?? '').toString());
       setHasDañadas((lote.hasDañadas ?? '').toString());
+      // Daño final por defecto = daño calculado
+      setDañoFinal((lote.dañoReal ?? 0).toString());
       cargarMuestrasDelLote();
     }
-  }, [visible, lote]);
+  }, [visible, lote?.id, lote?.nombreLote, lote?.hasSembradas, lote?.hectareas, lote?.hasDañadas, lote?.dañoReal]);
 
   // ✅ Cargar muestras con verificación de montaje
   const cargarMuestrasDelLote = useCallback(async () => {
@@ -73,6 +78,14 @@ export default function EditarLoteModal({
         
         if (isMountedRef.current) {
           setMuestras(muestrasDelLote);
+          
+          // Obtener coordenada de la primera muestra que tenga coordenada
+          if (muestrasDelLote.length > 0) {
+            const muestraConCoord = muestrasDelLote.find(m => m?.datos?.coordenada);
+            if (muestraConCoord?.datos?.coordenada) {
+              setPrimeraMuestraCoordenada(formatearCoordenadasDMS(muestraConCoord.datos.coordenada));
+            }
+          }
         }
       }
     } catch (e) {
@@ -82,7 +95,7 @@ export default function EditarLoteModal({
         setLoading(false);
       }
     }
-  }, [lote, operacionId]);
+  }, [lote?.id, lote?.muestrasIds, operacionId]);
 
   // ✅ Actualizar con validación de montaje
   const handleActualizar = useCallback(() => {
@@ -108,15 +121,22 @@ export default function EditarLoteModal({
       return;
     }
 
+    const dañoFinalNum = parseFloat(dañoFinal);
+    if (isNaN(dañoFinalNum) || dañoFinalNum < 0) {
+      Alert.alert('Error', 'El Daño Final debe ser un número mayor o igual a 0');
+      return;
+    }
+
     const loteActualizado = {
       ...lote,
       nombreLote: nombreLote.trim(),
       hasSembradas: sembNum,
       hasDañadas: dañNum,
+      dañoFinal: dañoFinalNum,
     };
 
     onActualizar(loteActualizado);
-  }, [nombreLote, hasSembradas, hasDañadas, lote, onActualizar]);
+  }, [nombreLote, hasSembradas, hasDañadas, dañoFinal, lote, onActualizar]);
 
   // ✅ Liberar muestra memoizada
   const handleLiberarMuestra = useCallback((muestraId) => {
@@ -183,14 +203,16 @@ export default function EditarLoteModal({
     setNombreLote('');
     setHasSembradas('');
     setHasDañadas('');
+    setDañoFinal('');
     setMuestras([]);
+    setPrimeraMuestraCoordenada('');
     onClose();
   }, [onClose]);
 
   // ✅ Memoizar fenológico display
   const fenologicoDisplay = useMemo(() => {
     return lote?.tipoFenologicoLabel || lote?.tipoFenologico || '-';
-  }, [lote]);
+  }, [lote?.tipoFenologicoLabel, lote?.tipoFenologico]);
 
   // ✅ Render item memoizado
   const renderMuestra = useCallback(({ item }) => (
@@ -246,7 +268,14 @@ export default function EditarLoteModal({
             <View style={styles.content}>
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>📋 Información del Lote</Text>
-                
+
+                {primeraMuestraCoordenada && (
+                  <View style={styles.gpsContainer}>
+                    <Text style={styles.gpsLabel}>📍 GPS Primera Muestra:</Text>
+                    <Text style={styles.gpsValue}>{primeraMuestraCoordenada}</Text>
+                  </View>
+                )}
+
                 <View style={styles.inputContainer}>
                   <Text style={styles.label}>Nombre de Lote</Text>
                   <TextInput
@@ -297,11 +326,24 @@ export default function EditarLoteModal({
                 </View>
 
                 <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Daño Calculado</Text>
-                  <View style={styles.calculatedContainer}>
-                    <Text style={styles.calculatedValue}>
-                      {lote.dañoReal}%
-                    </Text>
+                  <Text style={styles.label}>Daño Calculado / Final</Text>
+                  <View style={styles.dañoRow}>
+                    <View style={styles.calculatedContainer}>
+                      <Text style={styles.calculatedLabel}>Calculado</Text>
+                      <Text style={styles.calculatedValue}>
+                        {lote.dañoReal}%
+                      </Text>
+                    </View>
+                    <View style={styles.dañoFinalContainer}>
+                      <Text style={styles.calculatedLabel}>Final (Ing.)</Text>
+                      <TextInput
+                        style={styles.dañoFinalInput}
+                        value={dañoFinal}
+                        onChangeText={setDañoFinal}
+                        keyboardType="decimal-pad"
+                        maxLength={6}
+                      />
+                    </View>
                   </View>
                 </View>
               </View>
@@ -363,7 +405,7 @@ export default function EditarLoteModal({
         onClose={handleCerrarVerMuestra}
         muestra={muestraSeleccionada}
         cultivo={cultivo}
-        tipoFenologico={lote?.tipoFenologico}
+        tipoFenologico={muestraSeleccionada?.tipo}
       />
     </Modal>
   );
@@ -466,6 +508,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   calculatedContainer: {
+    flex: 1,
     backgroundColor: '#e8f5e8',
     padding: 12,
     borderRadius: 8,
@@ -475,6 +518,61 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#28a745',
+  },
+  calculatedLabel: {
+    fontSize: 11,
+    color: '#666',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  gpsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e7f3ff',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#007bff',
+  },
+  gpsLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#007bff',
+    marginRight: 8,
+  },
+  gpsValue: {
+    fontSize: 13,
+    color: '#333',
+    fontFamily: 'monospace',
+    flex: 1,
+  },
+  dañoRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  dañoFinalContainer: {
+    flex: 1,
+    backgroundColor: '#fff3e0',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ffcc80',
+  },
+  dañoFinalInput: {
+    width: '100%',
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#d96102',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ffcc80',
+    borderRadius: 6,
+    paddingVertical: 8,
   },
   muestraItem: {
     flexDirection: 'row',

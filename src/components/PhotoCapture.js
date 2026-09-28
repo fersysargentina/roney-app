@@ -35,6 +35,7 @@ export default function PhotoCapture({
   coordenada = '',
   roneyOp = '',
   disabled = false,
+  keyPrefix = 'photo',
 }) {
   const [cameraVisible, setCameraVisible] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
@@ -180,7 +181,7 @@ export default function PhotoCapture({
             contentContainerStyle={styles.carouselScroll}
           >
             {fotos.map((uri, idx) => (
-              <View key={`${uri}_${idx}`} style={styles.thumbWrapper}>
+              <View key={`${keyPrefix}_${uri}_${idx}`} style={styles.thumbWrapper}>
                 <TouchableOpacity
                   onPress={() => setSelectedPhotoForViewer(uri)}
                   activeOpacity={0.8}

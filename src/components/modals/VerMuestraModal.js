@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import {
   Modal,
   View,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,19 +15,10 @@ import { formatearCoordenadasDMS } from '../../utils/coordenadas';
 // ✅ Configuraciones como constantes (fuera del componente)
 const LABELS_CONFIG = {
   soja: {
-    '1': ['Pérdida en D', 'Restante en D', '% nudos perdidos', '% defoliación'],
+    '1': ['Nacidas en D', 'Remanentes en D', '% nudos perdidos', '% defoliación'],
     '2': ['Pérdida en D', 'Restante en D', '% nudos perdidos', '% defoliación'],
-    '3': ['Pérdida en D', 'Restante en D', '% nudos perdidos', '% defoliación'],
-    '4': ['Pérdida en D', 'Restante en D', 'Nudos originales por Planta:', 'Nudos remanentes 1', 'Nudos remanentes 2', 'Nudos remanentes 3', 'Nudos remanentes 4', 'Nudos remanentes 5', '% Defoliación'],
-    '5': ['Pérdida en D', 'Restante en D', 'Nudos originales por Planta:', 'Nudos remanentes 1', 'Nudos remanentes 2', 'Nudos remanentes 3', 'Nudos remanentes 4', 'Nudos remanentes 5', '% Defoliación'],
-    '6': ['Pérdida en D', 'Restante en D', 'Nudos originales por Planta:', 'Nudos remanentes 1', 'Nudos remanentes 2', 'Nudos remanentes 3', 'Nudos remanentes 4', 'Nudos remanentes 5', '% Defoliación'],
-    '7': ['Pérdida en D', 'Restante en D', 'Nudos originales por Planta:', 'Nudos remanentes 1', 'Nudos remanentes 2', 'Nudos remanentes 3', 'Nudos remanentes 4', 'Nudos remanentes 5', '% Defoliación'],
-    '8': ['Vainas en el suelo', 'Vainas abiertas (Nudo 1)', 'Vainas Sanas (Nudo 1)', 'Vainas abiertas (Nudo 2)', 'Vainas Sanas (Nudo 2)', 'Vainas abiertas (Nudo 3)', 'Vainas Sanas (Nudo 3)', 'Vainas abiertas (Nudo 4)', 'Vainas Sanas (Nudo 4)', 'Vainas abiertas (Nudo 5)', 'Vainas Sanas (Nudo 5)', '% Defoliación'],
-    '9': ['Vainas en el suelo', 'Vainas abiertas (Nudo 1)', 'Vainas Sanas (Nudo 1)', 'Vainas abiertas (Nudo 2)', 'Vainas Sanas (Nudo 2)', 'Vainas abiertas (Nudo 3)', 'Vainas Sanas (Nudo 3)', 'Vainas abiertas (Nudo 4)', 'Vainas Sanas (Nudo 4)', 'Vainas abiertas (Nudo 5)', 'Vainas Sanas (Nudo 5)', '% Defoliación'],
-    '10': ['Vainas en el suelo', 'Vainas abiertas (Nudo 1)', 'Vainas Sanas (Nudo 1)', 'Vainas abiertas (Nudo 2)', 'Vainas Sanas (Nudo 2)', 'Vainas abiertas (Nudo 3)', 'Vainas Sanas (Nudo 3)', 'Vainas abiertas (Nudo 4)', 'Vainas Sanas (Nudo 4)', 'Vainas abiertas (Nudo 5)', 'Vainas Sanas (Nudo 5)', '% Defoliación'],
-    '11': ['Vainas en el suelo', 'Vainas abiertas (Nudo 1)', 'Vainas Sanas (Nudo 1)', 'Vainas abiertas (Nudo 2)', 'Vainas Sanas (Nudo 2)', 'Vainas abiertas (Nudo 3)', 'Vainas Sanas (Nudo 3)', 'Vainas abiertas (Nudo 4)', 'Vainas Sanas (Nudo 4)', 'Vainas abiertas (Nudo 5)', 'Vainas Sanas (Nudo 5)', '% Defoliación'],
-    '12': ['Vainas en el suelo', 'Vainas abiertas (Nudo 1)', 'Vainas Sanas (Nudo 1)', 'Vainas abiertas (Nudo 2)', 'Vainas Sanas (Nudo 2)', 'Vainas abiertas (Nudo 3)', 'Vainas Sanas (Nudo 3)', 'Vainas abiertas (Nudo 4)', 'Vainas Sanas (Nudo 4)', 'Vainas abiertas (Nudo 5)', 'Vainas Sanas (Nudo 5)', '% Defoliación'],
-    '13': ['Vainas en el suelo', 'Vainas abiertas 1', 'Vainas Sanas 1', 'Vainas abiertas 2', 'Vainas Sanas 2', 'Vainas abiertas 3', 'Vainas Sanas 3', 'Vainas abiertas 4', 'Vainas Sanas 4', 'Vainas abiertas 5', 'Vainas Sanas 5', 'Vainas abiertas 6', 'Vainas Sanas 6', 'Vainas abiertas 7', 'Vainas Sanas 7', 'Vainas abiertas 8', 'Vainas Sanas 8', 'Vainas abiertas 9', 'Vainas Sanas 9', 'Vainas abiertas 10', 'Vainas Sanas 10']
+    '3': ['Pérdida en D', 'Restante en D', 'Nudos originales por Planta:', 'Nudos remanentes 1', 'Nudos remanentes 2', 'Nudos remanentes 3', 'Nudos remanentes 4', 'Nudos remanentes 5', '% Defoliación'],
+    '4': ['Vainas en el suelo', 'Vainas abiertas (Nudo 1)', 'Vainas Sanas (Nudo 1)', 'Vainas abiertas (Nudo 2)', 'Vainas Sanas (Nudo 2)', 'Vainas abiertas (Nudo 3)', 'Vainas Sanas (Nudo 3)', 'Vainas abiertas (Nudo 4)', 'Vainas Sanas (Nudo 4)', 'Vainas abiertas (Nudo 5)', 'Vainas Sanas (Nudo 5)', '% Defoliación'],
   },
   trigo: {
     '1': ['Pérdidas en D', 'Colgadas en D', 'Restantes en D', 'Espiga 1 P', 'Espiga 1 T', 'Espiga 2 P', 'Espiga 2 T', 'Espiga 3 P', 'Espiga 3 T', 'Espiga 4 P', 'Espiga 4 T', 'Espiga 5 P', 'Espiga 5 T', 'Espiga 6 P', 'Espiga 6 T', 'Espiga 7 P', 'Espiga 7 T', 'Espiga 8 P', 'Espiga 8 T', 'Espiga 9 P', 'Espiga 9 T', 'Espiga 10 P', 'Espiga 10 T'],
@@ -54,9 +46,9 @@ const LABELS_CONFIG = {
 const ESTADOS_NOMBRES = {
   soja: {
     '1': 'V1-Vn',
-    '2': 'R1-R2',
-    '3': 'R3-R4',
-    '4': 'R5-R6'
+    '2': 'R1-R3,5',
+    '3': 'R4-R7',
+    '4': 'R8'
   },
   trigo: {
     '1': 'Espigamiento (Z.50/59)',
@@ -90,6 +82,17 @@ export default function VerMuestraModal({
 }) {
   // ✅ Insets de safe area (obligatorio llamar al hook siempre)
   const insets = useSafeAreaInsets();
+
+  // ✅ Estado para visor de fotos a pantalla completa
+  const [fotoFullscreenVisible, setFotoFullscreenVisible] = useState(false);
+  const [fotoFullscreenIndex, setFotoFullscreenIndex] = useState(0);
+
+  // ✅ Fotos de la muestra (array de URIs)
+  const fotos = useMemo(() => {
+    return Array.isArray(muestra?.fotos) ? muestra.fotos : (muestra?.fotoUri ? [muestra.fotoUri] : []);
+  }, [muestra?.fotos, muestra?.fotoUri]);
+
+  const tieneFotos = fotos.length > 0;
 
   // ✅ Labels memoizados
   const labels = useMemo(() => {
@@ -156,93 +159,179 @@ export default function VerMuestraModal({
     styles.danioValue
   ], []);
 
-  if (!muestra) return null;
+if (!muestra) return null;
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <View style={[styles.overlay, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8, paddingLeft: 16, paddingRight: 16 }]}>
-        <View style={[styles.modalContainer, { marginTop: insets.top + 8, marginBottom: insets.bottom + 8 }]}>
-          <View style={styles.header}>
-            <View style={styles.headerContent}>
-              <Text style={styles.title}>Ver Muestra</Text>
-              {/* <Text style={styles.subtitle}>{nombreEstado}</Text> */}
+    <>
+      <Modal
+        visible={visible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={onClose}
+      >
+        <View style={[styles.overlay, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8, paddingLeft: 16, paddingRight: 16 }]}>
+          <View style={[styles.modalContainer, { marginTop: insets.top + 8, marginBottom: insets.bottom + 8 }]}>
+            <View style={styles.header}>
+              <View style={styles.headerContent}>
+                <Text style={styles.title}>Ver Muestra</Text>
+                {/* <Text style={styles.subtitle}>{nombreEstado}</Text> */}
+              </View>
+              <TouchableOpacity 
+                style={styles.closeButton} 
+                onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar"
+              >
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity 
-              style={styles.closeButton} 
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Cerrar"
-            >
-              <Ionicons name="close" size={24} color="#333" />
-            </TouchableOpacity>
-          </View>
 
-          <ScrollView 
-            style={styles.scrollView}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.content}>
-              {/* Información General */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>ℹ️ Información General</Text>
-                
-                <View style={styles.infoCard}>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Nombre:</Text>
-                    <Text style={styles.infoValue}>{muestra.nombre}</Text>
-                  </View>
+            <ScrollView 
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.content}>
+                {/* Información General */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>ℹ️ Información General</Text>
                   
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Fecha:</Text>
-                    <Text style={styles.infoValue}>{muestra.fecha}</Text>
-                  </View>
-                  
-                  {tienePorcentajeDano && (
+                  <View style={styles.infoCard}>
                     <View style={styles.infoRow}>
-                      <Text style={styles.infoLabel}>Daño Calculado:</Text>
-                      <Text style={danioValueStyle}>
-                        {datos.porcentajeDaño}%
+                      <Text style={styles.infoLabel}>Nombre:</Text>
+                      <Text style={styles.infoValue}>{muestra.nombre}</Text>
+                    </View>
+                    
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Fecha:</Text>
+                      <Text style={styles.infoValue}>{muestra.fecha}</Text>
+                    </View>
+                    
+                    {tienePorcentajeDano && (
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Daño Calculado:</Text>
+                        <Text style={danioValueStyle}>
+                          {datos.porcentajeDaño}%
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                {tieneCoordenas && (
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>📍 Coordenadas GPS</Text>
+                    <View style={styles.gpsCard}>
+                      <Ionicons name="location" size={20} color="#007bff" />
+                      <Text style={styles.gpsText}>{formatearCoordenadasDMS(datos.coordenada)}</Text>
+                    </View>
+                  </View>
+                )}
+
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>📊 Datos de la Muestra</Text>
+                  <View style={styles.dataContainer}>
+                    {dataFields}
+                  </View>
+
+                  {tieneFotos && (
+                    <View style={styles.fotosContainer}>
+                      <Text style={styles.fotosSubtitle}>📸 Fotos ({fotos.length})</Text>
+                      <View style={styles.fotosRow}>
+                        {fotos.map((item, index) => (
+                          <TouchableOpacity
+                            key={index}
+                            style={styles.fotoItem}
+                            onPress={() => {
+                              setFotoFullscreenIndex(index);
+                              setFotoFullscreenVisible(true);
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <Image source={{ uri: item }} style={styles.fotoThumbnail} />
+                            {fotos.length > 1 && (
+                              <View style={styles.fotoCounter}>
+                                <Text style={styles.fotoCounterText}>
+                                  {index + 1} / {fotos.length}
+                                </Text>
+                              </View>
+                            )}
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                      <Text style={styles.fotoHint}>
+                        Toca una foto para verla a pantalla completa
                       </Text>
                     </View>
                   )}
                 </View>
               </View>
+            </ScrollView>
 
-              {tieneCoordenas && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>📍 Coordenadas GPS</Text>
-                  <View style={styles.gpsCard}>
-                    <Ionicons name="location" size={20} color="#007bff" />
-                    <Text style={styles.gpsText}>{formatearCoordenadasDMS(datos.coordenada)}</Text>
-                  </View>
-                </View>
-              )}
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>📊 Datos de la Muestra</Text>
-                <View style={styles.dataContainer}>
-                  {dataFields}
-                </View>
-              </View>
+            <View style={styles.footer}>
+              <TouchableOpacity 
+                style={styles.closeFooterButton} 
+                onPress={onClose}
+              >
+                <Text style={styles.closeFooterButtonText}>Cerrar</Text>
+              </TouchableOpacity>
             </View>
-          </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
-          <View style={styles.footer}>
-            <TouchableOpacity 
-              style={styles.closeFooterButton} 
-              onPress={onClose}
+      {/* Modal pantalla completa para ver fotos */}
+      <Modal
+        visible={fotoFullscreenVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setFotoFullscreenVisible(false)}
+      >
+        <View style={styles.fullscreenOverlay}>
+          {fotos.length > 1 && (
+            <TouchableOpacity
+              style={styles.fullscreenNav}
+              onPress={() => setFotoFullscreenIndex((i) => (i === 0 ? fotos.length - 1 : i - 1))}
+              hitSlop={{ left: 50, right: 50, top: 100, bottom: 100 }}
             >
-              <Text style={styles.closeFooterButtonText}>Cerrar</Text>
+              <Ionicons name="chevron-back" size={40} color="#fff" />
+            </TouchableOpacity>
+          )}
+          <ScrollView
+            style={styles.fullscreenScroll}
+            maximumZoomScale={3}
+            minimumZoomScale={1}
+            showsVerticalScrollIndicator={false}
+            showsHorizontalScrollIndicator={false}
+          >
+            <Image
+              source={{ uri: fotos[fotoFullscreenIndex] }}
+              style={styles.fullscreenImage}
+            />
+          </ScrollView>
+          {fotos.length > 1 && (
+            <TouchableOpacity
+              style={[styles.fullscreenNav, styles.fullscreenNavRight]}
+              onPress={() => setFotoFullscreenIndex((i) => (i === fotos.length - 1 ? 0 : i + 1))}
+              hitSlop={{ left: 50, right: 50, top: 100, bottom: 100 }}
+            >
+              <Ionicons name="chevron-forward" size={40} color="#fff" />
+            </TouchableOpacity>
+          )}
+          <View style={styles.fullscreenHeader}>
+            <Text style={styles.fullscreenCounter}>
+              {fotoFullscreenIndex + 1} / {fotos.length}
+            </Text>
+            <TouchableOpacity
+              style={styles.fullscreenClose}
+              onPress={() => setFotoFullscreenVisible(false)}
+            >
+              <Ionicons name="close" size={30} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+    </>
   );
 }
 
@@ -299,6 +388,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     maxHeight: '100%',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
   },
   content: {
     padding: 20,
@@ -360,6 +453,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
+  fotosContainer: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  fotosSubtitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
   dataRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -410,5 +515,91 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  // Fotos
+  fotoItem: {
+    width: 120,
+    height: 120,
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginRight: 10,
+    position: 'relative',
+    backgroundColor: '#f0f0f0',
+  },
+  fotosRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+  },
+  fotoThumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  fotoCounter: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  fotoCounterText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  fotoHint: {
+    fontSize: 12,
+    color: '#888',
+    fontStyle: 'italic',
+    marginTop: 8,
+    marginLeft: 20,
+  },
+  // Fullscreen foto
+  fullscreenOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+  },
+  fullscreenScroll: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullscreenImage: {
+    width: '100%',
+    maxHeight: '100%',
+  },
+  fullscreenNav: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenNavRight: {
+    left: 'auto',
+    right: 0,
+  },
+  fullscreenHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    paddingTop: 40,
+  },
+  fullscreenCounter: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  fullscreenClose: {
+    padding: 8,
   },
 });

@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Modal, 
-  View, 
-  Text, 
-  TextInput, 
-  StyleSheet, 
-  TouchableOpacity, 
-  KeyboardAvoidingView, 
-  Platform, 
+import {
+  Modal,
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   ActivityIndicator,
   Alert
@@ -26,7 +26,7 @@ const DATOS_COUNT = 23;
 const DATOS_FIELDS = Array.from({ length: DATOS_COUNT }, (_, i) => `dato_${i + 1}`);
 
 const LABELS = [
-  'Pérdidas en D',  // dato_1
+  'Nacidas en D',  // dato_1
   'Colgadas en D',  // dato_2
   'Restantes en D', // dato_3
   'Espiga 1 P',     // dato_4
@@ -52,15 +52,16 @@ const LABELS = [
 ];
 // ------------------------------------------------
 
-export default function MuestraTrigoModal({ 
-  visible, 
-  onClose, 
-  onGuardar, 
+export default function MuestraTrigoModal({
+  visible,
+  onClose,
+  onGuardar,
   valoresIniciales = {},
-  estadoFenologico = '', 
-  esEdicion = false 
+  estadoFenologico = '',
+  esEdicion = false,
+  cultivo = 'Trigo'
 }) {
-  
+
   // Función para inicializar el estado de los datos (dato_1 a dato_23)
   const initializeDataState = (initialValues) => {
     return DATOS_FIELDS.reduce((acc, key) => {
@@ -119,20 +120,20 @@ export default function MuestraTrigoModal({
   const handleGuardar = () => {
     // Valida que todos los 23 campos estén completos
     const allFieldsValid = DATOS_FIELDS.every(key => data[key].trim());
-    
+
     if (!allFieldsValid) {
       Alert.alert('Error', 'Todos los campos de datos son obligatorios');
       return;
     }
-    
+
     // Crea objeto completo con todos los datos
-    const datosCompletos = { 
-      ...data, 
+    const datosCompletos = {
+      ...data,
       coordenada,
       fotos,
       fotoUri: fotos[0] || null,
     };
-    
+
     DraftService.clearDraft(DRAFT_KEY);
     // Llama a onGuardar pasando el objeto completo
     onGuardar(datosCompletos);
@@ -153,12 +154,12 @@ export default function MuestraTrigoModal({
 
   const actualizarCoordenada = async () => {
     if (esEdicion || !visibleRef.current) return;
-    
+
     setLoadingGPS(true);
 
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      
+
       if (!visibleRef.current) return;
 
       if (status !== 'granted') {
@@ -174,7 +175,7 @@ export default function MuestraTrigoModal({
         Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         }),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('GPS timeout')), 8000)
         )
       ]);
@@ -205,7 +206,7 @@ export default function MuestraTrigoModal({
       '5': 'Pastoso duro (Z.85/89)',
       '6': 'Próx. a mudurez (Z.90/99)',
     };
-    return estados[estadoFenologico] || 'Trigo';
+    return `${cultivo} - ${estados[estadoFenologico] || ''}`;
   };
 
   const renderDataInputs = () => {
@@ -242,106 +243,107 @@ export default function MuestraTrigoModal({
     >
       <SafeAreaView style={styles.safeArea}>
 
-      
-      <View style={[styles.overlay, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }]}>
-        <KeyboardAvoidingView 
-          behavior={Platform.select({ ios: 'padding', android: 'padding' })}
-          keyboardVerticalOffset={insets.top + 12}
-          style={styles.avoider}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.header}>
-              <Text style={styles.titulo}>
-                {esEdicion 
-                  ? `Editar Muestra - ${getTituloEstado()}` 
-                  : `Nueva Muestra - ${getTituloEstado()}`}
-              </Text>
-              <TouchableOpacity 
-                style={styles.closeButton}
-                onPress={handleCerrar} 
-                accessibilityRole="button" 
-                accessibilityLabel="Cerrar"
-              >
-                <Ionicons name="close" size={24} color="#333" />
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView keyboardShouldPersistTaps="handled">
-              <Text style={styles.label}>Coordenadas GPS:</Text>
-              <View style={styles.gpsContainer}>
-                {loading ? (
-                  <ActivityIndicator style={styles.loadingCoords} />
-                ) : (
-                  <>
-                    <TextInput
-                      style={[
-                        styles.input, 
-                        styles.coordsInput,
-                        esEdicion && styles.coordsInputDisabled
-                      ]}
-                      placeholder="Coordenadas GPS (grados, min, seg)"
-                      placeholderTextColor="#444444"
-                      value={coordenada}
-                      onChangeText={setCoordenada}
-                      editable={!esEdicion}
-                    />
-                    
-                    {!esEdicion && (
-                      <TouchableOpacity
-                        style={styles.gpsButton}
-                        onPress={actualizarCoordenada}
-                        disabled={loadingGPS}
-                      >
-                        {loadingGPS ? (
-                          <ActivityIndicator size="small" color="white" />
-                        ) : (
-                          <Ionicons name="location" size={20} color="white" />
-                        )}
-                      </TouchableOpacity>
-                    )}
-                  </>
-                )}
-              </View>
 
-              {renderDataInputs()}
-              
-              <PhotoCapture
-                fotos={fotos}
-                onFotosChange={setFotos}
-                coordenada={coordenada}
-              />
-
-              <View style={styles.botones}>
+        <View style={[styles.overlay, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }]}>
+          <KeyboardAvoidingView
+            behavior={Platform.select({ ios: 'padding', android: 'padding' })}
+            keyboardVerticalOffset={insets.top + 12}
+            style={styles.avoider}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.header}>
+                <Text style={styles.titulo}>
+                  {esEdicion
+                    ? `Editar Muestra - ${getTituloEstado()}`
+                    : `Nueva Muestra - ${getTituloEstado()}`}
+                </Text>
                 <TouchableOpacity
-                  style={[styles.button, styles.cancelButton]}
+                  style={styles.closeButton}
                   onPress={handleCerrar}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cerrar"
                 >
-                  <Text style={styles.cancelButtonText}>Cancelar</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={[
-                    styles.button, 
-                    styles.saveButton,
-                    isSaveDisabled && styles.saveButtonDisabled
-                  ]}
-                  onPress={handleGuardar}
-                  disabled={isSaveDisabled}
-                >
-                  <Text style={styles.saveButtonText}>Guardar</Text>
+                  <Ionicons name="close" size={24} color="#333" />
                 </TouchableOpacity>
               </View>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </View>
+
+              <ScrollView keyboardShouldPersistTaps="handled">
+                <Text style={styles.label}>Coordenadas GPS:</Text>
+                <View style={styles.gpsContainer}>
+                  {loading ? (
+                    <ActivityIndicator style={styles.loadingCoords} />
+                  ) : (
+                    <>
+                      <TextInput
+                        style={[
+                          styles.input,
+                          styles.coordsInput,
+                          esEdicion && styles.coordsInputDisabled
+                        ]}
+                        placeholder="Coordenadas GPS (grados, min, seg)"
+                        placeholderTextColor="#444444"
+                        value={coordenada}
+                        onChangeText={setCoordenada}
+                        editable={!esEdicion}
+                      />
+
+                      {!esEdicion && (
+                        <TouchableOpacity
+                          style={styles.gpsButton}
+                          onPress={actualizarCoordenada}
+                          disabled={loadingGPS}
+                        >
+                          {loadingGPS ? (
+                            <ActivityIndicator size="small" color="white" />
+                          ) : (
+                            <Ionicons name="location" size={20} color="white" />
+                          )}
+                        </TouchableOpacity>
+                      )}
+                    </>
+                  )}
+                </View>
+
+                {renderDataInputs()}
+
+                <PhotoCapture
+                  fotos={fotos}
+                  onFotosChange={setFotos}
+                  coordenada={coordenada}
+                  keyPrefix="trigo"
+                />
+
+                <View style={styles.botones}>
+                  <TouchableOpacity
+                    style={[styles.button, styles.cancelButton]}
+                    onPress={handleCerrar}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancelar</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.button,
+                      styles.saveButton,
+                      isSaveDisabled && styles.saveButtonDisabled
+                    ]}
+                    onPress={handleGuardar}
+                    disabled={isSaveDisabled}
+                  >
+                    <Text style={styles.saveButtonText}>Guardar</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
       </SafeAreaView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { 
+  safeArea: {
     flex: 1,
   },
   overlay: {
@@ -350,7 +352,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 40 : 0, 
+    paddingTop: Platform.OS === 'android' ? 40 : 0,
   },
   avoider: {
     width: '100%',

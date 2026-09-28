@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 
 export default React.memo(function LoteItem({ lote, onPress, onDelete }) {
-  
+
   // ✅ Formatear fecha memoizado
   const fechaFormateada = useMemo(() => {
     try {
@@ -79,7 +79,7 @@ export default React.memo(function LoteItem({ lote, onPress, onDelete }) {
           <Text style={styles.nombreLote}>{lote.nombreLote}</Text>
           <Text style={styles.fecha}>{fechaFormateada}</Text>
         </View>
-        
+
         <TouchableOpacity
           style={styles.deleteButton}
           onPress={handleDelete}
@@ -90,28 +90,30 @@ export default React.memo(function LoteItem({ lote, onPress, onDelete }) {
       </View>
 
       <View style={styles.statsContainer}>
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Has. Sembradas</Text>
-          <Text style={styles.statValue}>{hasSembradas}</Text>
-        </View>
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Has. Sem/Aseg.</Text>
+            <Text style={styles.statValue}>{hasSembradas}</Text>
+          </View>
 
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Has. Dañadas</Text>
-          <Text style={styles.statValue}>{hasDañadas}</Text>
-        </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Has. Dañadas</Text>
+            <Text style={styles.statValue}>{hasDañadas}</Text>
+          </View>
 
-        <View style={styles.statItemWide}>
-          <Text style={styles.statLabel}>Fenológico</Text>
-          <Text style={styles.statValueSmall} numberOfLines={2} ellipsizeMode="tail">
-            {fenologicoDisplay}
-          </Text>
-        </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Fenológico</Text>
+            <Text style={styles.statValueSmall} numberOfLines={1} ellipsizeMode="tail">
+              {fenologicoDisplay}
+            </Text>
+          </View>
 
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Daño</Text>
-          <Text style={[styles.statValue, styles.dañoReal]}>
-            {dañoRealText}
-          </Text>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Daño</Text>
+            <Text style={[styles.statValue, styles.dañoReal]}>
+              {dañoRealText}
+            </Text>
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -157,23 +159,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
-    flexWrap: 'wrap',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     gap: 8,
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
-    minWidth: 60,
-  },
-  statItemWide: {
-    flex: 1.5,
-    alignItems: 'center',
-    minWidth: 80,
+    minWidth: 0,
   },
   statLabel: {
     fontSize: 11,

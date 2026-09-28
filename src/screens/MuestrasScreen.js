@@ -17,6 +17,7 @@ import {
 } from '../utils/fenologicosConfig';
 import MuestraTrigoModal from '../components/modals/MuestraTrigoModal';
 import MuestraMaizModal from '../components/modals/MuestraMaizModal';
+import MuestraMaizModalTipo2 from '../components/modals/MuestraMaizModalTipo2';
 import MuestraGirasolModal from '../components/modals/MuestraGirasolModal';
 
 // ✅ Constantes fuera del componente
@@ -504,7 +505,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
 
   const opcionesFenologicas = useMemo(() => {
     return [
-      { label: 'Vacío', value: '' },
+      { label: 'Vacío', value: 'vacio' },
       ...(estadosFenologicos || [])
     ];
   }, [estadosFenologicos]);
@@ -649,7 +650,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
           coordenada: ''
         }}
         esEdicion={!!muestraEnEdicion}
-        estadoFenologico={labelFenologicoActual}
+        estadoFenologico={fenologicoSeleccionado}
       />
 
       <CerrarLoteModal
@@ -699,7 +700,8 @@ function ModalesSegunTipo({ tipo, cultivo, visible, onCerrar, onGuardar, valores
       coordenada: '' 
     },
     estadoFenologico,
-    esEdicion: esEdicion
+    esEdicion: esEdicion,
+    cultivo
   };
 
   switch (cultivoNormalizado) {
@@ -716,7 +718,11 @@ function ModalesSegunTipo({ tipo, cultivo, visible, onCerrar, onGuardar, valores
       return <MuestraTrigoModal {...props} />;
     
     case 'maiz':
-      return <MuestraMaizModal {...props} tipoModal={tipo} />;
+      switch (tipo) {
+        case '1': return <MuestraMaizModal {...props} />;
+        case '2': return <MuestraMaizModalTipo2 {...props} />;
+        default: return <MuestraMaizModal {...props} />;
+      }
     
     case 'girasol':
       return <MuestraGirasolModal {...props} />;

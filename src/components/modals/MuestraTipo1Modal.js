@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { 
-  Modal, 
-  View, 
-  Text, 
-  TextInput, 
-  StyleSheet, 
-  TouchableOpacity, 
-  KeyboardAvoidingView, 
-  Platform, 
+import {
+  Modal,
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   ActivityIndicator,
   Alert
@@ -27,6 +27,7 @@ export default function MuestraTipo1Modal({
   onGuardar,
   valoresIniciales = { dato_1: '', dato_2: '', dato_3: '', dato_4: '', coordenada: '' },
   esEdicion = false,
+  estadoFenologico = '',
 }) {
   const [dato_1, setDato_1] = useState(valoresIniciales.dato_1 || '');
   const [dato_2, setDato_2] = useState(valoresIniciales.dato_2 || '');
@@ -103,14 +104,14 @@ export default function MuestraTipo1Modal({
   // ✅ Actualizar coordenada memoizada
   const actualizarCoordenada = useCallback(async () => {
     if (esEdicion || !visibleRef.current) return;
-    
+
     if (isMountedRef.current && visibleRef.current) {
       setLoadingGPS(true);
     }
 
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      
+
       if (!isMountedRef.current || !visibleRef.current) return;
 
       if (status !== 'granted') {
@@ -125,7 +126,7 @@ export default function MuestraTipo1Modal({
         Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         }),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('GPS timeout')), 8000)
         )
       ]);
@@ -133,7 +134,7 @@ export default function MuestraTipo1Modal({
       if (!isMountedRef.current || !visibleRef.current) return;
 
       const coords = formatearCoordenadasDMS(location.coords.latitude, location.coords.longitude);
-      
+
       if (isMountedRef.current && visibleRef.current) {
         setCoordenada(coords);
         Alert.alert('Éxito', 'Coordenadas GPS actualizadas');
@@ -152,16 +153,28 @@ export default function MuestraTipo1Modal({
 
   // ✅ Validación de campos memoizada
   const camposValidos = useMemo(() => {
-    return dato_1.trim() && dato_2.trim() && dato_3.trim() && dato_4.trim();
+    const validos = dato_1.trim() && dato_2.trim() && dato_3.trim() && dato_4.trim();
+    if (!validos) return false;
+    // Nacidas en D debe ser mayor o igual a Remanentes en D
+    const nacidas = parseFloat(dato_1);
+    const remanentes = parseFloat(dato_2);
+    return !isNaN(nacidas) && !isNaN(remanentes) && nacidas >= remanentes;
   }, [dato_1, dato_2, dato_3, dato_4]);
 
   // ✅ Guardar memoizado
   const handleGuardar = useCallback(() => {
-    if (!camposValidos) {
+    if (!dato_1.trim() || !dato_2.trim() || !dato_3.trim() || !dato_4.trim()) {
       Alert.alert('Error', 'Todos los campos de datos son obligatorios');
       return;
     }
-    
+    // Validación: Nacidas en D >= Remanentes en D
+    const nacidas = parseFloat(dato_1);
+    const remanentes = parseFloat(dato_2);
+    if (isNaN(nacidas) || isNaN(remanentes) || nacidas < remanentes) {
+      Alert.alert('Error', 'Nacidas en D debe ser mayor o igual a Remanentes en D');
+      return;
+    }
+
     const datosMuestra = {
       dato_1: dato_1,
       dato_2: dato_2,
@@ -170,12 +183,13 @@ export default function MuestraTipo1Modal({
       coordenada: coordenada,
       fotos: fotos,
       fotoUri: fotos[0] || null,
+      estadoFenologico: estadoFenologico,
     };
-    
+
     DraftService.clearDraft(DRAFT_KEY);
-    onGuardar(datosMuestra); 
+    onGuardar(datosMuestra);
     onClose();
-  }, [camposValidos, dato_1, dato_2, dato_3, dato_4, coordenada, fotos, onGuardar, onClose]);
+  }, [dato_1, dato_2, dato_3, dato_4, coordenada, fotos, onGuardar, onClose]);
 
   // ✅ Cerrar memoizado con reset de valores
   const handleCerrar = useCallback(() => {
@@ -196,13 +210,13 @@ export default function MuestraTipo1Modal({
 
   // ✅ Estilos dinámicos memoizados
   const coordsInputStyle = useMemo(() => [
-    styles.input, 
+    styles.input,
     styles.coordsInput,
     esEdicion && styles.coordsInputDisabled
   ], [esEdicion]);
 
   const saveButtonStyle = useMemo(() => [
-    styles.button, 
+    styles.button,
     styles.saveButton,
     !camposValidos && styles.saveButtonDisabled
   ], [camposValidos]);
@@ -217,7 +231,7 @@ export default function MuestraTipo1Modal({
       onRequestClose={handleCerrar}
     >
       <View style={[styles.overlay, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }]}>
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior={Platform.select({ ios: 'padding', android: 'padding' })}
           keyboardVerticalOffset={insets.top + 12}
           style={styles.avoider}
@@ -225,17 +239,23 @@ export default function MuestraTipo1Modal({
           <View style={styles.modalContainer}>
             <View style={styles.header}>
               <Text style={styles.titulo}>{titulo}</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.closeButton}
-                onPress={handleCerrar} 
-                accessibilityRole="button" 
+                onPress={handleCerrar}
+                accessibilityRole="button"
                 accessibilityLabel="Cerrar"
               >
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
             </View>
-            
+
             <ScrollView keyboardShouldPersistTaps="handled">
+              {estadoFenologico && (
+                <View style={styles.fenologicoContainer}>
+                  <Text style={styles.label}>Est. Fenológico al momento del Siniestro:</Text>
+                  <Text style={styles.fenologicoValue}>{estadoFenologico}</Text>
+                </View>
+              )}
               <Text style={styles.label}>Coordenadas GPS:</Text>
               <View style={styles.gpsContainer}>
                 {loading ? (
@@ -250,7 +270,7 @@ export default function MuestraTipo1Modal({
                       onChangeText={setCoordenada}
                       editable={!esEdicion}
                     />
-                    
+
                     {!esEdicion && (
                       <TouchableOpacity
                         style={styles.gpsButton}
@@ -268,7 +288,7 @@ export default function MuestraTipo1Modal({
                 )}
               </View>
 
-              <Text style={styles.label}>Pérdida en D:</Text>
+              <Text style={styles.label}>Nacidas en D:</Text>
               <TextInput
                 style={styles.input}
                 placeholder="Ingrese dato 1"
@@ -278,8 +298,8 @@ export default function MuestraTipo1Modal({
                 keyboardType="numeric"
                 returnKeyType="next"
               />
-              
-              <Text style={styles.label}>Restante en D:</Text>
+
+              <Text style={styles.label}>Remanentes en D:</Text>
               <TextInput
                 style={styles.input}
                 placeholder="Ingrese dato 2"
@@ -289,7 +309,7 @@ export default function MuestraTipo1Modal({
                 keyboardType="numeric"
                 returnKeyType="next"
               />
-              
+
               <Text style={styles.label}>% nudos perdidos:</Text>
               <TextInput
                 style={styles.input}
@@ -300,7 +320,7 @@ export default function MuestraTipo1Modal({
                 keyboardType="numeric"
                 returnKeyType="next"
               />
-              
+
               <Text style={styles.label}>% defoliación:</Text>
               <TextInput
                 style={styles.input}
@@ -311,11 +331,12 @@ export default function MuestraTipo1Modal({
                 keyboardType="numeric"
                 returnKeyType="done"
               />
-              
+
               <PhotoCapture
                 fotos={fotos}
                 onFotosChange={setFotos}
                 coordenada={coordenada}
+                keyPrefix="tipo1"
               />
 
               <View style={styles.botones}>
@@ -325,7 +346,7 @@ export default function MuestraTipo1Modal({
                 >
                   <Text style={styles.cancelButtonText}>Cancelar</Text>
                 </TouchableOpacity>
-                
+
                 <TouchableOpacity
                   style={saveButtonStyle}
                   onPress={handleGuardar}
@@ -385,6 +406,19 @@ const styles = StyleSheet.create({
     color: '#333',
     marginTop: 10,
     marginBottom: 5,
+  },
+  fenologicoContainer: {
+    marginBottom: 14,
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  fenologicoValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#007bff',
   },
   input: {
     borderWidth: 1,

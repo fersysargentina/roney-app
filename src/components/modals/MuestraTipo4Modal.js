@@ -38,7 +38,8 @@ export default function MuestraTipo4Modal({
   onClose, 
   onGuardar, 
   valoresIniciales = {}, 
-  esEdicion = false 
+  esEdicion = false,
+  estadoFenologico = '',
 }) {
   
   // ✅ Función de inicialización memoizada
@@ -57,12 +58,20 @@ export default function MuestraTipo4Modal({
   // ✅ Ref para verificar si está montado
   const isMountedRef = useRef(true);
 
+  // ✅ Ref para rastrear visibilidad (para callbacks async)
+  const visibleRef = useRef(visible);
+
   // ✅ Cleanup al desmontar
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
     };
   }, []);
+
+  // ✅ Sincronizar visibleRef
+  useEffect(() => {
+    visibleRef.current = visible;
+  }, [visible]);
 
   // ✅ Sincroniza estado al cambiar valoresIniciales
   useEffect(() => {
@@ -152,6 +161,7 @@ export default function MuestraTipo4Modal({
       coordenada,
       fotos,
       fotoUri: fotos[0] || null,
+      estadoFenologico: estadoFenologico,
     };
     onGuardar(datosCompletos);
   }, [camposValidos, data, coordenada, fotos, onGuardar]);
@@ -234,6 +244,12 @@ export default function MuestraTipo4Modal({
               </View>
               
               <ScrollView keyboardShouldPersistTaps="handled">
+                {estadoFenologico && (
+                  <View style={styles.fenologicoContainer}>
+                    <Text style={styles.label}>Est. Fenológico al momento del Siniestro:</Text>
+                    <Text style={styles.fenologicoValue}>{estadoFenologico}</Text>
+                  </View>
+                )}
                 <Text style={styles.label}>Coordenadas GPS:</Text>
                 <View style={styles.gpsContainer}>
                   {loading ? (
@@ -272,6 +288,7 @@ export default function MuestraTipo4Modal({
                   fotos={fotos}
                   onFotosChange={setFotos}
                   coordenada={coordenada}
+                  keyPrefix="tipo4"
                 />
 
                 <View style={styles.botones}>
@@ -346,6 +363,19 @@ const styles = StyleSheet.create({
     color: '#333',
     marginTop: 10,
     marginBottom: 5,
+  },
+  fenologicoContainer: {
+    marginBottom: 14,
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  fenologicoValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#007bff',
   },
   input: {
     borderWidth: 1,

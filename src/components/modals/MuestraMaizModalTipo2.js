@@ -18,17 +18,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PhotoCapture from '../PhotoCapture';
 import { formatearCoordenadasDMS } from '../../utils/coordenadas';
 
-// --- CONFIGURACIÓN DE LOS 3 CAMPOS DE DATOS PARA MAÍZ TIPO 1 (V1-V8) ---
-const DATOS_COUNT = 3;
-const DATOS_FIELDS = ['dato_1', 'dato_2', 'dato_3'];
+// --- CONFIGURACIÓN DE LOS 6 CAMPOS DE DATOS PARA MAÍZ TIPO 2 (V9-R6) ---
+const DATOS_COUNT = 6;
+const DATOS_FIELDS = ['dato_1', 'dato_2', 'dato_3', 'dato_4', 'dato_5', 'dato_6'];
 
 const LABELS = [
-  'Nacidas en D',       // dato_1
-  'Remanentes en D',    // dato_2
-  '% defoliacion'       // dato_3
+  'Nacidas en D',              // dato_1
+  'Remanentes en D',           // dato_2
+  'N° de hileras promedio',    // dato_3
+  'Largo hilera promedio',     // dato_4
+  'Granos perdidos totales',   // dato_5
+  '% defoliacion'              // dato_6
 ];
 
-export default function MuestraMaizModal({
+export default function MuestraMaizModalTipo2({
   visible,
   onClose,
   onGuardar,
@@ -148,22 +151,36 @@ export default function MuestraMaizModal({
 
   const getTituloEstado = () => {
     const estados = {
-      '1': 'V1',
-      '2': 'V2',
-      '3': 'V3',
-      '4': 'V4',
-      '5': 'V5',
-      '6': 'V6',
-      '7': 'V6+',
-      '8': 'V7',
-      '9': 'V7+',
-      '10': 'V8',
+      '9': 'V9',
+      '10': 'V10',
+      '11': 'V11',
+      '12': 'V12',
+      '13': 'V13',
+      '12': 'V14',
+      '13': 'V15',
+      '14': 'V16',
+      '17': 'Inicio Florac.Fem (R1-)',
+      '18': 'Flor Fem.Plena Barba Blanca (R1)',
+      '19': 'Fin Flor Fem. Barba Marrón (R1+)',
+      '20': 'Ampolla (R2)',
+      '21': 'Lechoso Temprano (R3)',
+      '22': 'Lechoso Tardío (R3+)',
+      '23': 'Pastoso Temprano (R4)',
+      '24': 'Pastoso Tardío (R4+)',
+      '25': 'Identación/Líneas Leche (R5)',
+      '24': 'Madurez Fisiológica (R6)',
+      '29': 'Madurez Comercial (R6+)',
+      '30': 'V12',
+      '31': 'V13',
+      '32': 'V14',
+      '33': 'V15',
+      '34': 'V16',
     };
     const estado = estados[estadoFenologico] || '';
     return `${cultivo} ${estado ? `- ${estado}` : ''}`;
   };
 
-  // Renderizar los 3 inputs
+  // Renderizar los 6 inputs
   const renderDataInputs = () => {
     return DATOS_FIELDS.map((key, index) => {
       const labelText = LABELS[index];
@@ -264,7 +281,7 @@ export default function MuestraMaizModal({
                 fotos={fotos}
                 onFotosChange={setFotos}
                 coordenada={coordenada}
-                keyPrefix="maiz"
+                keyPrefix="maiz_tipo2"
               />
 
               <View style={styles.botones}>

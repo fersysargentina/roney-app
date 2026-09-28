@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { 
-  Modal, 
-  View, 
-  Text, 
-  TextInput, 
-  Platform, 
-  StyleSheet, 
-  TouchableOpacity, 
-  KeyboardAvoidingView, 
-  ScrollView, 
-  ActivityIndicator, 
-  Alert 
+import {
+  Modal,
+  View,
+  Text,
+  TextInput,
+  Platform,
+  StyleSheet,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  ScrollView,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,26 +21,27 @@ import { formatearCoordenadasDMS } from '../../utils/coordenadas';
 
 const DRAFT_KEY = 'muestra_tipo2_draft';
 
-export default function MuestraTipo2Modal({ 
-  visible, 
-  onClose, 
-  onGuardar, 
-  valoresIniciales = { 
-    dato_1: '', 
-    dato_2: '', 
-    dato_3: '', 
-    dato_4: '', 
-    dato_5: '', 
-    dato_6: '', 
-    dato_7: '', 
-    dato_8: '', 
-    dato_9: '', 
-    coordenada: '' 
-  }, 
-  esEdicion = false 
+export default function MuestraTipo2Modal({
+  visible,
+  onClose,
+  onGuardar,
+  valoresIniciales = {
+    dato_1: '',
+    dato_2: '',
+    dato_3: '',
+    dato_4: '',
+    dato_5: '',
+    dato_6: '',
+    dato_7: '',
+    dato_8: '',
+    dato_9: '',
+    coordenada: ''
+  },
+  esEdicion = false,
+  estadoFenologico = '',
 }) {
-  const [dato_1, setDato_1] = useState(valoresIniciales.dato_1 || ''); // PERDIDA EN D
-  const [dato_2, setDato_2] = useState(valoresIniciales.dato_2 || ''); // RESTANTE EN D
+  const [dato_1, setDato_1] = useState(valoresIniciales.dato_1 || ''); // NACIDAS EN D
+  const [dato_2, setDato_2] = useState(valoresIniciales.dato_2 || ''); // REMANENTES EN D
   const [dato_3, setDato_3] = useState(valoresIniciales.dato_3 || ''); // ORIGINALES POR PLANTA
   const [dato_4, setDato_4] = useState(valoresIniciales.dato_4 || ''); // Nudos remanentes 1
   const [dato_5, setDato_5] = useState(valoresIniciales.dato_5 || ''); // Nudos remanentes 2
@@ -135,14 +136,14 @@ export default function MuestraTipo2Modal({
   // ✅ Actualizar coordenada memoizada
   const actualizarCoordenada = useCallback(async () => {
     if (esEdicion || !visibleRef.current) return;
-    
+
     if (isMountedRef.current && visibleRef.current) {
       setLoadingGPS(true);
     }
 
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      
+
       if (!isMountedRef.current || !visibleRef.current) return;
 
       if (status !== 'granted') {
@@ -157,7 +158,7 @@ export default function MuestraTipo2Modal({
         Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         }),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('GPS timeout')), 8000)
         )
       ]);
@@ -165,7 +166,7 @@ export default function MuestraTipo2Modal({
       if (!isMountedRef.current || !visibleRef.current) return;
 
       const coords = formatearCoordenadasDMS(location.coords.latitude, location.coords.longitude);
-      
+
       if (isMountedRef.current && visibleRef.current) {
         setCoordenada(coords);
         Alert.alert('Éxito', 'Coordenadas GPS actualizadas');
@@ -184,22 +185,34 @@ export default function MuestraTipo2Modal({
 
   // ✅ Validación de campos memoizada (todos los 9 datos + coordenada)
   const camposValidos = useMemo(() => {
-    return dato_1.trim() && 
-           dato_2.trim() && 
-           dato_3.trim() && 
-           dato_4.trim() && 
-           dato_5.trim() && 
-           dato_6.trim() && 
-           dato_7.trim() && 
-           dato_8.trim() && 
-           dato_9.trim() && 
-           coordenada.trim();
+    const validos = dato_1.trim() &&
+      dato_2.trim() &&
+      dato_3.trim() &&
+      dato_4.trim() &&
+      dato_5.trim() &&
+      dato_6.trim() &&
+      dato_7.trim() &&
+      dato_8.trim() &&
+      dato_9.trim() &&
+      coordenada.trim();
+    if (!validos) return false;
+    // Nacidas en D debe ser mayor o igual a Remanentes en D
+    const nacidas = parseFloat(dato_1);
+    const remanentes = parseFloat(dato_2);
+    return !isNaN(nacidas) && !isNaN(remanentes) && nacidas >= remanentes;
   }, [dato_1, dato_2, dato_3, dato_4, dato_5, dato_6, dato_7, dato_8, dato_9, coordenada]);
 
   // ✅ Guardar memoizado
   const handleGuardar = useCallback(() => {
-    if (!camposValidos) {
+    if (!dato_1.trim() || !dato_2.trim() || !dato_3.trim() || !dato_4.trim() || !dato_5.trim() || !dato_6.trim() || !dato_7.trim() || !dato_8.trim() || !dato_9.trim() || !coordenada.trim()) {
       Alert.alert('Error', 'Todos los campos de datos y la coordenada son obligatorios');
+      return;
+    }
+    // Validación: Nacidas en D >= Remanentes en D
+    const nacidas = parseFloat(dato_1);
+    const remanentes = parseFloat(dato_2);
+    if (isNaN(nacidas) || isNaN(remanentes) || nacidas < remanentes) {
+      Alert.alert('Error', 'Nacidas en D debe ser mayor o igual a Remanentes en D');
       return;
     }
 
@@ -216,12 +229,13 @@ export default function MuestraTipo2Modal({
       coordenada: coordenada,
       fotos: fotos,
       fotoUri: fotos[0] || null,
+      estadoFenologico: estadoFenologico,
     };
-    
+
     DraftService.clearDraft(DRAFT_KEY);
-    onGuardar(datosMuestra); 
+    onGuardar(datosMuestra);
     onClose();
-  }, [camposValidos, dato_1, dato_2, dato_3, dato_4, dato_5, dato_6, dato_7, dato_8, dato_9, coordenada, fotos, onGuardar, onClose]);
+  }, [dato_1, dato_2, dato_3, dato_4, dato_5, dato_6, dato_7, dato_8, dato_9, coordenada, fotos, onGuardar, onClose]);
 
   // ✅ Cerrar memoizado con reset de valores
   const handleCerrar = useCallback(() => {
@@ -247,13 +261,13 @@ export default function MuestraTipo2Modal({
 
   // ✅ Estilos dinámicos memoizados
   const coordsInputStyle = useMemo(() => [
-    styles.input, 
+    styles.input,
     styles.coordsInput,
     esEdicion && styles.coordsInputDisabled
   ], [esEdicion]);
 
   const saveButtonStyle = useMemo(() => [
-    styles.button, 
+    styles.button,
     styles.saveButton,
     !camposValidos && styles.saveButtonDisabled
   ], [camposValidos]);
@@ -268,7 +282,7 @@ export default function MuestraTipo2Modal({
       onRequestClose={handleCerrar}
     >
       <View style={[styles.overlay, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }]}>
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior={Platform.select({ ios: 'padding', android: 'padding' })}
           keyboardVerticalOffset={insets.top + 12}
           style={styles.avoider}
@@ -276,17 +290,23 @@ export default function MuestraTipo2Modal({
           <View style={styles.modalContainer}>
             <View style={styles.header}>
               <Text style={styles.titulo}>{titulo}</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.closeButton}
-                onPress={handleCerrar} 
-                accessibilityRole="button" 
+                onPress={handleCerrar}
+                accessibilityRole="button"
                 accessibilityLabel="Cerrar"
               >
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
             </View>
-            
+
             <ScrollView keyboardShouldPersistTaps="handled">
+              {estadoFenologico && (
+                <View style={styles.fenologicoContainer}>
+                  <Text style={styles.label}>Est. Fenológico al momento del Siniestro:</Text>
+                  <Text style={styles.fenologicoValue}>{estadoFenologico}</Text>
+                </View>
+              )}
               <Text style={styles.label}>Coordenadas GPS:</Text>
               <View style={styles.gpsContainer}>
                 {loading ? (
@@ -301,7 +321,7 @@ export default function MuestraTipo2Modal({
                       onChangeText={setCoordenada}
                       editable={!esEdicion}
                     />
-                    
+
                     {!esEdicion && (
                       <TouchableOpacity
                         style={styles.gpsButton}
@@ -319,28 +339,28 @@ export default function MuestraTipo2Modal({
                 )}
               </View>
 
-              <Text style={styles.label}>Pérdida en D:</Text>
+              <Text style={styles.label}>Nacidas en D:</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Pérdida en D"
+                placeholder="Nacidas en D"
                 placeholderTextColor="#444444"
                 value={dato_1}
                 onChangeText={setDato_1}
                 keyboardType="numeric"
                 returnKeyType="next"
               />
-              
-              <Text style={styles.label}>Restante en D:</Text>
+
+              <Text style={styles.label}>Remanentes en D:</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Restante en D"
+                placeholder="Remanentes en D"
                 placeholderTextColor="#444444"
                 value={dato_2}
                 onChangeText={setDato_2}
                 keyboardType="numeric"
                 returnKeyType="next"
               />
-              
+
               <Text style={styles.label}>Nudos originales por Planta:</Text>
               <TextInput
                 style={styles.input}
@@ -351,7 +371,7 @@ export default function MuestraTipo2Modal({
                 keyboardType="numeric"
                 returnKeyType="next"
               />
-              
+
               <Text style={styles.label}>Nudos remanentes 1:</Text>
               <TextInput
                 style={styles.input}
@@ -362,7 +382,7 @@ export default function MuestraTipo2Modal({
                 keyboardType="numeric"
                 returnKeyType="next"
               />
-              
+
               <Text style={styles.label}>Nudos remanentes 2:</Text>
               <TextInput
                 style={styles.input}
@@ -422,6 +442,7 @@ export default function MuestraTipo2Modal({
                 fotos={fotos}
                 onFotosChange={setFotos}
                 coordenada={coordenada}
+                keyPrefix="tipo2"
               />
 
               <View style={styles.botones}>
@@ -431,7 +452,7 @@ export default function MuestraTipo2Modal({
                 >
                   <Text style={styles.cancelButtonText}>Cancelar</Text>
                 </TouchableOpacity>
-                
+
                 <TouchableOpacity
                   style={saveButtonStyle}
                   onPress={handleGuardar}
@@ -455,7 +476,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 40 : 0, 
+    paddingTop: Platform.OS === 'android' ? 40 : 0,
   },
   avoider: {
     width: '100%',
@@ -492,6 +513,19 @@ const styles = StyleSheet.create({
     color: '#333',
     marginTop: 10,
     marginBottom: 5,
+  },
+  fenologicoContainer: {
+    marginBottom: 14,
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  fenologicoValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#007bff',
   },
   input: {
     borderWidth: 1,

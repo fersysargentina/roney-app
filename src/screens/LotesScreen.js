@@ -24,6 +24,7 @@ export default function LotesScreen({ route, navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [loteSeleccionado, setLoteSeleccionado] = useState(null);
   const [cultivo, setCultivo] = useState('soja');
+  const [campoNombre, setCampoNombre] = useState('');
 
   // ✅ Ref para verificar si el componente está montado
   const isMountedRef = useRef(true);
@@ -51,7 +52,7 @@ export default function LotesScreen({ route, navigation }) {
       if (navigation.canGoBack()) navigation.goBack();
       return;
     }
-    cargarDatosOperacion(); 
+    cargarDatosOperacion();
     cargarLotes();
   }, [operacionId]);
 
@@ -64,6 +65,7 @@ export default function LotesScreen({ route, navigation }) {
         const operacionActual = Array.isArray(operaciones) ? operaciones.find(op => op.id === operacionId) : null;
         if (operacionActual && isMountedRef.current) {
           setCultivo(operacionActual.cultivo || 'soja');
+          setCampoNombre(operacionActual.campo || '');
         }
       }
     } catch (e) {
@@ -151,11 +153,11 @@ export default function LotesScreen({ route, navigation }) {
 
   const actualizarLote = useCallback(async (loteActualizado) => {
     try {
-      const nuevosLotes = lotes.map(lote => 
+      const nuevosLotes = lotes.map(lote =>
         lote.id === loteActualizado.id ? loteActualizado : lote
       );
       await AsyncStorage.setItem(`lotes_${operacionId}`, JSON.stringify(nuevosLotes));
-      
+
       if (isMountedRef.current) {
         setLotes(nuevosLotes);
         cerrarModal();
@@ -189,7 +191,7 @@ export default function LotesScreen({ route, navigation }) {
       // Eliminar el lote
       const nuevosLotes = lotes.filter(lote => lote.id !== loteId);
       await AsyncStorage.setItem(`lotes_${operacionId}`, JSON.stringify(nuevosLotes));
-      
+
       if (isMountedRef.current) {
         setLotes(nuevosLotes);
         Alert.alert('✔ Completado', 'Lote eliminado y muestras liberadas');
@@ -221,7 +223,7 @@ export default function LotesScreen({ route, navigation }) {
       const nuevosLotes = lotes.map(lote => {
         if (lote.id === loteId) {
           const nuevasMuestrasIds = lote.muestrasIds.filter(id => id !== muestraId);
-          
+
           let nuevoDañoReal = 0;
           if (nuevasMuestrasIds.length > 0 && muestrasData) {
             const muestras = ErrorHandler.safeJsonParse(muestrasData, []);
@@ -246,11 +248,11 @@ export default function LotesScreen({ route, navigation }) {
       }).filter(lote => lote.muestrasIds.length > 0);
 
       await AsyncStorage.setItem(`lotes_${operacionId}`, JSON.stringify(nuevosLotes));
-      
+
       if (isMountedRef.current) {
         setLotes(nuevosLotes);
       }
-      
+
       return true;
     } catch (e) {
       if (isMountedRef.current) {
@@ -263,9 +265,9 @@ export default function LotesScreen({ route, navigation }) {
   const navegarAMuestras = useCallback(() => {
     if (isNavigatingRef.current) return;
     isNavigatingRef.current = true;
-    navigation.navigate('Muestras', { 
-      operacionId, 
-      roney_op 
+    navigation.navigate('Muestras', {
+      operacionId,
+      roney_op
     });
     setTimeout(() => {
       if (isMountedRef.current) isNavigatingRef.current = false;
@@ -273,8 +275,13 @@ export default function LotesScreen({ route, navigation }) {
   }, [navigation, operacionId, roney_op]);
 
   // ✅ Memoizar totalHectareas (sembradas/aseg.)
-  const totalHectareas = useMemo(() => {
+  const totalHasSembradas = useMemo(() => {
     return lotes.reduce((sum, lote) => sum + (lote.hasSembradas ?? lote.hectareas ?? 0), 0);
+  }, [lotes]);
+
+  // ✅ Memoizar totalHasDañadas
+  const totalHasDañadas = useMemo(() => {
+    return lotes.reduce((sum, lote) => sum + (lote.hasDañadas ?? 0), 0);
   }, [lotes]);
 
   // ✅ Memoizar renderLote
@@ -317,7 +324,13 @@ export default function LotesScreen({ route, navigation }) {
     <View style={styles.container}>
       {lotes.length > 0 && (
         <View style={styles.statsContainer}>
-          <Text style={styles.statsText}>🌾 Total hectáreas: {totalHectareas.toFixed(1)} ha</Text>
+          <Text style={styles.statsFieldName}>{campoNombre || 'Campo'}</Text>
+          <Text style={styles.statLine}>
+            Total Has. Sembradas/Aseg.: <Text style={styles.statValueInline}>{totalHasSembradas.toFixed(1)} ha</Text>
+          </Text>
+          <Text style={styles.statLine}>
+            Total Has. Dañadas: <Text style={[styles.statValueInline, styles.statValueDamage]}>{totalHasDañadas.toFixed(1)} ha</Text>
+          </Text>
         </View>
       )}
 
@@ -371,10 +384,26 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  statsText: {
-    fontSize: 20,
-    color: '#666',
+  statsFieldName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  statLine: {
+    fontSize: 18,
+    color: '#333',
     marginBottom: 4,
+    lineHeight: 24,
+  },
+  statValueInline: {
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  statValueDamage: {
+    color: '#dc3545',
   },
   emptyContainer: {
     flex: 1,

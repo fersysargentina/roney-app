@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Modal, 
-  View, 
-  Text, 
-  TextInput, 
-  StyleSheet, 
-  TouchableOpacity, 
-  KeyboardAvoidingView, 
-  Platform, 
+import {
+  Modal,
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   ActivityIndicator,
   Alert
@@ -24,7 +24,7 @@ const DATOS_FIELDS = Array.from({ length: DATOS_COUNT }, (_, i) => `dato_${i + 1
 
 // Etiquetas específicas para trigo (ajusta según tus necesidades)
 const LABELS = [
-  'Pérdida en D',
+  'Nacidas en D',
   'Improduct en D',
   'Restante en D',
   '% promedio daño capít.',
@@ -32,15 +32,16 @@ const LABELS = [
 ];
 // ------------------------------------------------
 
-export default function MuestraGirasolModal({ 
-  visible, 
-  onClose, 
-  onGuardar, 
+export default function MuestraGirasolModal({
+  visible,
+  onClose,
+  onGuardar,
   valoresIniciales = {},
-  estadoFenologico = '', 
-  esEdicion = false 
+  estadoFenologico = '',
+  esEdicion = false,
+  cultivo = 'Girasol'
 }) {
-  
+
   // Función para inicializar el estado de los datos (dato_1 a dato_23)
   const initializeDataState = (initialValues) => {
     return DATOS_FIELDS.reduce((acc, key) => {
@@ -78,19 +79,19 @@ export default function MuestraGirasolModal({
   const handleGuardar = () => {
     // Valida que todos los 23 campos estén completos
     const allFieldsValid = DATOS_FIELDS.every(key => data[key].trim());
-    
+
     if (!allFieldsValid) {
       Alert.alert('Error', 'Todos los campos de datos son obligatorios');
       return;
     }
-    
-    const datosCompletos = { 
-      ...data, 
+
+    const datosCompletos = {
+      ...data,
       coordenada,
       fotos,
       fotoUri: fotos[0] || null,
     };
-    
+
     onGuardar(datosCompletos);
   };
 
@@ -108,12 +109,12 @@ export default function MuestraGirasolModal({
 
   const actualizarCoordenada = async () => {
     if (esEdicion || !visibleRef.current) return;
-    
+
     setLoadingGPS(true);
 
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      
+
       if (!visibleRef.current) return;
 
       if (status !== 'granted') {
@@ -129,7 +130,7 @@ export default function MuestraGirasolModal({
         Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
         }),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('GPS timeout')), 10000)
         )
       ]);
@@ -153,21 +154,32 @@ export default function MuestraGirasolModal({
 
   // Obtiene el nombre del estado fenológico para el título
   const getTituloEstado = () => {
-    // Mapea el valor del estado a su nombre legible
+    // Mapea el valor del estado a su nombre legible (valores nuevos 1-21)
     const estados = {
-      '1': 'V1-V11',
-      '2': 'V12-Vn',
-      '3': 'R1 (estrella)',
-      '4': 'R2 (botón a 0,5 - 2 cm)',
-      '5': 'R3 (botón a + de 2 cm)',
-      '6': 'R4 (apertura inflorescencia)',
-      '7': 'R5 (inicio floración)',
-      '8': 'R6 (fin floración)',
-      '9': 'R7 (envés capítulo inicio amarilleo)',
-      '10': 'R8 (envés capítulo amarillo)',
-      '11': 'R9 (brácteas amarillo/marrón)',
+      '1': 'V1',
+      '2': 'V2',
+      '3': 'V3',
+      '4': 'V4',
+      '5': 'V5',
+      '6': 'V6',
+      '7': 'V7',
+      '8': 'V8',
+      '9': 'V9',
+      '10': 'V10',
+      '11': 'V11',
+      '12': 'Vn',
+      '13': 'R1 (estrella)',
+      '14': 'R2 (botón a 0,5 - 2 cm)',
+      '15': 'R3 (botón a + de 2 cm)',
+      '16': 'R4 (apertura inflorescencia)',
+      '17': 'R5 (inicio floración)',
+      '18': 'R6 (fin floración)',
+      '19': 'R7 (envés capítulo inicio amarilleo)',
+      '20': 'R8 (envés capítulo amarillo)',
+      '21': 'R9 (brácteas amarillo/marrón)',
     };
-    return estados[estadoFenologico] || 'Trigo';
+    const estado = estados[estadoFenologico] || '';
+    return `${cultivo} ${estado ? `- ${estado}` : ''}`;
   };
 
   // Renderiza los 6 inputs
@@ -204,7 +216,7 @@ export default function MuestraGirasolModal({
       onRequestClose={handleCerrar}
     >
       <View style={[styles.overlay, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }]}>
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior={Platform.select({ ios: 'padding', android: 'padding' })}
           keyboardVerticalOffset={insets.top + 12}
           style={styles.avoider}
@@ -212,20 +224,20 @@ export default function MuestraGirasolModal({
           <View style={styles.modalContainer}>
             <View style={styles.header}>
               <Text style={styles.titulo}>
-                {esEdicion 
-                  ? `Editar Muestra - ${getTituloEstado()}` 
+                {esEdicion
+                  ? `Editar Muestra - ${getTituloEstado()}`
                   : `Nueva Muestra - ${getTituloEstado()}`}
               </Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.closeButton}
-                onPress={handleCerrar} 
-                accessibilityRole="button" 
+                onPress={handleCerrar}
+                accessibilityRole="button"
                 accessibilityLabel="Cerrar"
               >
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
             </View>
-            
+
             <ScrollView keyboardShouldPersistTaps="handled">
               <Text style={styles.label}>Coordenadas GPS:</Text>
               <View style={styles.gpsContainer}>
@@ -235,7 +247,7 @@ export default function MuestraGirasolModal({
                   <>
                     <TextInput
                       style={[
-                        styles.input, 
+                        styles.input,
                         styles.coordsInput,
                         esEdicion && styles.coordsInputDisabled
                       ]}
@@ -245,7 +257,7 @@ export default function MuestraGirasolModal({
                       onChangeText={setCoordenada}
                       editable={!esEdicion}
                     />
-                    
+
                     {!esEdicion && (
                       <TouchableOpacity
                         style={styles.gpsButton}
@@ -264,11 +276,12 @@ export default function MuestraGirasolModal({
               </View>
 
               {renderDataInputs()}
-              
+
               <PhotoCapture
                 fotos={fotos}
                 onFotosChange={setFotos}
                 coordenada={coordenada}
+                keyPrefix="girasol"
               />
 
               <View style={styles.botones}>
@@ -278,10 +291,10 @@ export default function MuestraGirasolModal({
                 >
                   <Text style={styles.cancelButtonText}>Cancelar</Text>
                 </TouchableOpacity>
-                
+
                 <TouchableOpacity
                   style={[
-                    styles.button, 
+                    styles.button,
                     styles.saveButton,
                     isSaveDisabled && styles.saveButtonDisabled
                   ]}
