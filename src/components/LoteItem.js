@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 
-export default React.memo(function LoteItem({ lote, onPress, onDelete }) {
+export default React.memo(function LoteItem({ lote, onPress, onDelete, isSelected, onToggleSelect, enviado }) {
 
   // ✅ Formatear fecha memoizado
   const fechaFormateada = useMemo(() => {
@@ -68,25 +68,57 @@ export default React.memo(function LoteItem({ lote, onPress, onDelete }) {
     );
   }, [lote.nombreLote, lote.id, cantidadMuestras, onDelete]);
 
+  // ✅ Toggle selección (los lotes enviados no se pueden seleccionar)
+  const handleToggleSelect = useCallback(() => {
+    if (enviado) return;
+    onToggleSelect(lote.id);
+  }, [enviado, onToggleSelect, lote.id]);
+
+  const containerStyle = [
+    styles.container,
+    isSelected && styles.containerSelected,
+    enviado && styles.containerEnviado,
+  ];
+
   return (
     <TouchableOpacity
-      style={styles.container}
+      style={containerStyle}
       onPress={onPress}
       activeOpacity={0.7}
     >
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.nombreLote}>{lote.nombreLote}</Text>
+          <Text style={[styles.nombreLote, enviado && styles.textoEnviado]}>{lote.nombreLote}</Text>
           <Text style={styles.fecha}>{fechaFormateada}</Text>
         </View>
 
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={handleDelete}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={styles.deleteButtonText}>🗑️</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          {enviado ? (
+            <View style={styles.enviadoBadge}>
+              <Text style={styles.enviadoBadgeText}>✓ ENVIADO</Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[styles.selectButton, isSelected && styles.selectButtonSelected]}
+              onPress={handleToggleSelect}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={[styles.selectButtonText, isSelected && styles.selectButtonTextSelected]}>
+                {isSelected ? '✓ Quitar' : 'Seleccionar'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {!enviado && (
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={handleDelete}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.deleteButtonText}>🗑️</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <View style={styles.statsContainer}>
@@ -116,6 +148,12 @@ export default React.memo(function LoteItem({ lote, onPress, onDelete }) {
           </View>
         </View>
       </View>
+
+      {isSelected && (
+        <View style={styles.selectionIndicator}>
+          <Text style={styles.selectionText}>✓ SELECCIONADO</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 });
@@ -132,6 +170,67 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  containerSelected: {
+    borderWidth: 2,
+    borderColor: '#007bff',
+    backgroundColor: '#f0f8ff',
+  },
+  containerEnviado: {
+    opacity: 0.6,
+    backgroundColor: '#f0f0f0',
+    borderColor: '#ddd',
+    borderWidth: 1,
+  },
+  textoEnviado: {
+    color: '#888',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  selectButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#007bff',
+    backgroundColor: '#fff',
+  },
+  selectButtonSelected: {
+    backgroundColor: '#007bff',
+  },
+  selectButtonText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#007bff',
+  },
+  selectButtonTextSelected: {
+    color: '#fff',
+  },
+  enviadoBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: '#28a745',
+  },
+  enviadoBadgeText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  selectionIndicator: {
+    marginTop: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#007bff',
+    alignItems: 'center',
+  },
+  selectionText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   header: {
     flexDirection: 'row',

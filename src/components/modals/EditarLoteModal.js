@@ -169,8 +169,12 @@ export default function EditarLoteModal({
     );
   }, [muestras, lote, onLiberarMuestra, onClose]);
 
-  // ✅ Eliminar lote memoizado
+  // ✅ Eliminar lote memoizado (bloqueado si ya fue enviado)
   const handleEliminarLote = useCallback(() => {
+    if (lote?.enviado) {
+      Alert.alert('Lote Enviado', 'Este lote ya fue enviado al servidor y no puede eliminarse.');
+      return;
+    }
     Alert.alert(
       'Eliminar Lote Completo',
       `¿Estás seguro que deseas eliminar todo el lote "${lote?.nombreLote}"?\n\nTodas las ${muestras.length} muestras volverán a estar disponibles.`,
@@ -371,14 +375,16 @@ export default function EditarLoteModal({
             </View>
 
             <View style={styles.buttonContainer}>
-              <TouchableOpacity 
-                style={styles.deleteAllButton} 
-                onPress={handleEliminarLote}
-              >
-                <Text style={styles.deleteAllButtonText}>
-                  🗑️ Eliminar Lote
-                </Text>
-              </TouchableOpacity>
+              {!lote?.enviado && (
+                <TouchableOpacity
+                  style={styles.deleteAllButton}
+                  onPress={handleEliminarLote}
+                >
+                  <Text style={styles.deleteAllButtonText}>
+                    🗑️ Eliminar Lote
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               <View style={styles.actionButtons}>
                 <TouchableOpacity 

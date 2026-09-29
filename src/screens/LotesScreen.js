@@ -8,14 +8,17 @@ import {
   Alert,
   RefreshControl,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
 import LoteItem from '../components/LoteItem';
 import EditarLoteModal from '../components/modals/EditarLoteModal';
 import { ErrorHandler } from '../utils/ErrorHandler';
 
 // ✅ Constantes fuera del componente
 const LOTE_ITEM_HEIGHT = 200; // Ajusta según tu LoteItem real
+const ENDPOINT_RECIBE_LOTE = 'https://fersystest.com/roney/recibelote.php';
 
 export default function LotesScreen({ route, navigation }) {
   const { operacionId, roney_op } = route.params || {};
@@ -25,6 +28,8 @@ export default function LotesScreen({ route, navigation }) {
   const [loteSeleccionado, setLoteSeleccionado] = useState(null);
   const [cultivo, setCultivo] = useState('soja');
   const [campoNombre, setCampoNombre] = useState('');
+  const [lotesSeleccionados, setLotesSeleccionados] = useState(new Set());
+  const [enviando, setEnviando] = useState(false);
 
   // ✅ Ref para verificar si el componente está montado
   const isMountedRef = useRef(true);
@@ -174,6 +179,12 @@ export default function LotesScreen({ route, navigation }) {
       const loteAEliminar = lotes.find(l => l.id === loteId);
       if (!loteAEliminar) return;
 
+      // ✅ Los lotes enviados no se pueden eliminar
+      if (loteAEliminar.enviado) {
+        Alert.alert('Lote Enviado', 'Este lote ya fue enviado al servidor y no puede eliminarse.');
+        return;
+      }
+
       // Liberar las muestras
       const muestrasData = await AsyncStorage.getItem(`muestras_${operacionId}`);
       if (muestrasData) {
@@ -274,6 +285,193 @@ export default function LotesScreen({ route, navigation }) {
     }, 600);
   }, [navigation, operacionId, roney_op]);
 
+  // ✅ Toggle selección de lote (los enviados no se pueden seleccionar)
+  const toggleSeleccionLote = useCallback((loteId) => {
+    setLotesSeleccionados(prev => {
+      const nuevas = new Set(prev);
+      if (nuevas.has(loteId)) {
+        nuevas.delete(loteId);
+      } else {
+        nuevas.add(loteId);
+      }
+      return nuevas;
+    });
+  }, []);
+
+  // ✅ Convertir fotos (URIs) de un lote a base64
+  const convertirFotosABase64 = useCallback(async (muestrasDelLote) => {
+    const muestrasConFotos = [];
+
+    for (const muestra of muestrasDelLote) {
+      const datos = muestra.datos || {};
+      const uris = Array.isArray(datos.fotos) && datos.fotos.length > 0
+        ? datos.fotos
+        : (datos.fotoUri ? [datos.fotoUri] : []);
+
+      const fotosBase64 = [];
+      for (const uri of uris) {
+        try {
+          if (typeof uri === 'string' && uri.startsWith('data:image')) {
+            // Ya es data URI → extraer solo la parte base64
+            fotosBase64.push(uri.split(',')[1]);
+          } else if (uri) {
+            const b64 = await FileSystem.readAsStringAsync(uri, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+            fotosBase64.push(b64);
+          }
+        } catch (e) {
+          console.warn('⚠️ No se pudo convertir foto a base64:', uri, e.message);
+        }
+      }
+
+      muestrasConFotos.push({
+        ...muestra,
+        datos: {
+          ...datos,
+          fotos: fotosBase64,
+          fotoUri: fotosBase64[0] || null,
+        },
+      });
+    }
+
+    return muestrasConFotos;
+  }, []);
+
+  // ✅ Construir el JSON de un lote con sus muestras y fotos en base64
+  const construirJsonLote = useCallback(async (lote) => {
+    const muestrasData = await ErrorHandler.getStorageData(`muestras_${operacionId}`);
+    const todasMuestras = ErrorHandler.safeJsonParse(muestrasData, []);
+    const listaMuestras = Array.isArray(todasMuestras) ? todasMuestras : [];
+
+    const muestrasDelLote = listaMuestras.filter(
+      m => m && lote.muestrasIds.includes(m.id)
+    );
+
+    const muestrasConFotos = await convertirFotosABase64(muestrasDelLote);
+
+    return {
+      tipo: 'lote',
+      operacion: {
+        operacionId,
+        roney_op: roney_op || '',
+        campo: campoNombre || '',
+        cultivo: cultivo || '',
+      },
+      lote: {
+        id: lote.id,
+        nombreLote: lote.nombreLote,
+        hasSembradas: lote.hasSembradas ?? lote.hectareas ?? 0,
+        hasDañadas: lote.hasDañadas ?? 0,
+        dañoReal: lote.dañoReal ?? 0,
+        tipoFenologico: lote.tipoFenologico ?? '',
+        tipoFenologicoLabel: lote.tipoFenologicoLabel || '',
+        fecha: lote.fecha || '',
+      },
+      muestras: muestrasConFotos.map(m => ({
+        id: m.id,
+        nombre: m.nombre || '',
+        fecha: m.fecha || '',
+        tipo: m.tipo || '',
+        datos: m.datos || {},
+      })),
+    };
+  }, [operacionId, roney_op, campoNombre, cultivo, convertirFotosABase64]);
+
+  // ✅ Enviar lotes seleccionados al servidor
+  const enviarLotes = useCallback(async () => {
+    const seleccionados = lotes.filter(
+      l => lotesSeleccionados.has(l.id) && !l.enviado
+    );
+    if (seleccionados.length === 0) return;
+
+    if (enviando) return;
+    setEnviando(true);
+
+    let enviadosOk = 0;
+    let fallidos = 0;
+
+    try {
+      for (const lote of seleccionados) {
+        try {
+          const jsonLote = await construirJsonLote(lote);
+
+          // ✅ Ver el JSON por consola antes de enviar
+          console.log(`📤 JSON a enviar - Lote "${lote.nombreLote}":`, JSON.stringify(jsonLote, null, 2));
+
+          const response = await fetch(ENDPOINT_RECIBE_LOTE, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(jsonLote),
+          });
+
+          if (response.ok) {
+            enviadosOk++;
+          } else {
+            console.warn(`⚠️ Servidor respondió ${response.status} para lote "${lote.nombreLote}"`);
+            fallidos++;
+          }
+        } catch (err) {
+          console.warn(`⚠️ Error enviando lote "${lote.nombreLote}":`, err.message);
+          fallidos++;
+        }
+      }
+
+      // ✅ Marcar como enviados los que salieron bien
+      if (enviadosOk > 0) {
+        const nuevosLotes = lotes.map(l =>
+          lotesSeleccionados.has(l.id) && !l.enviado
+            ? { ...l, enviado: true, fechaEnvio: new Date().toISOString() }
+            : l
+        );
+        await AsyncStorage.setItem(`lotes_${operacionId}`, JSON.stringify(nuevosLotes));
+        if (isMountedRef.current) {
+          setLotes(nuevosLotes);
+          setLotesSeleccionados(new Set());
+        }
+      }
+
+      if (isMountedRef.current) {
+        if (fallidos === 0) {
+          Alert.alert('✔ Lotes Enviados', `Se enviaron ${enviadosOk} lote(s) correctamente.`);
+        } else {
+          Alert.alert(
+            'Envío parcial',
+            `Enviados: ${enviadosOk}\nFallidos: ${fallidos}\n\nRevisá la conexión e intentá nuevamente con los lotes pendientes.`
+          );
+        }
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setEnviando(false);
+      }
+    }
+  }, [lotes, lotesSeleccionados, enviando, construirJsonLote, operacionId]);
+
+  // ✅ Confirmar envío con alerta que enumera los lotes
+  const confirmarEnvio = useCallback(() => {
+    const seleccionados = lotes.filter(
+      l => lotesSeleccionados.has(l.id) && !l.enviado
+    );
+    if (seleccionados.length === 0) return;
+
+    const lista = seleccionados
+      .map((l, i) => `${i + 1}. ${l.nombreLote}`)
+      .join('\n');
+
+    Alert.alert(
+      '⚠️ Enviar Lotes',
+      `Vas a enviar ${seleccionados.length} lote(s) al servidor:\n\n${lista}\n\n¿Deseas continuar?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Enviar', style: 'default', onPress: enviarLotes },
+      ],
+      { cancelable: true }
+    );
+  }, [lotes, lotesSeleccionados, enviarLotes]);
+
   // ✅ Memoizar totalHectareas (sembradas/aseg.)
   const totalHasSembradas = useMemo(() => {
     return lotes.reduce((sum, lote) => sum + (lote.hasSembradas ?? lote.hectareas ?? 0), 0);
@@ -290,8 +488,16 @@ export default function LotesScreen({ route, navigation }) {
       lote={item}
       onPress={() => abrirModalEdicion(item)}
       onDelete={eliminarLote}
+      isSelected={lotesSeleccionados.has(item.id)}
+      onToggleSelect={toggleSeleccionLote}
+      enviado={Boolean(item.enviado)}
     />
-  ), [abrirModalEdicion, eliminarLote]);
+  ), [abrirModalEdicion, eliminarLote, lotesSeleccionados, toggleSeleccionLote]);
+
+  // ✅ Lotes seleccionados y aún no enviados
+  const seleccionadosPendientes = useMemo(() => {
+    return lotes.filter(l => lotesSeleccionados.has(l.id) && !l.enviado);
+  }, [lotes, lotesSeleccionados]);
 
   // ✅ Memoizar keyExtractor
   const keyExtractor = useCallback((item) => item.id, []);
@@ -352,6 +558,25 @@ export default function LotesScreen({ route, navigation }) {
         // ✅ EmptyComponent memoizado
         ListEmptyComponent={EmptyComponent}
       />
+
+      {/* 📤 Botón inferior: Enviar Lotes */}
+      {seleccionadosPendientes.length > 0 && (
+        <View style={styles.footerEnviar}>
+          <TouchableOpacity
+            style={[styles.enviarBtn, enviando && styles.enviarBtnDisabled]}
+            onPress={confirmarEnvio}
+            disabled={enviando}
+          >
+            {enviando ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.enviarBtnText}>
+                📤 Enviar Lotes ({seleccionadosPendientes.length})
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
 
       <EditarLoteModal
         visible={modalVisible}
@@ -440,5 +665,29 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  // 📤 Footer enviar lotes
+  footerEnviar: {
+    padding: 16,
+    paddingTop: 8,
+    backgroundColor: '#f5f5f5',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  enviarBtn: {
+    backgroundColor: '#17a2b8',
+    paddingVertical: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  enviarBtnDisabled: {
+    backgroundColor: '#6c757d',
+    opacity: 0.8,
+  },
+  enviarBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
