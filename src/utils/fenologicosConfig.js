@@ -42,7 +42,6 @@ export const ESTADOS_FENOLOGICOS = {
     { label: "V13", value: "13" },
     { label: "V14", value: "14" },
     { label: "V15", value: "15" },
-    { label: "V16", value: "16" },
     { label: "Inicio Florac.Fem (R1-)", value: "17" },
     { label: "Flor Fem.Plena Barba Blanca (R1)", value: "18" },
     { label: "Fin Flor Fem. Barba Marrón (R1+)", value: "19" },
@@ -51,7 +50,7 @@ export const ESTADOS_FENOLOGICOS = {
     { label: "Lechoso Tardío (R3+)", value: "22" },
     { label: "Pastoso Temprano (R4)", value: "23" },
     { label: "Pastoso Tardío (R4+)", value: "24" },
-    { label: "Identación/Líneas Leche (R5)", value: "25" },
+    { label: "Identación/ Líneas Leche (R5)", value: "25" },
     { label: "Madurez Fisiológica (R6)", value: "26" },
     { label: "Madurez Comercial (R6+)", value: "27" },
   ],
@@ -137,10 +136,10 @@ export const MAPEO_TIPO_MODAL = {
     { min: 21, max: 99, tipo: '4' }   // R8 en adelante
   ],
 
-maiz: [
+  maiz: [
     { min: 1, max: 8, tipo: '1' },   // V1-V8 (3 campos: Nacidas, Remanentes, % defoliacion)
-    { min: 9, max: 16, tipo: '2' },  // V9-V16 (6 campos: Nacidas, Remanentes, N° hileras, Largo hilera, Granos perdidos, % defoliacion)
-    { min: 17, max: 27, tipo: '4' }, // Reproductivos R1- a R6+ (tipo 4 - usan tablas R específicas)
+    { min: 9, max: 15, tipo: '2' },  // V9-V15 (6 campos)
+    { min: 17, max: 27, tipo: '2' }, // R1- a R6+ (mismo modal y cálculo que V9-V15)
   ],
 
   trigo: [

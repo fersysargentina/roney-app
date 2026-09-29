@@ -1,5 +1,6 @@
 import {
   danPorReduccion,
+  danPorReduccionMaiz,
   danPorNudos,
   danPorDesfo,
   danPorNudosR1,
@@ -7,7 +8,9 @@ import {
   danPorDesfoR4,
   trigo,
   girasolReduccion,
-  girasolDesfo
+  girasolDesfo,
+  danPorDesfoMaiz,
+  danPorDesfoMaizV9aR6
 } from './tablas';
 
 /**
@@ -569,7 +572,7 @@ function calcularDañoGirasol(datos, fenologico) {
     }
   }
 
-console.log('🌻 Calculando daño GIRASOL para estado:', fenologicoLabel);
+  console.log('🌻 Calculando daño GIRASOL para estado:', fenologicoLabel);
 
   const data = {};
   for (let i = 1; i <= 5; i++) {
@@ -669,17 +672,206 @@ function calcularDañoMaiz(datos, fenologico) {
 
   console.log('🌽 Calculando daño MAÍZ para estado:', fenologicoNum);
 
-  if (fenologicoNum >= 1 && fenologicoNum <= 6) {
+  if (fenologicoNum >= 1 && fenologicoNum <= 8) {
     return calcularDañoMaizVegetativo(datos, fenologicoNum);
-  } else if (fenologicoNum >= 7 && fenologicoNum <= 12) {
-    return calcularDañoMaizReproductivo(datos, fenologicoNum);
+  } else if (fenologicoNum >= 9 && fenologicoNum <= 27) {
+    // V9-V15 (9-15) y Reproductivos (17-27) usan el mismo cálculo tipo 2
+    return calcularDañoMaizVegetativoTipo2(datos, fenologicoNum);
   }
 
   return 0;
 }
 
 function calcularDañoMaizVegetativo(datos, fenologicoNum) {
-  return 0;
+  // Mapeo de estado fenológico a clave de tabla
+  // V1-V4 (1-4) usan tabla "v1-v4"
+  // V5 (5) usa tabla "v5"
+  // V6 (6) usa tabla "v6"
+  // V7 (7) usa tabla "v7"
+  // V8 (8) usa tabla "v8"
+  let tablaReduccionKey;
+  let tablaDesfoKey;
+
+  if (fenologicoNum >= 1 && fenologicoNum <= 4) {
+    tablaReduccionKey = 'v1-v4';
+    tablaDesfoKey = 'v1-v4';
+  } else if (fenologicoNum === 5) {
+    tablaReduccionKey = 'v5';
+    tablaDesfoKey = 'v5';
+  } else if (fenologicoNum === 6) {
+    tablaReduccionKey = 'v6';
+    tablaDesfoKey = 'v6';
+  } else if (fenologicoNum === 7) {
+    tablaReduccionKey = 'v7';
+    tablaDesfoKey = 'v7';
+  } else if (fenologicoNum === 8) {
+    tablaReduccionKey = 'v8';
+    tablaDesfoKey = 'v8';
+  } else {
+    return 0;
+  }
+
+  console.log('🌽 Calculando daño MAÍZ VEGETATIVO para estado:', fenologicoNum, 'tablas:', tablaReduccionKey, tablaDesfoKey);
+
+  const data = {};
+  for (let i = 1; i <= 3; i++) {
+    data[`d${i}`] = parseInputNumber(datos[`dato_${i}`]);
+  }
+
+  // d1 = Nacidas en D, d2 = Remanentes en D, d3 = % Defoliación
+  const nacidas = data.d1;
+  const remanentes = data.d2;
+  const porcentDesfo = data.d3;
+
+  // Perdidas en D = Nacidas - Remanentes
+  const perdidasEnD = Math.max(0, nacidas - remanentes);
+
+  // % pérdidas = (Perdidas / Nacidas) * 100
+  const porcentPlantasPerdidas = nacidas > 0 ? (perdidasEnD / nacidas) * 100 : 0;
+
+  // Tabla de reducción según estado fenológico
+  const coefiReduccion = danPorReduccionMaiz?.[tablaReduccionKey]?.dan || {};
+
+  // danA = tabla reducción [% pérdidas]
+  const idxA = Math.max(0, Math.min(100, Math.floor(porcentPlantasPerdidas)));
+  const danA = parseInputNumber(danPorReduccionMaiz?.[tablaReduccionKey]?.dan?.[String(idxA)] ?? 0);
+
+  // cprB = 100 - danA
+  const cprB = Math.max(0, 100 - danA);
+
+  // Tabla de desfoliación según estado fenológico
+  const coefiDesfo = danPorDesfoMaiz?.[tablaDesfoKey]?.dan || {};
+
+  // danC = tabla desfoliación [% defoliación]
+  const idxC = Math.max(0, Math.min(100, Math.floor(porcentDesfo)));
+  const danC = parseInputNumber(danPorDesfoMaiz?.[tablaDesfoKey]?.dan?.[String(idxC)] ?? 0);
+
+  // danE = (danC * cprB) / 100
+  const danE = (danC * cprB) / 100;
+
+  // danTotal = danA + danE
+  const danTot = danA + danE;
+
+  console.log('📊 Cálculo MAÍZ VEGETATIVO:', {
+    estadoFenologico: fenologicoNum,
+    nacidas,
+    remanentes,
+    perdidasEnD,
+    porcentPlantasPerdidas: porcentPlantasPerdidas.toFixed(2),
+    idxA,
+    danA: danA.toFixed(2),
+    cprB: cprB.toFixed(2),
+    porcentDesfo,
+    idxC,
+    danC: danC.toFixed(2),
+    danE: danE.toFixed(2),
+    total: danTot.toFixed(2)
+  });
+
+  return parseFloat(danTot.toFixed(1));
+}
+
+function calcularDañoMaizVegetativoTipo2(datos, fenologicoNum) {
+  // V9-R6 (9-27) - 6 campos: Nacidas, Remanentes, N° hileras, Largo hilera, Granos perdidos, % defoliación
+  // nacidasEnD, remanentesEnD, nHilerasPromedio, largoHileraPromedio, granosPerdidosTotales, porcentDefoliacion
+
+  const data = {};
+  for (let i = 1; i <= 6; i++) {
+    data[`d${i}`] = parseInputNumber(datos[`dato_${i}`]);
+  }
+
+  // d1 = Nacidas en D, d2 = Remanentes en D, d3 = N° hileras promedio
+  // d4 = Largo hilera promedio, d5 = Granos perdidos totales, d6 = % defoliacion
+  const nacidas = data.d1;
+  const remanentes = data.d2;
+  const nHileras = data.d3;
+  const largoHilera = data.d4;
+  const granosPerdidosTotales = data.d5;
+  const porcentDefoliacion = data.d6;
+
+  // Perdidas en D = Nacidas - Remanentes (no negativo)
+  const perdidasEnD = Math.max(0, nacidas - remanentes);
+
+  // danA = % pérdidas = (Perdidas / Nacidas) * 100
+  const danA = nacidas > 0 ? (perdidasEnD / nacidas) * 100 : 0;
+
+  // cprB = 100 - danA
+  const cprB = Math.max(0, 100 - danA);
+
+  // Granos perdidos C = (Granos perdidos totales / (N° hileras * Largo hilera * 5)) * 100
+  const denominatorGranos = nHileras * largoHilera * 5;
+  const granosPerdidosC = denominatorGranos > 0 ? (granosPerdidosTotales / denominatorGranos) * 100 : 0;
+
+  // danE = granosPerdidosC * cprB / 100
+  const danE = (granosPerdidosC * cprB) / 100;
+
+  // cprF = 100 - danA - danE
+  const cprF = Math.max(0, 100 - danA - danE);
+
+  // danG = tabla defoliación según estado fenológico
+  // Mapear fenologicoNum (9-27) a clave de tabla danPorDesfoMaizV9aR6
+  let tablaDesfoKey;
+  if (fenologicoNum >= 9 && fenologicoNum <= 15) {
+    // V9(9) a V15(15) -> v9, v10, v11, v12, v13, v14, v15
+    if (fenologicoNum === 9) tablaDesfoKey = 'v9';
+    else if (fenologicoNum === 10) tablaDesfoKey = 'v10';
+    else if (fenologicoNum === 11) tablaDesfoKey = 'v11';
+    else if (fenologicoNum === 12) tablaDesfoKey = 'v12';
+    else if (fenologicoNum === 13) tablaDesfoKey = 'v13';
+    else if (fenologicoNum === 14) tablaDesfoKey = 'v14';
+    else if (fenologicoNum === 15) tablaDesfoKey = 'v15';
+    else tablaDesfoKey = 'v9'; // fallback
+  } else if (fenologicoNum >= 17 && fenologicoNum <= 27) {
+    // Reproductivos 17-27
+    if (fenologicoNum === 17) tablaDesfoKey = 'Inicio Florac.Fem (R1-)';
+    else if (fenologicoNum === 18) tablaDesfoKey = 'Flor Fem.Plena Barba Blanca (R1)';
+    else if (fenologicoNum === 19) tablaDesfoKey = 'Fin Flor Fem. Barba Marrón (R1+)';
+    else if (fenologicoNum === 20) tablaDesfoKey = 'Ampolla (R2)';
+    else if (fenologicoNum === 21) tablaDesfoKey = 'Lechoso Temprano (R3)';
+    else if (fenologicoNum === 22) tablaDesfoKey = 'Lechoso Tardío (R3+)';
+    else if (fenologicoNum === 23) tablaDesfoKey = 'Pastoso Temprano (R4)';
+    else if (fenologicoNum === 24) tablaDesfoKey = 'Pastoso Tardío (R4+)';
+    else if (fenologicoNum === 25) tablaDesfoKey = 'Identación/ Líneas Leche (R5)';
+    else if (fenologicoNum === 26) tablaDesfoKey = 'Madurez Fisiológica (R6)';
+    else if (fenologicoNum === 27) tablaDesfoKey = 'Madurez Comercial (R6+)';
+    else tablaDesfoKey = 'Inicio Florac.Fem (R1-)'; // fallback
+  } else {
+    tablaDesfoKey = 'v9'; // fallback
+  }
+
+  const coefiDesfo = danPorDesfoMaizV9aR6?.[tablaDesfoKey]?.dan || {};
+
+  // danG = tabla defoliación [% defoliación]
+  const idxG = Math.max(0, Math.min(100, Math.floor(porcentDefoliacion)));
+  const danG = parseInputNumber(danPorDesfoMaizV9aR6?.[tablaDesfoKey]?.dan?.[String(idxG)] ?? 0);
+
+  // danH = danG * cprF / 100
+  const danH = (danG * cprF) / 100;
+
+  // Total = danA + danE + danH
+  const danTot = danA + danE + danH;
+
+  console.log('📊 Cálculo MAÍZ TIPO 2 (V9-R6):', {
+    fenologicoNum,
+    nacidas,
+    remanentes,
+    perdidasEnD,
+    danA: danA.toFixed(2),
+    cprB: cprB.toFixed(2),
+    nHileras,
+    largoHilera,
+    granosPerdidosTotales,
+    granosPerdidosC: granosPerdidosC.toFixed(2),
+    danE: danE.toFixed(2),
+    cprF: cprF.toFixed(2),
+    porcentDefoliacion,
+    idxG,
+    danG: danG.toFixed(2),
+    danH: danH.toFixed(2),
+    total: danTot.toFixed(2)
+  });
+
+  return parseFloat(danTot.toFixed(1));
 }
 
 function calcularDañoMaizReproductivo(datos, fenologicoNum) {
