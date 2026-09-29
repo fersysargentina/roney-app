@@ -327,60 +327,56 @@ export default function VerMuestraModal({
             </View>
           </View>
         </View>
-      </Modal>
 
-      {/* Modal pantalla completa para ver fotos */}
-      <Modal
-        visible={fotoFullscreenVisible}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={() => setFotoFullscreenVisible(false)}
-      >
-        <View style={styles.fullscreenOverlay}>
-          {fotos.length > 1 && (
-            <TouchableOpacity
-              style={styles.fullscreenNav}
-              onPress={() => setFotoFullscreenIndex((i) => (i === 0 ? fotos.length - 1 : i - 1))}
-              hitSlop={{ left: 50, right: 50, top: 100, bottom: 100 }}
+        {/* ✅ Visor fullscreen como overlay (iOS no soporta Modal anidado) */}
+        {fotoFullscreenVisible && (
+          <View style={styles.fullscreenOverlay}>
+            {fotos.length > 1 && (
+              <TouchableOpacity
+                style={styles.fullscreenNav}
+                onPress={() => setFotoFullscreenIndex((i) => (i === 0 ? fotos.length - 1 : i - 1))}
+                hitSlop={{ left: 50, right: 50, top: 100, bottom: 100 }}
+              >
+                <Ionicons name="chevron-back" size={40} color="#fff" />
+              </TouchableOpacity>
+            )}
+            <ScrollView
+              style={styles.fullscreenScroll}
+              contentContainerStyle={styles.fullscreenScrollContent}
+              maximumZoomScale={3}
+              minimumZoomScale={1}
+              showsVerticalScrollIndicator={false}
+              showsHorizontalScrollIndicator={false}
             >
-              <Ionicons name="chevron-back" size={40} color="#fff" />
-            </TouchableOpacity>
-          )}
-          <ScrollView
-            style={styles.fullscreenScroll}
-            contentContainerStyle={styles.fullscreenScrollContent}
-            maximumZoomScale={3}
-            minimumZoomScale={1}
-            showsVerticalScrollIndicator={false}
-            showsHorizontalScrollIndicator={false}
-          >
-            <Image
-              source={{ uri: fotos[fotoFullscreenIndex] }}
-              style={styles.fullscreenImage}
-              resizeMode="contain"
-            />
-          </ScrollView>
-          {fotos.length > 1 && (
-            <TouchableOpacity
-              style={[styles.fullscreenNav, styles.fullscreenNavRight]}
-              onPress={() => setFotoFullscreenIndex((i) => (i === fotos.length - 1 ? 0 : i + 1))}
-              hitSlop={{ left: 50, right: 50, top: 100, bottom: 100 }}
-            >
-              <Ionicons name="chevron-forward" size={40} color="#fff" />
-            </TouchableOpacity>
-          )}
-          <View style={styles.fullscreenHeader}>
-            <Text style={styles.fullscreenCounter}>
-              {fotoFullscreenIndex + 1} / {fotos.length}
-            </Text>
-            <TouchableOpacity
-              style={styles.fullscreenClose}
-              onPress={() => setFotoFullscreenVisible(false)}
-            >
-              <Ionicons name="close" size={30} color="#fff" />
-            </TouchableOpacity>
+              <Image
+                source={{ uri: fotos[fotoFullscreenIndex] }}
+                style={styles.fullscreenImage}
+                resizeMode="contain"
+              />
+            </ScrollView>
+            {fotos.length > 1 && (
+              <TouchableOpacity
+                style={[styles.fullscreenNav, styles.fullscreenNavRight]}
+                onPress={() => setFotoFullscreenIndex((i) => (i === fotos.length - 1 ? 0 : i + 1))}
+                hitSlop={{ left: 50, right: 50, top: 100, bottom: 100 }}
+              >
+                <Ionicons name="chevron-forward" size={40} color="#fff" />
+              </TouchableOpacity>
+            )}
+            <View style={[styles.fullscreenHeader, { paddingTop: (insets.top || 0) > 0 ? insets.top + 12 : 40 }]}>
+              <Text style={styles.fullscreenCounter}>
+                {fotoFullscreenIndex + 1} / {fotos.length}
+              </Text>
+              <TouchableOpacity
+                style={styles.fullscreenClose}
+                onPress={() => setFotoFullscreenVisible(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Ionicons name="close" size={30} color="#fff" />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        )}
       </Modal>
     </>
   );
@@ -608,8 +604,13 @@ const styles = StyleSheet.create({
   },
   // Fullscreen foto
   fullscreenOverlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.95)',
+    zIndex: 1000,
   },
   fullscreenScroll: {
     flex: 1,
