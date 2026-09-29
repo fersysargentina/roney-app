@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, FlatList, StyleSheet, Alert, Image, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Alert, Image, TouchableOpacity, Platform, ActivityIndicator, TextInput, Keyboard } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CrearOperacionModal from '../components/modals/CrearOperacionModal';
 import PerfilModal from '../components/modals/PerfilModal';
@@ -18,6 +18,8 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
   const [operacionSeleccionada, setOperacionSeleccionada] = useState(null);
   const [modoEdicion, setModoEdicion] = useState(false);
   const [sincronizando, setSincronizando] = useState(false);
+  const [busqueda, setBusqueda] = useState('');
+  const [sugerenciasVisibles, setSugerenciasVisibles] = useState(false);
 
   // ✅ Ref para verificar si el componente está montado
   const isMountedRef = useRef(true);
@@ -348,14 +350,25 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
   // ✅ Memoizar ItemSeparator
   const ItemSeparator = useCallback(() => <View style={styles.separator} />, []);
 
-  // ✅ Memoizar EmptyComponent
-  const EmptyComponent = useMemo(() => (
-    <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>📋</Text>
-      <Text style={styles.emptyText}>No hay operaciones</Text>
-      <Text style={styles.emptySubtext}>Crea tu primera operación para comenzar</Text>
-    </View>
-  ), []);
+  // ✅ Memoizar EmptyComponent (diferencia "sin operaciones" de "sin resultados")
+  const EmptyComponent = useMemo(() => {
+    if (busqueda.trim().length > 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>🔎</Text>
+          <Text style={styles.emptyText}>Sin resultados</Text>
+          <Text style={styles.emptySubtext}>No se encontraron operaciones para "{busqueda.trim()}"</Text>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyIcon}>📋</Text>
+        <Text style={styles.emptyText}>No hay operaciones</Text>
+        <Text style={styles.emptySubtext}>Crea tu primera operación para comenzar</Text>
+      </View>
+    );
+  }, [busqueda]);
 
   // ✅ Memoizar valores iniciales del modal
   const valoresInicialesModal = useMemo(() => {
@@ -369,6 +382,42 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
     }
     return { roney_op: '', campo: '', campana: '', cultivo: '' };
   }, [modoEdicion, operacionSeleccionada]);
+
+  // ✅ Normalizar texto (sin tildes, minúsculas) para comparar
+  const normalizarTexto = useCallback((texto) => {
+    return (texto || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  }, []);
+
+  // ✅ Filtrado en vivo por nombre de operación o nombre de campo
+  const operacionesFiltradas = useMemo(() => {
+    const q = normalizarTexto(busqueda.trim());
+    if (!q) return operaciones;
+    return operaciones.filter((op) =>
+      normalizarTexto(op.roney_op).includes(q) || normalizarTexto(op.campo).includes(q)
+    );
+  }, [operaciones, busqueda, normalizarTexto]);
+
+  // ✅ Sugerencias tipo Google: hasta 5 coincidencias mientras se tipea
+  const sugerencias = useMemo(() => {
+    const q = normalizarTexto(busqueda.trim());
+    if (!q || !sugerenciasVisibles) return [];
+    return operacionesFiltradas.slice(0, 5);
+  }, [operacionesFiltradas, busqueda, sugerenciasVisibles, normalizarTexto]);
+
+  // ✅ Al clickear una sugerencia: solo queda esa operación en pantalla
+  const seleccionarSugerencia = useCallback((op) => {
+    setBusqueda(op.roney_op || '');
+    setSugerenciasVisibles(false);
+    Keyboard.dismiss();
+  }, []);
+
+  const limpiarBusqueda = useCallback(() => {
+    setBusqueda('');
+    setSugerenciasVisibles(false);
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -412,14 +461,62 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
           )}
         </TouchableOpacity>
       </View>
-      
+
+      {/* 🔍 Buscador de operaciones */}
+      <View style={styles.searchContainer}>
+        <Text style={styles.searchIcon}>🔍</Text>
+        <TextInput
+          style={styles.searchInput}
+          value={busqueda}
+          onChangeText={(t) => {
+            setBusqueda(t);
+            setSugerenciasVisibles(true);
+          }}
+          placeholder="Buscar por operación o campo..."
+          placeholderTextColor="#999"
+          autoCorrect={false}
+          autoCapitalize="none"
+          returnKeyType="search"
+        />
+        {busqueda.length > 0 && (
+          <TouchableOpacity
+            style={styles.searchClearBtn}
+            onPress={limpiarBusqueda}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.searchClearText}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* 💡 Sugerencias (estilo Google) */}
+      {sugerencias.length > 0 && (
+        <View style={styles.sugerenciasContainer}>
+          {sugerencias.map((op) => (
+            <TouchableOpacity
+              key={`sug_${op.id}`}
+              style={styles.sugerenciaItem}
+              onPress={() => seleccionarSugerencia(op)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.sugerenciaIcono}>🔍</Text>
+              <View style={styles.sugerenciaTextos}>
+                <Text style={styles.sugerenciaNombre} numberOfLines={1}>{op.roney_op}</Text>
+                {!!op.campo && <Text style={styles.sugerenciaCampo} numberOfLines={1}>{op.campo}</Text>}
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
       <FlatList
-        data={operaciones}
+        data={operacionesFiltradas}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         getItemLayout={getItemLayout}
         ItemSeparatorComponent={ItemSeparator}
         ListEmptyComponent={EmptyComponent}
+        keyboardShouldPersistTaps="handled"
         // ✅ Optimizaciones de performance seguras
         removeClippedSubviews={Platform.OS === 'android' ? false : true}
         maxToRenderPerBatch={10}
@@ -537,6 +634,75 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: 'bold',
+  },
+  // 🔍 Buscador
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f3f5',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    paddingHorizontal: 12,
+    height: 46,
+    marginBottom: 10,
+  },
+  searchIcon: {
+    fontSize: 15,
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#222',
+    padding: 0,
+  },
+  searchClearBtn: {
+    paddingLeft: 8,
+  },
+  searchClearText: {
+    fontSize: 16,
+    color: '#888',
+    fontWeight: 'bold',
+  },
+  // 💡 Sugerencias
+  sugerenciasContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  sugerenciaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  sugerenciaIcono: {
+    fontSize: 14,
+    marginRight: 10,
+  },
+  sugerenciaTextos: {
+    flex: 1,
+  },
+  sugerenciaNombre: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#222',
+  },
+  sugerenciaCampo: {
+    fontSize: 12,
+    color: '#777',
+    marginTop: 1,
   },
   emptyContainer: {
     flex: 1,
