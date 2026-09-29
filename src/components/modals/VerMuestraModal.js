@@ -7,10 +7,12 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatearCoordenadasDMS } from '../../utils/coordenadas';
+import { mapearEstadoATipoModal, normalizarCultivo, obtenerEstadosFenologicos } from '../../utils/fenologicosConfig';
 
 // ✅ Configuraciones como constantes (fuera del componente)
 const LABELS_CONFIG = {
@@ -19,6 +21,10 @@ const LABELS_CONFIG = {
     '2': ['Pérdida en D', 'Restante en D', '% nudos perdidos', '% defoliación'],
     '3': ['Pérdida en D', 'Restante en D', 'Nudos originales por Planta:', 'Nudos remanentes 1', 'Nudos remanentes 2', 'Nudos remanentes 3', 'Nudos remanentes 4', 'Nudos remanentes 5', '% Defoliación'],
     '4': ['Vainas en el suelo', 'Vainas abiertas (Nudo 1)', 'Vainas Sanas (Nudo 1)', 'Vainas abiertas (Nudo 2)', 'Vainas Sanas (Nudo 2)', 'Vainas abiertas (Nudo 3)', 'Vainas Sanas (Nudo 3)', 'Vainas abiertas (Nudo 4)', 'Vainas Sanas (Nudo 4)', 'Vainas abiertas (Nudo 5)', 'Vainas Sanas (Nudo 5)', '% Defoliación'],
+  },
+  maiz: {
+    '1': ['Nacidas en D', 'Remanentes en D', '% defoliacion'],
+    '2': ['Nacidas en D', 'Remanentes en D', 'N° de hileras promedio', 'Largo hilera promedio', 'Granos perdidos totales', '% defoliacion'],
   },
   trigo: {
     '1': ['Pérdidas en D', 'Colgadas en D', 'Restantes en D', 'Espiga 1 P', 'Espiga 1 T', 'Espiga 2 P', 'Espiga 2 T', 'Espiga 3 P', 'Espiga 3 T', 'Espiga 4 P', 'Espiga 4 T', 'Espiga 5 P', 'Espiga 5 T', 'Espiga 6 P', 'Espiga 6 T', 'Espiga 7 P', 'Espiga 7 T', 'Espiga 8 P', 'Espiga 8 T', 'Espiga 9 P', 'Espiga 9 T', 'Espiga 10 P', 'Espiga 10 T'],
@@ -49,6 +55,10 @@ const ESTADOS_NOMBRES = {
     '2': 'R1-R3,5',
     '3': 'R4-R7',
     '4': 'R8'
+  },
+  maiz: {
+    '1': 'V1-V8',
+    '2': 'V9-R6'
   },
   trigo: {
     '1': 'Espigamiento (Z.50/59)',
@@ -88,34 +98,66 @@ export default function VerMuestraModal({
   const [fotoFullscreenIndex, setFotoFullscreenIndex] = useState(0);
 
   // ✅ Fotos de la muestra (array de URIs)
+  // Las fotos se guardan en muestra.datos.fotos / datos.fotoUri (estructura real de la muestra)
   const fotos = useMemo(() => {
-    return Array.isArray(muestra?.fotos) ? muestra.fotos : (muestra?.fotoUri ? [muestra.fotoUri] : []);
-  }, [muestra?.fotos, muestra?.fotoUri]);
+    const f = muestra?.datos?.fotos ?? muestra?.fotos;
+    const fUri = muestra?.datos?.fotoUri ?? muestra?.fotoUri;
+    if (Array.isArray(f) && f.length > 0) return f;
+    return fUri ? [fUri] : [];
+  }, [muestra?.datos?.fotos, muestra?.datos?.fotoUri, muestra?.fotos, muestra?.fotoUri]);
 
   const tieneFotos = fotos.length > 0;
 
   // ✅ Labels memoizados
   const labels = useMemo(() => {
-    const cultivoConfig = LABELS_CONFIG[cultivo];
-    if (!cultivoConfig) return [];
+    // La prop puede venir como "Maíz", "Cebada", etc. → normalizar a la clave interna ('maiz', 'trigo', ...)
+    const c = normalizarCultivo(cultivo);
+    const cultivoConfig = LABELS_CONFIG[c];
+    if (!cultivoConfig) {
+      console.warn('⚠️ VerMuestraModal: No config for cultivo:', cultivo, '→', c);
+      return [];
+    }
     
-    const tipoConfig = cultivoConfig[tipoFenologico];
-    if (!tipoConfig) return [];
+    // Mapear el valor del estado fenológico al tipo de modal
+    // Nota: MAPEO_TIPO_MODAL.trigo retorna 'trigo' (tipo de modal único); los labels
+    // de trigo están indexados por el value del estado (1-6, Zadoks)
+    let tipoModal = mapearEstadoATipoModal(c, tipoFenologico);
+    if (tipoModal === 'trigo') tipoModal = String(tipoFenologico);
+    
+    const tipoConfig = cultivoConfig[tipoModal];
+    if (!tipoConfig) {
+      console.warn('⚠️ VerMuestraModal: No config for tipoFenologico:', tipoFenologico, 'mapped to tipoModal:', tipoModal, 'in cultivo:', c);
+      console.log('Available keys:', Object.keys(cultivoConfig));
+      return [];
+    }
     
     return tipoConfig;
   }, [cultivo, tipoFenologico]);
 
   // ✅ Nombre del estado fenológico memoizado
   const nombreEstado = useMemo(() => {
-    const cultivoEstados = ESTADOS_NOMBRES[cultivo];
+    const c = normalizarCultivo(cultivo);
+    // Buscar el label real del estado (ej: "V2", "Floración (Z.60/69)") por su value
+    const estados = obtenerEstadosFenologicos(c);
+    const estado = estados.find(e => String(e.value) === String(tipoFenologico));
+    if (estado) return estado.label;
+
+    // Fallback: nombre por tipo de modal
+    const cultivoEstados = ESTADOS_NOMBRES[c];
     if (!cultivoEstados) return `Tipo ${tipoFenologico}`;
     
-    return cultivoEstados[tipoFenologico] || `Tipo ${tipoFenologico}`;
+    let tipoModal = mapearEstadoATipoModal(c, tipoFenologico);
+    if (tipoModal === 'trigo') tipoModal = String(tipoFenologico);
+    return cultivoEstados[tipoModal] || `Tipo ${tipoFenologico}`;
   }, [cultivo, tipoFenologico]);
 
   // ✅ Datos de la muestra memoizados
   const datos = useMemo(() => {
-    return muestra?.datos || {};
+    const data = muestra?.datos || {};
+    console.log('🔍 VerMuestraModal - datos recibidos:', data);
+    console.log('🔍 VerMuestraModal - cultivo:', cultivo, 'tipoFenologico:', tipoFenologico);
+    console.log('🔍 VerMuestraModal - labels:', labels);
+    return data;
   }, [muestra]);
 
   // ✅ Verificar si hay coordenadas memoizado
@@ -131,6 +173,7 @@ export default function VerMuestraModal({
   // ✅ Renderizar campo de dato memoizado
   const renderDataField = useCallback((label, key, index) => {
     const value = datos[key];
+    console.log(`📊 Render field: ${label} (${key}) =`, value);
     
     return (
       <View key={key} style={styles.dataRow}>
@@ -139,7 +182,7 @@ export default function VerMuestraModal({
         </View>
         <View style={styles.dataContent}>
           <Text style={styles.dataLabel}>{label}:</Text>
-          <Text style={styles.dataValue}>{value || '-'}</Text>
+          <Text style={styles.dataValue}>{value !== undefined && value !== null && value !== '' ? value : '-'}</Text>
         </View>
       </View>
     );
@@ -147,6 +190,10 @@ export default function VerMuestraModal({
 
   // ✅ Renderizar lista de campos memoizada
   const dataFields = useMemo(() => {
+    if (labels.length === 0) {
+      console.warn('⚠️ No labels found for cultivo:', cultivo, 'tipoFenologico:', tipoFenologico);
+      return <Text style={styles.noDataText}>No hay datos configurados para este cultivo/estado fenológico</Text>;
+    }
     return labels.map((label, index) => {
       const key = `dato_${index + 1}`;
       return renderDataField(label, key, index);
@@ -159,7 +206,7 @@ export default function VerMuestraModal({
     styles.danioValue
   ], []);
 
-if (!muestra) return null;
+  if (!muestra) return null;
 
   return (
     <>
@@ -236,11 +283,15 @@ if (!muestra) return null;
 
                   {tieneFotos && (
                     <View style={styles.fotosContainer}>
-                      <Text style={styles.fotosSubtitle}>📸 Fotos ({fotos.length})</Text>
-                      <View style={styles.fotosRow}>
+                      <Text style={styles.fotosSubtitle}>📸 Fotos de la muestra ({fotos.length}):</Text>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.fotosRow}
+                      >
                         {fotos.map((item, index) => (
                           <TouchableOpacity
-                            key={index}
+                            key={`ver_foto_${index}_${item}`}
                             style={styles.fotoItem}
                             onPress={() => {
                               setFotoFullscreenIndex(index);
@@ -249,16 +300,14 @@ if (!muestra) return null;
                             activeOpacity={0.8}
                           >
                             <Image source={{ uri: item }} style={styles.fotoThumbnail} />
-                            {fotos.length > 1 && (
-                              <View style={styles.fotoCounter}>
-                                <Text style={styles.fotoCounterText}>
-                                  {index + 1} / {fotos.length}
-                                </Text>
-                              </View>
-                            )}
+                            <View style={styles.fotoCounter}>
+                              <Text style={styles.fotoCounterText}>
+                                {index + 1} / {fotos.length}
+                              </Text>
+                            </View>
                           </TouchableOpacity>
                         ))}
-                      </View>
+                      </ScrollView>
                       <Text style={styles.fotoHint}>
                         Toca una foto para verla a pantalla completa
                       </Text>
@@ -299,6 +348,7 @@ if (!muestra) return null;
           )}
           <ScrollView
             style={styles.fullscreenScroll}
+            contentContainerStyle={styles.fullscreenScrollContent}
             maximumZoomScale={3}
             minimumZoomScale={1}
             showsVerticalScrollIndicator={false}
@@ -307,6 +357,7 @@ if (!muestra) return null;
             <Image
               source={{ uri: fotos[fotoFullscreenIndex] }}
               style={styles.fullscreenImage}
+              resizeMode="contain"
             />
           </ScrollView>
           {fotos.length > 1 && (
@@ -345,7 +396,8 @@ const styles = StyleSheet.create({
   modalContainer: {
     backgroundColor: '#fff',
     borderRadius: 15,
-    maxHeight: '90%',
+    maxHeight: '95%',
+    minHeight: '70%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.3,
@@ -391,10 +443,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 20,
+    paddingBottom: 30,
   },
   content: {
     padding: 20,
+    paddingBottom: 30,
   },
   section: {
     marginBottom: 24,
@@ -516,24 +569,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  // Fotos
+  // Fotos (carrusel solo lectura)
   fotoItem: {
-    width: 120,
-    height: 120,
-    borderRadius: 10,
-    overflow: 'hidden',
-    marginRight: 10,
     position: 'relative',
-    backgroundColor: '#f0f0f0',
+    marginRight: 12,
   },
   fotosRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
+    paddingVertical: 4,
+    paddingRight: 10,
   },
   fotoThumbnail: {
-    width: '100%',
-    height: '100%',
+    width: 90,
+    height: 90,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#007bff',
+    backgroundColor: '#eee',
   },
   fotoCounter: {
     position: 'absolute',
@@ -554,7 +605,6 @@ const styles = StyleSheet.create({
     color: '#888',
     fontStyle: 'italic',
     marginTop: 8,
-    marginLeft: 20,
   },
   // Fullscreen foto
   fullscreenOverlay: {
@@ -563,12 +613,14 @@ const styles = StyleSheet.create({
   },
   fullscreenScroll: {
     flex: 1,
+  },
+  fullscreenScrollContent: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   fullscreenImage: {
-    width: '100%',
-    maxHeight: '100%',
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height * 0.75,
   },
   fullscreenNav: {
     position: 'absolute',
@@ -578,6 +630,7 @@ const styles = StyleSheet.create({
     width: 80,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 10,
   },
   fullscreenNavRight: {
     left: 'auto',
@@ -593,6 +646,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     paddingTop: 40,
+    zIndex: 20,
   },
   fullscreenCounter: {
     color: '#fff',

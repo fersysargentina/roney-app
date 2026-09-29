@@ -405,7 +405,7 @@ export default function EditarLoteModal({
         onClose={handleCerrarVerMuestra}
         muestra={muestraSeleccionada}
         cultivo={cultivo}
-        tipoFenologico={muestraSeleccionada?.tipo}
+        tipoFenologico={lote?.tipoFenologico}
       />
     </Modal>
   );
