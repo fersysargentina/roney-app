@@ -15,10 +15,17 @@ import * as FileSystem from 'expo-file-system/legacy';
 import LoteItem from '../components/LoteItem';
 import EditarLoteModal from '../components/modals/EditarLoteModal';
 import { ErrorHandler } from '../utils/ErrorHandler';
+import { getUserSession, getDeviceInfo } from '../services/AuthService';
 
 // ✅ Constantes fuera del componente
 const LOTE_ITEM_HEIGHT = 200; // Ajusta según tu LoteItem real
 const ENDPOINT_RECIBE_LOTE = 'https://fersystest.com/roney/recibelote.php';
+
+// ✅ MODO TEST: true = se pueden enviar los lotes más de una vez (no se tildan como enviados)
+//               false = producción (los enviados quedan tildados y no se pueden reenviar)
+const MODO_TEST_ENVIO = true;
+
+const esEnviado = (l) => Boolean(l.enviado) && !MODO_TEST_ENVIO;
 
 export default function LotesScreen({ route, navigation }) {
   const { operacionId, roney_op } = route.params || {};
@@ -338,8 +345,8 @@ export default function LotesScreen({ route, navigation }) {
     return muestrasConFotos;
   }, []);
 
-  // ✅ Construir el JSON de un lote con sus muestras y fotos en base64
-  const construirJsonLote = useCallback(async (lote) => {
+  // ✅ Construir el objeto de un lote con sus muestras y fotos en base64
+  const construirDatosLote = useCallback(async (lote) => {
     const muestrasData = await ErrorHandler.getStorageData(`muestras_${operacionId}`);
     const todasMuestras = ErrorHandler.safeJsonParse(muestrasData, []);
     const listaMuestras = Array.isArray(todasMuestras) ? todasMuestras : [];
@@ -351,19 +358,13 @@ export default function LotesScreen({ route, navigation }) {
     const muestrasConFotos = await convertirFotosABase64(muestrasDelLote);
 
     return {
-      tipo: 'lote',
-      operacion: {
-        operacionId,
-        roney_op: roney_op || '',
-        campo: campoNombre || '',
-        cultivo: cultivo || '',
-      },
       lote: {
         id: lote.id,
         nombreLote: lote.nombreLote,
         hasSembradas: lote.hasSembradas ?? lote.hectareas ?? 0,
         hasDañadas: lote.hasDañadas ?? 0,
-        dañoReal: lote.dañoReal ?? 0,
+        danReal: lote.dañoReal ?? 0,
+        danPactado: lote.dañoFinal ?? lote.dañoReal ?? 0,
         tipoFenologico: lote.tipoFenologico ?? '',
         tipoFenologicoLabel: lote.tipoFenologicoLabel || '',
         fecha: lote.fecha || '',
@@ -376,51 +377,75 @@ export default function LotesScreen({ route, navigation }) {
         datos: m.datos || {},
       })),
     };
-  }, [operacionId, roney_op, campoNombre, cultivo, convertirFotosABase64]);
+  }, [operacionId, convertirFotosABase64]);
 
-  // ✅ Enviar lotes seleccionados al servidor
+  // ✅ Construir el JSON único con TODOS los lotes seleccionados
+  const construirJsonEnvio = useCallback(async (seleccionados) => {
+    // ✅ Datos del usuario y dispositivo (los mismos del modal "Mi Perfil")
+    const sesion = await getUserSession();
+    const info = await getDeviceInfo();
+
+    const lotes = [];
+    for (const lote of seleccionados) {
+      const datosLote = await construirDatosLote(lote);
+      lotes.push(datosLote);
+    }
+
+    return {
+      tipo: 'lotes',
+      usuario: {
+        nombre: sesion?.nombre || '',
+        email: sesion?.email || '',
+        iddispositivo: sesion?.iddispositivo || info.iddispositivo || '',
+        sistema: sesion?.sistema || info.sistema || '',
+      },
+      operacion: {
+        operacionId,
+        roney_op: roney_op || '',
+        campo: campoNombre || '',
+        cultivo: cultivo || '',
+      },
+      lotes,
+    };
+  }, [operacionId, roney_op, campoNombre, cultivo, construirDatosLote]);
+
+  // ✅ Enviar TODOS los lotes seleccionados en un solo JSON
   const enviarLotes = useCallback(async () => {
     const seleccionados = lotes.filter(
-      l => lotesSeleccionados.has(l.id) && !l.enviado
+      l => lotesSeleccionados.has(l.id) && !esEnviado(l)
     );
     if (seleccionados.length === 0) return;
 
     if (enviando) return;
     setEnviando(true);
 
-    let enviadosOk = 0;
-    let fallidos = 0;
-
     try {
-      for (const lote of seleccionados) {
-        try {
-          const jsonLote = await construirJsonLote(lote);
+      const jsonEnvio = await construirJsonEnvio(seleccionados);
 
-          // ✅ Ver el JSON por consola antes de enviar
-          console.log(`📤 JSON a enviar - Lote "${lote.nombreLote}":`, JSON.stringify(jsonLote, null, 2));
+      // ✅ Ver el JSON por consola antes de enviar
+      console.log(`📤 JSON a enviar (${seleccionados.length} lote(s)):`, JSON.stringify(jsonEnvio, null, 2));
 
-          const response = await fetch(ENDPOINT_RECIBE_LOTE, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(jsonLote),
-          });
+      const response = await fetch(ENDPOINT_RECIBE_LOTE, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(jsonEnvio),
+      });
 
-          if (response.ok) {
-            enviadosOk++;
-          } else {
-            console.warn(`⚠️ Servidor respondió ${response.status} para lote "${lote.nombreLote}"`);
-            fallidos++;
-          }
-        } catch (err) {
-          console.warn(`⚠️ Error enviando lote "${lote.nombreLote}":`, err.message);
-          fallidos++;
-        }
+      // ✅ Leer la respuesta del servidor
+      let resp = null;
+      try {
+        resp = await response.json();
+      } catch (_) {
+        resp = null;
       }
+      console.log('📥 Respuesta del servidor:', resp || response.status);
 
-      // ✅ Marcar como enviados los que salieron bien
-      if (enviadosOk > 0) {
+      const ok = response.ok && resp && resp.ok === true;
+
+      if (ok) {
+        // ✅ Marcar todos los lotes enviados
         const nuevosLotes = lotes.map(l =>
           lotesSeleccionados.has(l.id) && !l.enviado
             ? { ...l, enviado: true, fechaEnvio: new Date().toISOString() }
@@ -431,29 +456,39 @@ export default function LotesScreen({ route, navigation }) {
           setLotes(nuevosLotes);
           setLotesSeleccionados(new Set());
         }
+      } else {
+        console.warn(
+          '⚠️ Servidor rechazó el envío',
+          resp ? `error: ${resp.error || 'desconocido'}` : `HTTP ${response.status}`
+        );
       }
 
       if (isMountedRef.current) {
-        if (fallidos === 0) {
-          Alert.alert('✔ Lotes Enviados', `Se enviaron ${enviadosOk} lote(s) correctamente.`);
+        if (ok) {
+          Alert.alert('✔ Lotes Enviados', `Se enviaron ${seleccionados.length} lote(s) correctamente.`);
         } else {
           Alert.alert(
-            'Envío parcial',
-            `Enviados: ${enviadosOk}\nFallidos: ${fallidos}\n\nRevisá la conexión e intentá nuevamente con los lotes pendientes.`
+            'Error al enviar',
+            'No se pudieron enviar los lotes.\n\nRevisá la conexión e intentá nuevamente.'
           );
         }
+      }
+    } catch (err) {
+      console.warn('⚠️ Error en el envío:', err.message);
+      if (isMountedRef.current) {
+        Alert.alert('Error al enviar', 'No se pudieron enviar los lotes.\n\nRevisá la conexión e intentá nuevamente.');
       }
     } finally {
       if (isMountedRef.current) {
         setEnviando(false);
       }
     }
-  }, [lotes, lotesSeleccionados, enviando, construirJsonLote, operacionId]);
+  }, [lotes, lotesSeleccionados, enviando, construirJsonEnvio, operacionId]);
 
   // ✅ Confirmar envío con alerta que enumera los lotes
   const confirmarEnvio = useCallback(() => {
     const seleccionados = lotes.filter(
-      l => lotesSeleccionados.has(l.id) && !l.enviado
+      l => lotesSeleccionados.has(l.id) && !esEnviado(l)
     );
     if (seleccionados.length === 0) return;
 
@@ -490,13 +525,13 @@ export default function LotesScreen({ route, navigation }) {
       onDelete={eliminarLote}
       isSelected={lotesSeleccionados.has(item.id)}
       onToggleSelect={toggleSeleccionLote}
-      enviado={Boolean(item.enviado)}
+      enviado={esEnviado(item)}
     />
   ), [abrirModalEdicion, eliminarLote, lotesSeleccionados, toggleSeleccionLote]);
 
   // ✅ Lotes seleccionados y aún no enviados
   const seleccionadosPendientes = useMemo(() => {
-    return lotes.filter(l => lotesSeleccionados.has(l.id) && !l.enviado);
+    return lotes.filter(l => lotesSeleccionados.has(l.id) && !esEnviado(l));
   }, [lotes, lotesSeleccionados]);
 
   // ✅ Memoizar keyExtractor

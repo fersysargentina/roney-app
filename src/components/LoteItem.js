@@ -47,10 +47,11 @@ export default React.memo(function LoteItem({ lote, onPress, onDelete, isSelecte
     return lote.hasDañadas != null ? `${lote.hasDañadas} ha` : '-';
   }, [lote.hasDañadas]);
 
-  // ✅ Texto de daño real memoizado
+  // ✅ Texto de daño memoizado (final editado si existe, si no el calculado)
   const dañoRealText = useMemo(() => {
-    return `${lote.dañoReal}%`;
-  }, [lote.dañoReal]);
+    const valor = lote.dañoFinal ?? lote.dañoReal;
+    return `${valor}%`;
+  }, [lote.dañoFinal, lote.dañoReal]);
 
   // ✅ Eliminar memoizado
   const handleDelete = useCallback(() => {

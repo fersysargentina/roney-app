@@ -24,6 +24,9 @@ import MuestraGirasolModal from '../components/modals/MuestraGirasolModal';
 const ITEM_HEIGHT = 100;
 const MAX_SELECTIONS = 500;
 
+// ✅ Estado fenológico al que pertenece una muestra ('' si es una muestra vieja sin ese dato)
+const obtenerFenologicoDeMuestra = (m) => m?.estadoFenologico || m?.datos?.estadoFenologico || '';
+
 export default function MuestrasScreen({ route, navigation }) {
   const { roney_op, operacionId } = route.params || {};
   const [cultivo, setCultivo] = useState('soja');
@@ -36,6 +39,9 @@ export default function MuestrasScreen({ route, navigation }) {
   const [muestrasSeleccionadas, setMuestrasSeleccionadas] = useState(new Set());
   const [cerrarLoteModalVisible, setCerrarLoteModalVisible] = useState(false);
   const [cantidadLotes, setCantidadLotes] = useState(0);
+
+  // ✅ Modo "Ver todos": solo visualización (no permite agregar muestras ni crear lotes)
+  const esVerTodos = fenologicoSeleccionado === 'todos';
 
   // ✅ Ref para verificar si el componente está montado
   const isMountedRef = useRef(true);
@@ -101,7 +107,7 @@ export default function MuestrasScreen({ route, navigation }) {
         const estados = obtenerEstadosFenologicos(cultivoActual);
         setEstadosFenologicos(estados);
         
-        if (fenologicoSeleccionado && !esEstadoValido(cultivoActual, fenologicoSeleccionado)) {
+        if (fenologicoSeleccionado && fenologicoSeleccionado !== 'todos' && !esEstadoValido(cultivoActual, fenologicoSeleccionado)) {
           setFenologicoSeleccionado('');
         }
       }
@@ -188,8 +194,12 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
     const tipoMapeado = mapSeleccionToTipo(fenologicoParaCalculo);
     
     const muestrasActualizadas = muestras.map(muestra => {
-      // Solo recalcular muestras del tipo fenológico actual y que no estén en lotes
-      if (muestra.tipo === tipoMapeado && !muestra.loteId) {
+      // Solo recalcular muestras del estado fenológico actual y que no estén en lotes
+      const fenoMuestra = obtenerFenologicoDeMuestra(muestra);
+      const coincideFenologico = fenoMuestra
+        ? fenoMuestra === fenologicoParaCalculo
+        : muestra.tipo === tipoMapeado;
+      if (coincideFenologico && !muestra.loteId) {
         const nuevoPorcentajeDaño = calculoDeDaño(
           muestra.datos,
           fenologicoParaCalculo,
@@ -220,6 +230,13 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
 
   // ✅ Funciones de modal memoizadas
   const abrirModalSegunTipo = useCallback(() => {
+    if (esVerTodos) {
+      Alert.alert(
+        'Modo visualización',
+        'Con "Ver todos" solo podés ver las muestras. Seleccioná un estado fenológico para agregar una nueva.'
+      );
+      return;
+    }
     if (!fenologicoSeleccionado) {
       Alert.alert(
         'Estado fenológico requerido',
@@ -230,7 +247,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
     setMuestraEnEdicion(null);
     const tipoMapeado = mapSeleccionToTipo(fenologicoSeleccionado);
     setModalTipo(tipoMapeado);
-  }, [fenologicoSeleccionado, mapSeleccionToTipo]);
+  }, [fenologicoSeleccionado, esVerTodos, mapSeleccionToTipo]);
 
   const cerrarModal = useCallback(() => {
     setModalTipo(null);
@@ -276,7 +293,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
       if (muestraEnEdicion) {
         const nuevasMuestras = muestras.map((m) =>
           m.id === muestraEnEdicion.id
-            ? { ...m, datos: { ...datosConDaño, coordenada: m.datos?.coordenada } }
+            ? { ...m, estadoFenologico: fenologicoSeleccionado, datos: { ...datosConDaño, coordenada: m.datos?.coordenada } }
             : m
         );
         await guardarMuestras(nuevasMuestras);
@@ -286,6 +303,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
         const nuevaMuestra = {
           id: Date.now().toString(),
           tipo,
+          estadoFenologico: fenologicoSeleccionado,
           datos: { ...datosConDaño },
           nombre: `Muestra ${numeroMuestra}`,
           fecha: new Date().toLocaleDateString(),
@@ -306,7 +324,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
   const handleCambioFenologico = useCallback(async (nuevoFenologico) => {
     setFenologicoSeleccionado(nuevoFenologico);
     setMuestrasSeleccionadas(new Set());
-    if (nuevoFenologico) {
+    if (nuevoFenologico && nuevoFenologico !== 'todos') {
       await recalcularDañoMuestrasActuales(nuevoFenologico);
     }
   }, [recalcularDañoMuestrasActuales]);
@@ -372,8 +390,15 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
   }, [muestras]);
 
   const abrirCerrarLoteModal = useCallback(() => {
+    if (esVerTodos) {
+      Alert.alert(
+        'Modo visualización',
+        'Con "Ver todos" solo podés ver las muestras. Seleccioná un estado fenológico para crear un lote.'
+      );
+      return;
+    }
     setCerrarLoteModalVisible(true);
-  }, []);
+  }, [esVerTodos]);
 
   const handleCerrarLote = useCallback(async (datosLote) => {
     try {
@@ -435,21 +460,30 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
     return mapSeleccionToTipo(fenologicoSeleccionado);
   }, [fenologicoSeleccionado, mapSeleccionToTipo]);
 
-  // ✅ Memoizar muestras filtradas
+  // ✅ Memoizar muestras filtradas (solo las del estado fenológico seleccionado, o todas en modo "Ver todos")
   const muestrasFiltradas = useMemo(() => {
-    if (!fenologicoSeleccionado || !tipoActual) return [];
-    return muestras.filter(m => m.tipo === tipoActual);
-  }, [muestras, tipoActual, fenologicoSeleccionado]);
+    if (!fenologicoSeleccionado) return [];
+    if (esVerTodos) return muestras;
+    if (!tipoActual) return [];
+    return muestras.filter(m => {
+      const fenoMuestra = obtenerFenologicoDeMuestra(m);
+      return fenoMuestra ? fenoMuestra === fenologicoSeleccionado : m.tipo === tipoActual;
+    });
+  }, [muestras, tipoActual, fenologicoSeleccionado, esVerTodos]);
 
   // ✅ Memoizar muestras seleccionadas array
   const muestrasSeleccionadasArray = useMemo(() => {
-    if (!fenologicoSeleccionado || !tipoActual) return [];
-    return muestras.filter(m => 
-      muestrasSeleccionadas.has(m.id) && 
-      m.tipo === tipoActual &&
-      !m.loteId
-    );
-  }, [muestras, muestrasSeleccionadas, tipoActual, fenologicoSeleccionado]);
+    if (!fenologicoSeleccionado) return [];
+    if (esVerTodos) {
+      return muestras.filter(m => muestrasSeleccionadas.has(m.id) && !m.loteId);
+    }
+    if (!tipoActual) return [];
+    return muestras.filter(m => {
+      const fenoMuestra = obtenerFenologicoDeMuestra(m);
+      const coincide = fenoMuestra ? fenoMuestra === fenologicoSeleccionado : m.tipo === tipoActual;
+      return muestrasSeleccionadas.has(m.id) && coincide && !m.loteId;
+    });
+  }, [muestras, muestrasSeleccionadas, tipoActual, fenologicoSeleccionado, esVerTodos]);
 
   // ✅ Memoizar label fenológico
   const tipoFenologicoLabel = useMemo(() => {
@@ -478,6 +512,14 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
     return trunc.toFixed(1).replace('.', ',');
   }, [muestras, muestrasSeleccionadas]);
 
+  // ✅ Label del estado fenológico de una muestra (para MuestraItem)
+  const labelEstadoDeMuestra = useCallback((m) => {
+    const valor = obtenerFenologicoDeMuestra(m);
+    if (!valor) return '';
+    const estado = estadosFenologicos.find(e => e.value === valor);
+    return estado?.label || valor;
+  }, [estadosFenologicos]);
+
   // ✅ Render item memoizado
   const renderMuestra = useCallback(({ item }) => (
     <MuestraItem 
@@ -487,8 +529,9 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
       onToggleSelect={toggleSeleccionMuestra}
       onDelete={() => borrarMuestra(item.id)}
       isInLote={!!item.loteId}
+      estadoFenologicoLabel={labelEstadoDeMuestra(item)}
     />
-  ), [muestrasSeleccionadas, abrirModalEdicion, toggleSeleccionMuestra, borrarMuestra]);
+  ), [muestrasSeleccionadas, abrirModalEdicion, toggleSeleccionMuestra, borrarMuestra, labelEstadoDeMuestra]);
 
   // ✅ keyExtractor memoizado
   const keyExtractor = useCallback((item) => item.id, []);
@@ -506,15 +549,17 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
   const opcionesFenologicas = useMemo(() => {
     return [
       { label: 'Vacío', value: 'vacio' },
+      { label: 'Ver todos', value: 'todos' },
       ...(estadosFenologicos || [])
     ];
   }, [estadosFenologicos]);
 
   const labelFenologicoActual = useMemo(() => {
     if (!fenologicoSeleccionado) return 'Seleccionar estado';
+    if (esVerTodos) return 'Ver todos';
     const estado = estadosFenologicos.find(e => e.value === fenologicoSeleccionado);
     return estado?.label || 'Seleccionar estado';
-  }, [estadosFenologicos, fenologicoSeleccionado]);
+  }, [estadosFenologicos, fenologicoSeleccionado, esVerTodos]);
 
   // ✅ EmptyComponent memoizado
   const EmptyComponent = useMemo(() => {
@@ -525,12 +570,19 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
         </Text>
       );
     }
+    if (esVerTodos) {
+      return (
+        <Text style={styles.emptyText}>
+          No hay muestras cargadas
+        </Text>
+      );
+    }
     return (
       <Text style={styles.emptyText}>
         No hay muestras cargadas correspondientes al estado fenológico seleccionado
       </Text>
     );
-  }, [fenologicoSeleccionado]);
+  }, [fenologicoSeleccionado, esVerTodos]);
 
   return (
     <View style={styles.container}>

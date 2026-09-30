@@ -54,11 +54,11 @@ export default function EditarLoteModal({
       // Backward compat: lotes viejos tienen hectareas, nuevos tienen hasSembradas
       setHasSembradas((lote.hasSembradas ?? lote.hectareas ?? '').toString());
       setHasDañadas((lote.hasDañadas ?? '').toString());
-      // Daño final por defecto = daño calculado
-      setDañoFinal((lote.dañoReal ?? 0).toString());
+      // Daño final: usar el valor ya editado si existe, si no = daño calculado
+      setDañoFinal(((lote.dañoFinal ?? lote.dañoReal) ?? 0).toString());
       cargarMuestrasDelLote();
     }
-  }, [visible, lote?.id, lote?.nombreLote, lote?.hasSembradas, lote?.hectareas, lote?.hasDañadas, lote?.dañoReal]);
+  }, [visible, lote?.id, lote?.nombreLote, lote?.hasSembradas, lote?.hectareas, lote?.hasDañadas, lote?.dañoReal, lote?.dañoFinal]);
 
   // ✅ Cargar muestras con verificación de montaje
   const cargarMuestrasDelLote = useCallback(async () => {

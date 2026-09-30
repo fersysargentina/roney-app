@@ -14,7 +14,8 @@ export default React.memo(function MuestraItem({
   onOpenModal, 
   onToggleSelect, 
   onDelete, 
-  isInLote = false 
+  isInLote = false,
+  estadoFenologicoLabel = ''
 }) {
   
   // ✅ Porcentaje de daño memoizado
@@ -168,6 +169,14 @@ export default React.memo(function MuestraItem({
         <View style={styles.loteMessage}>
           <Text style={styles.loteMessageText}>
             📦 Esta muestra está asignada a un lote
+          </Text>
+        </View>
+      )}
+
+      {estadoFenologicoLabel !== '' && (
+        <View style={styles.estadoMessage}>
+          <Text style={styles.estadoMessageText}>
+            Estado fenológico: {estadoFenologicoLabel}
           </Text>
         </View>
       )}
@@ -334,5 +343,19 @@ const styles = StyleSheet.create({
     color: '#6c757d',
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  estadoMessage: {
+    marginTop: 8,
+    padding: 6,
+    backgroundColor: '#e7f1ff',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#b6d4fe',
+  },
+  estadoMessageText: {
+    fontSize: 11,
+    color: '#084298',
+    textAlign: 'center',
+    fontWeight: '600',
   },
 });

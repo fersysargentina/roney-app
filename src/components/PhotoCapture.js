@@ -12,7 +12,7 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system/legacy';
 import { captureRef } from 'react-native-view-shot';
@@ -48,6 +48,13 @@ export default function PhotoCapture({
 
   const cameraRef = useRef(null);
   const previewRef = useRef(null);
+
+  const insets = useSafeAreaInsets();
+  // Offset determinista para las barras superiores dentro de los Modals.
+  // En iOS los Modals anidados a veces no aplican los insets del SafeAreaView,
+  // y la X queda tapada/tragada por la barra de estado (símbolo de batería).
+  const topBarTop =
+    (insets && insets.top > 0 ? insets.top : Platform.OS === 'ios' ? 44 : 24) + 8;
 
   const watermarkText = useMemo(() => {
     const coordTexto = (coordenada && coordenada.trim())
@@ -169,6 +176,17 @@ export default function PhotoCapture({
     );
   }, [fotos, onFotosChange, selectedPhotoForViewer]);
 
+  // Navegación entre fotos en el visor fullscreen
+  const viewerIndex = selectedPhotoForViewer ? fotos.indexOf(selectedPhotoForViewer) : -1;
+
+  const navegarVisor = useCallback((delta) => {
+    if (fotos.length < 2) return;
+    const actual = fotos.indexOf(selectedPhotoForViewer);
+    if (actual === -1) return;
+    const next = (actual + delta + fotos.length) % fotos.length;
+    setSelectedPhotoForViewer(fotos[next]);
+  }, [fotos, selectedPhotoForViewer]);
+
   return (
     <View style={styles.container}>
       {/* ─── Carrusel de miniaturas si hay fotos ─── */}
@@ -234,7 +252,7 @@ export default function PhotoCapture({
           {/* ════ Pantalla Cámara ════ */}
           {currentScreen === SCREEN_CAMERA && (
             <View style={styles.fullScreen}>
-              <SafeAreaView style={styles.cameraTopBarSafe}>
+              <View style={[styles.cameraTopBarSafe, { top: topBarTop }]}>
                 <View style={styles.cameraTopBar}>
                   <View style={styles.counterBadge}>
                     <Text style={styles.counterText}>
@@ -249,7 +267,7 @@ export default function PhotoCapture({
                     <Ionicons name="close" size={32} color="#fff" />
                   </TouchableOpacity>
                 </View>
-              </SafeAreaView>
+              </View>
 
               <CameraView
                 ref={cameraRef}
@@ -332,15 +350,15 @@ export default function PhotoCapture({
         onRequestClose={() => setSelectedPhotoForViewer(null)}
       >
         <View style={styles.viewerScreen}>
-          <SafeAreaView style={styles.viewerTopBar}>
+          <View style={[styles.viewerTopBar, { top: topBarTop }]}>
             <TouchableOpacity
               style={styles.viewerCloseBtn}
               onPress={() => setSelectedPhotoForViewer(null)}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
             >
               <Ionicons name="close" size={30} color="#fff" />
             </TouchableOpacity>
-          </SafeAreaView>
+          </View>
 
           {selectedPhotoForViewer && (
             <Image
@@ -348,6 +366,30 @@ export default function PhotoCapture({
               style={styles.viewerFullImage}
               resizeMode="contain"
             />
+          )}
+
+          {fotos.length > 1 && viewerIndex > -1 && (
+            <>
+              <TouchableOpacity
+                style={[styles.viewerArrow, styles.viewerArrowLeft]}
+                onPress={() => navegarVisor(-1)}
+                hitSlop={{ top: 16, bottom: 16, left: 8, right: 8 }}
+              >
+                <Ionicons name="chevron-back" size={32} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.viewerArrow, styles.viewerArrowRight]}
+                onPress={() => navegarVisor(1)}
+                hitSlop={{ top: 16, bottom: 16, left: 8, right: 8 }}
+              >
+                <Ionicons name="chevron-forward" size={32} color="#fff" />
+              </TouchableOpacity>
+              <View style={[styles.viewerCounter, { top: topBarTop }]}>
+                <Text style={styles.viewerCounterText}>
+                  {viewerIndex + 1} / {fotos.length}
+                </Text>
+              </View>
+            </>
           )}
 
           <SafeAreaView style={styles.viewerBottomBar}>
@@ -619,6 +661,41 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  viewerArrow: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -28,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  viewerArrowLeft: {
+    left: 12,
+  },
+  viewerArrowRight: {
+    right: 12,
+  },
+  viewerCounter: {
+    position: 'absolute',
+    alignSelf: 'center',
+    top: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+    zIndex: 10,
+  },
+  viewerCounterText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 'bold',
   },
   viewerFullImage: {
     width: SCREEN_WIDTH,
