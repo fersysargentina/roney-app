@@ -16,14 +16,13 @@ import LoteItem from '../components/LoteItem';
 import EditarLoteModal from '../components/modals/EditarLoteModal';
 import { ErrorHandler } from '../utils/ErrorHandler';
 import { getUserSession, getDeviceInfo } from '../services/AuthService';
+import { MODO_TEST_ENVIO } from '../utils/modoConfig';
 
 // ✅ Constantes fuera del componente
 const LOTE_ITEM_HEIGHT = 200; // Ajusta según tu LoteItem real
 const ENDPOINT_RECIBE_LOTE = 'https://fersystest.com/roney/recibelote.php';
 
-// ✅ MODO TEST: true = se pueden enviar los lotes más de una vez (no se tildan como enviados)
-//               false = producción (los enviados quedan tildados y no se pueden reenviar)
-const MODO_TEST_ENVIO = true;
+// ✅ MODO_TEST_ENVIO vive en src/utils/modoConfig.js (true = libre / false = producción)
 
 const esEnviado = (l) => Boolean(l.enviado) && !MODO_TEST_ENVIO;
 
@@ -459,7 +458,7 @@ export default function LotesScreen({ route, navigation }) {
       } else {
         console.warn(
           '⚠️ Servidor rechazó el envío',
-          resp ? `error: ${resp.error || 'desconocido'}` : `HTTP ${response.status}`
+          resp ? (resp.message || resp.error || 'desconocido') : `HTTP ${response.status}`
         );
       }
 
@@ -467,9 +466,13 @@ export default function LotesScreen({ route, navigation }) {
         if (ok) {
           Alert.alert('✔ Lotes Enviados', `Se enviaron ${seleccionados.length} lote(s) correctamente.`);
         } else {
+          // ✅ Mostrar el mensaje del servidor si lo envía (ej: cuenta inactiva)
+          const mensajeServidor = resp ? (resp.message || resp.error) : null;
           Alert.alert(
-            'Error al enviar',
-            'No se pudieron enviar los lotes.\n\nRevisá la conexión e intentá nuevamente.'
+            'No se pudieron enviar los lotes',
+            mensajeServidor
+              ? String(mensajeServidor)
+              : 'Revisá la conexión e intentá nuevamente.'
           );
         }
       }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Modal,
   View,
@@ -8,6 +8,7 @@ import {
   Alert,
   ScrollView,
   Platform,
+  TextInput,
 } from 'react-native';
 
 export default function PerfilModal({
@@ -17,6 +18,9 @@ export default function PerfilModal({
   onLogout,
   onDeleteAccount,
 }) {
+  const [confirmarEliminacion, setConfirmarEliminacion] = useState(false);
+  const [claveEliminacion, setClaveEliminacion] = useState('');
+
   if (!visible) return null;
 
   const handleConfirmDelete = () => {
@@ -29,11 +33,24 @@ export default function PerfilModal({
           text: 'Eliminar Cuenta',
           style: 'destructive',
           onPress: () => {
-            onDeleteAccount();
+            setClaveEliminacion('');
+            setConfirmarEliminacion(true);
           },
         },
       ]
     );
+  };
+
+  const handleEliminarConClave = () => {
+    const clave = claveEliminacion.trim();
+    if (!clave) {
+      Alert.alert('Contraseña requerida', 'Ingresá tu contraseña para eliminar la cuenta.');
+      return;
+    }
+    setConfirmarEliminacion(false);
+    if (onDeleteAccount) {
+      onDeleteAccount(clave);
+    }
   };
 
   const handleConfirmLogout = () => {
@@ -112,6 +129,40 @@ export default function PerfilModal({
                 <Text style={styles.deleteBtnText}>🗑️ Borrar mi cuenta</Text>
               </TouchableOpacity>
             </View>
+
+            {confirmarEliminacion && (
+              <View style={styles.deleteConfirmBox}>
+                <Text style={styles.deleteConfirmTitle}>
+                  Ingresá tu contraseña para eliminar la cuenta
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Contraseña"
+                  placeholderTextColor="#999"
+                  secureTextEntry
+                  autoCapitalize="none"
+                  value={claveEliminacion}
+                  onChangeText={setClaveEliminacion}
+                />
+                <View style={styles.deleteConfirmButtons}>
+                  <TouchableOpacity
+                    style={styles.cancelConfirmBtn}
+                    onPress={() => {
+                      setConfirmarEliminacion(false);
+                      setClaveEliminacion('');
+                    }}
+                  >
+                    <Text style={styles.cancelConfirmBtnText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.confirmDeleteBtn}
+                    onPress={handleEliminarConClave}
+                  >
+                    <Text style={styles.confirmDeleteBtnText}>Eliminar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </ScrollView>
         </View>
       </View>
@@ -230,6 +281,64 @@ const styles = StyleSheet.create({
   deleteBtnText: {
     color: '#dc3545',
     fontSize: 15,
+    fontWeight: 'bold',
+  },
+  deleteConfirmBox: {
+    width: '100%',
+    marginTop: 16,
+    backgroundColor: '#fff5f5',
+    padding: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#f5c2c7',
+  },
+  deleteConfirmTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#842029',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  input: {
+    width: '100%',
+    height: 44,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 15,
+    color: '#000',
+    backgroundColor: '#fff',
+    marginBottom: 12,
+  },
+  deleteConfirmButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  cancelConfirmBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#6c757d',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  cancelConfirmBtnText: {
+    color: '#6c757d',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  confirmDeleteBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#dc3545',
+    alignItems: 'center',
+  },
+  confirmDeleteBtnText: {
+    color: '#fff',
+    fontSize: 14,
     fontWeight: 'bold',
   },
 });

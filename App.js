@@ -133,10 +133,15 @@ export default function App() {
     setUserSession(null);
   }, []);
 
-  // ✅ handleDeleteAccount
-  const handleDeleteAccount = useCallback(async () => {
+  // ✅ handleDeleteAccount (el backend exige email + clave + iddispositivo)
+  const handleDeleteAccount = useCallback(async (clave) => {
     if (userSession?.email) {
-      await deleteUserAccount(userSession.email);
+      const res = await deleteUserAccount(userSession.email, clave);
+      if (!res.success) {
+        // Contraseña incorrecta u otro dispositivo: NO se cierra la sesión
+        Alert.alert('No se pudo eliminar la cuenta', res.message);
+        return;
+      }
     }
     setUserSession(null);
   }, [userSession?.email]);

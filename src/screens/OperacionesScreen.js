@@ -13,6 +13,7 @@ const OPERACION_ITEM_HEIGHT = 100;
 
 export default function OperacionesScreen({ navigation, userSession, onLogout, onDeleteAccount }) {
   const [operaciones, setOperaciones] = useState([]);
+  const [enviadasMap, setEnviadasMap] = useState({}); // { [opId]: true } si tiene lotes enviados
   const [modalVisible, setModalVisible] = useState(false);
   const [perfilModalVisible, setPerfilModalVisible] = useState(false);
   const [operacionSeleccionada, setOperacionSeleccionada] = useState(null);
@@ -50,8 +51,24 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
       // Ordenar operaciones más recientes primero
       const operacionesOrdenadas = [...operacionesValidadas].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
 
+      // ✅ Detectar qué operaciones tienen lotes enviados (clave `lotes_{id}`)
+      const estadosEnvio = await Promise.all(operacionesOrdenadas.map(async (op) => {
+        try {
+          const dataLotes = await AsyncStorage.getItem(`lotes_${op.id}`);
+          const lotes = dataLotes ? JSON.parse(dataLotes) : [];
+          return [op.id, Array.isArray(lotes) && lotes.some(l => l && l.enviado)];
+        } catch (_) {
+          return [op.id, false];
+        }
+      }));
+      const nuevoEnviadasMap = {};
+      estadosEnvio.forEach(([id, estaEnviado]) => {
+        if (estaEnviado) nuevoEnviadasMap[id] = true;
+      });
+
       if (isMountedRef.current) {
         setOperaciones(operacionesOrdenadas);
+        setEnviadasMap(nuevoEnviadasMap);
       }
     } catch (e) {
       console.error('❌ OperacionesScreen: Error cargando operaciones:', e);
@@ -331,11 +348,12 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
   const renderItem = useCallback(({ item }) => (
     <OperacionItem
       item={item}
+      enviado={Boolean(enviadasMap[item.id])}
       onPress={() => abrirModalEdicion(item)}
       onBorrar={() => handleBorrarOperacion(item.id)}
       onMuestras={() => navegarAMuestras(item.roney_op, item.id)}
     />
-  ), [abrirModalEdicion, handleBorrarOperacion, navegarAMuestras]);
+  ), [enviadasMap, abrirModalEdicion, handleBorrarOperacion, navegarAMuestras]);
 
   // ✅ Memoizar keyExtractor
   const keyExtractor = useCallback((item) => item.id, []);
@@ -541,9 +559,9 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
           setPerfilModalVisible(false);
           if (onLogout) onLogout();
         }}
-        onDeleteAccount={() => {
+        onDeleteAccount={(clave) => {
           setPerfilModalVisible(false);
-          if (onDeleteAccount) onDeleteAccount();
+          if (onDeleteAccount) onDeleteAccount(clave);
         }}
       />
     </View>

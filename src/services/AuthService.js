@@ -125,9 +125,22 @@ export const registerUser = async (email, clave, nombre) => {
 };
 
 /**
- * Cierra la sesión activa
+ * Cierra la sesión activa (avisa al backend y borra la sesión local)
  */
 export const logoutUser = async () => {
+  try {
+    // Avisar al backend (best-effort: si falla, la sesión local se borra igual)
+    const formData = new FormData();
+    formData.append('action', 'logout');
+
+    await fetch(API_URL, {
+      method: 'POST',
+      body: formData,
+    });
+  } catch (error) {
+    console.warn('Aviso de logout al servidor falló (se continúa igual):', error.message);
+  }
+
   try {
     await AsyncStorage.removeItem(USER_SESSION_KEY);
     return true;
@@ -139,12 +152,18 @@ export const logoutUser = async () => {
 
 /**
  * Elimina la cuenta (desactiva en backend y borra TODO el almacenamiento local)
+ * El backend exige email + clave + iddispositivo
  */
-export const deleteUserAccount = async (email) => {
+export const deleteUserAccount = async (email, clave) => {
   try {
+    const { iddispositivo, sistema } = await getDeviceInfo();
+
     const formData = new FormData();
     formData.append('action', 'deleteUsuario');
     formData.append('email', email);
+    formData.append('clave', clave || '');
+    formData.append('iddispositivo', iddispositivo);
+    formData.append('sistema', sistema);
 
     const response = await fetch(API_URL, {
       method: 'POST',
@@ -154,18 +173,20 @@ export const deleteUserAccount = async (email) => {
     const responseText = await response.text();
     const data = safeJsonParse(responseText);
 
-    // Borrar todo el AsyncStorage local
-    await AsyncStorage.clear();
-
     if (data && data.success) {
-      return { success: true, message: 'Cuenta eliminada exitosamente' };
-    } else {
-      return { success: true, message: 'Cuenta desactivada localmente' };
+      // Borrar todo el AsyncStorage local SOLO si el servidor desactivó la cuenta
+      await AsyncStorage.clear();
+      return { success: true, message: data.message || 'Cuenta eliminada exitosamente' };
     }
+
+    // El servidor rechazó (contraseña incorrecta, otro dispositivo, etc.): NO borrar lo local
+    return {
+      success: false,
+      message: data?.message || 'No se pudo eliminar la cuenta en el servidor',
+    };
   } catch (error) {
     console.error('Error eliminando cuenta:', error);
-    await AsyncStorage.clear();
-    return { success: true, message: 'Datos locales borrados' };
+    return { success: false, message: 'Error de conexión con el servidor' };
   }
 };
 
