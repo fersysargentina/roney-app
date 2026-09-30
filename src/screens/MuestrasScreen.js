@@ -19,6 +19,7 @@ import MuestraTrigoModal from '../components/modals/MuestraTrigoModal';
 import MuestraMaizModal from '../components/modals/MuestraMaizModal';
 import MuestraMaizModalTipo2 from '../components/modals/MuestraMaizModalTipo2';
 import MuestraGirasolModal from '../components/modals/MuestraGirasolModal';
+import { MODO_TEST_ENVIO } from '../utils/modoConfig';
 
 // ✅ Constantes fuera del componente
 const ITEM_HEIGHT = 100;
@@ -39,6 +40,17 @@ export default function MuestrasScreen({ route, navigation }) {
   const [muestrasSeleccionadas, setMuestrasSeleccionadas] = useState(new Set());
   const [cerrarLoteModalVisible, setCerrarLoteModalVisible] = useState(false);
   const [cantidadLotes, setCantidadLotes] = useState(0);
+
+  // ✅ Modo consulta: la operación ya tiene lotes enviados y no estamos en modo test
+  const [operacionEnviada, setOperacionEnviada] = useState(false);
+  const modoConsulta = operacionEnviada && !MODO_TEST_ENVIO;
+
+  const alertaConsulta = useCallback(() => {
+    Alert.alert(
+      'Modo consulta',
+      'Esta operación ya fue enviada. Solo podés ver los datos: no se pueden agregar, editar ni eliminar muestras ni lotes.'
+    );
+  }, []);
 
   // ✅ Modo "Ver todos": solo visualización (no permite agregar muestras ni crear lotes)
   const esVerTodos = fenologicoSeleccionado === 'todos';
@@ -140,17 +152,20 @@ export default function MuestrasScreen({ route, navigation }) {
     }
   }, [operacionId]);
 
-  // ✅ Cargar cantidad de lotes creados
+  // ✅ Cargar cantidad de lotes creados + detectar si la operación ya fue enviada
   const cargarLotes = useCallback(async () => {
     try {
       const data = await ErrorHandler.getStorageData(`lotes_${operacionId}`);
       const lotesCargados = ErrorHandler.safeJsonParse(data, []);
+      const listaLotes = Array.isArray(lotesCargados) ? lotesCargados : [];
       if (isMountedRef.current) {
-        setCantidadLotes(Array.isArray(lotesCargados) ? lotesCargados.length : 0);
+        setCantidadLotes(listaLotes.length);
+        setOperacionEnviada(listaLotes.some(l => l && l.enviado));
       }
     } catch (e) {
       if (isMountedRef.current) {
         setCantidadLotes(0);
+        setOperacionEnviada(false);
       }
     }
   }, [operacionId]);
@@ -230,6 +245,10 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
 
   // ✅ Funciones de modal memoizadas
   const abrirModalSegunTipo = useCallback(() => {
+    if (modoConsulta) {
+      alertaConsulta();
+      return;
+    }
     if (esVerTodos) {
       Alert.alert(
         'Modo visualización',
@@ -247,7 +266,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
     setMuestraEnEdicion(null);
     const tipoMapeado = mapSeleccionToTipo(fenologicoSeleccionado);
     setModalTipo(tipoMapeado);
-  }, [fenologicoSeleccionado, esVerTodos, mapSeleccionToTipo]);
+  }, [fenologicoSeleccionado, esVerTodos, mapSeleccionToTipo, modoConsulta, alertaConsulta]);
 
   const cerrarModal = useCallback(() => {
     setModalTipo(null);
@@ -265,9 +284,13 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
   }, [navigation, operacionId, roney_op]);
 
   const abrirModalEdicion = useCallback((muestra) => {
+    if (modoConsulta) {
+      alertaConsulta();
+      return;
+    }
     setMuestraEnEdicion(muestra);
     setModalTipo(muestra.tipo);
-  }, []);
+  }, [modoConsulta, alertaConsulta]);
 
   const obtenerSiguienteNumeroMuestra = useCallback(async (opId, tipoMuestra) => {
     try {
@@ -284,6 +307,12 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
   }, []);
 
   const agregarMuestraDesdeModal = useCallback(async (tipo, datosCompletos) => {
+    // ✅ Modo consulta: nunca escribir
+    if (modoConsulta) {
+      alertaConsulta();
+      cerrarModal();
+      return;
+    }
     try {
       const porcentajeDaño = calculoDeDaño(datosCompletos, fenologicoSeleccionado, cultivo);
     
@@ -319,18 +348,23 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
     } finally {
       cerrarModal();
     }
-  }, [muestraEnEdicion, muestras, fenologicoSeleccionado, cultivo, operacionId, guardarMuestras, cerrarModal, obtenerSiguienteNumeroMuestra]);
+  }, [muestraEnEdicion, muestras, fenologicoSeleccionado, cultivo, operacionId, guardarMuestras, cerrarModal, obtenerSiguienteNumeroMuestra, modoConsulta, alertaConsulta]);
 
   const handleCambioFenologico = useCallback(async (nuevoFenologico) => {
     setFenologicoSeleccionado(nuevoFenologico);
     setMuestrasSeleccionadas(new Set());
-    if (nuevoFenologico && nuevoFenologico !== 'todos') {
+    // ✅ En modo consulta no se recalcula (recalcular escribe en storage)
+    if (nuevoFenologico && nuevoFenologico !== 'todos' && !modoConsulta) {
       await recalcularDañoMuestrasActuales(nuevoFenologico);
     }
-  }, [recalcularDañoMuestrasActuales]);
+  }, [recalcularDañoMuestrasActuales, modoConsulta]);
 
   // ✅ Borrar muestra memoizado
   const borrarMuestra = useCallback((id) => {
+    if (modoConsulta) {
+      alertaConsulta();
+      return;
+    }
     const muestra = muestras.find(m => m.id === id);
     
     if (muestra?.loteId) {
@@ -362,7 +396,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
         }
       ]
     );
-  }, [muestras, guardarMuestras]);
+  }, [muestras, guardarMuestras, modoConsulta, alertaConsulta]);
 
   // ✅ Toggle selección con límite
   const toggleSeleccionMuestra = useCallback((id) => {
@@ -390,6 +424,10 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
   }, [muestras]);
 
   const abrirCerrarLoteModal = useCallback(() => {
+    if (modoConsulta) {
+      alertaConsulta();
+      return;
+    }
     if (esVerTodos) {
       Alert.alert(
         'Modo visualización',
@@ -398,9 +436,15 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
       return;
     }
     setCerrarLoteModalVisible(true);
-  }, [esVerTodos]);
+  }, [esVerTodos, modoConsulta, alertaConsulta]);
 
   const handleCerrarLote = useCallback(async (datosLote) => {
+    // ✅ Modo consulta: nunca crear lotes
+    if (modoConsulta) {
+      alertaConsulta();
+      setCerrarLoteModalVisible(false);
+      return;
+    }
     try {
       const estadoActual = estadosFenologicos.find(e => e.value === fenologicoSeleccionado);
       const fenologicoLabel = estadoActual?.label || fenologicoSeleccionado;
@@ -450,7 +494,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
         Alert.alert('Error', 'No se pudo crear el lote');
       }
     }
-  }, [estadosFenologicos, fenologicoSeleccionado, operacionId, muestras, guardarMuestras, navigation, roney_op]);
+  }, [estadosFenologicos, fenologicoSeleccionado, operacionId, muestras, guardarMuestras, navigation, roney_op, modoConsulta, alertaConsulta]);
 
 
 

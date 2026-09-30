@@ -6,6 +6,7 @@ import PerfilModal from '../components/modals/PerfilModal';
 import OperacionItem from '../components/OperacionItem';
 import { ErrorHandler } from '../utils/ErrorHandler';
 import { getDeviceInfo } from '../services/AuthService';
+import { MODO_TEST_ENVIO } from '../utils/modoConfig';
 import logo from '../../assets/roney.png';
 
 // ✅ Constantes fuera del componente
@@ -104,6 +105,20 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
       const nombreLimpio = (roney_op || '').trim();
 
       if (modoEdicion && operacionSeleccionada) {
+        // ✅ Modo consulta: la operación ya tiene lotes enviados → no se pueden guardar cambios
+        if (enviadasMap[operacionSeleccionada.id] && !MODO_TEST_ENVIO) {
+          Alert.alert(
+            'Modo consulta',
+            'Esta operación ya fue enviada. Solo podés ver los datos: no se pueden modificar.'
+          );
+          if (isMountedRef.current) {
+            setModalVisible(false);
+            setOperacionSeleccionada(null);
+            setModoEdicion(false);
+          }
+          return;
+        }
+
         // Validar que no colisione con otra operación de distinto ID
         const yaExiste = operaciones.some(
           op => op.id !== operacionSeleccionada.id && op.roney_op?.trim().toLowerCase() === nombreLimpio.toLowerCase()
@@ -153,7 +168,7 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
         ErrorHandler.handleError(e, 'Error de Operación', 'No se pudo procesar la operación');
       }
     }
-  }, [modoEdicion, operacionSeleccionada, operaciones, guardarOperaciones]);
+  }, [modoEdicion, operacionSeleccionada, operaciones, guardarOperaciones, enviadasMap]);
 
   // ✅ Sincronizar con el backend sincroniza.php (con fallback a mock data)
   const handleSincronizar = useCallback(async () => {

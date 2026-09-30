@@ -7,13 +7,14 @@ export default React.memo(function OperacionItem({ item, onPress, onBorrar, onMu
   // ✅ true si la operación tiene al menos un lote enviado (lo calcula OperacionesScreen)
   const tieneLotesEnviados = Boolean(enviado);
 
-  // ✅ En producción, con lotes enviados se bloquea todo (un solo envío por operación)
-  const bloqueado = tieneLotesEnviados && !MODO_TEST_ENVIO;
+  // ✅ Producción (MODO_TEST_ENVIO=false) + lotes enviados = MODO CONSULTA:
+  //    se puede entrar y ver todo, pero no modificar ni eliminar.
+  const modoConsulta = tieneLotesEnviados && !MODO_TEST_ENVIO;
 
-  const bloquearAccion = useCallback(() => {
+  const alertaConsulta = useCallback(() => {
     Alert.alert(
-      'Operación enviada',
-      'Esta operación ya tiene lotes enviados. Solo se permite un envío por operación: no se pueden modificar, agregar ni crear datos.'
+      'Modo consulta',
+      'Esta operación ya fue enviada. Solo podés ver los datos: no se pueden modificar, agregar ni eliminar.'
     );
   }, []);
 
@@ -25,33 +26,17 @@ export default React.memo(function OperacionItem({ item, onPress, onBorrar, onMu
     return partes.join(' - ');
   }, [item.roney_op, item.campo, item.cultivo]);
 
-  // Handlers memoizados (bloqueados en producción si hay lotes enviados)
-  const handleEditar = useCallback(() => {
-    if (bloqueado) {
-      bloquearAccion();
-      return;
-    }
-    onPress();
-  }, [bloqueado, bloquearAccion, onPress]);
-
+  // ✅ Borrar queda bloqueado en modo consulta (borrar destruye los lotes enviados)
   const handleBorrar = useCallback(() => {
-    if (bloqueado) {
-      bloquearAccion();
+    if (modoConsulta) {
+      alertaConsulta();
       return;
     }
     onBorrar();
-  }, [bloqueado, bloquearAccion, onBorrar]);
-
-  const handleMuestras = useCallback(() => {
-    if (bloqueado) {
-      bloquearAccion();
-      return;
-    }
-    onMuestras();
-  }, [bloqueado, bloquearAccion, onMuestras]);
+  }, [modoConsulta, alertaConsulta, onBorrar]);
 
   return (
-    <TouchableOpacity style={styles.item} onPress={handleEditar}>
+    <TouchableOpacity style={styles.item} onPress={onPress}>
       <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
         {titulo}
       </Text>
@@ -67,9 +52,10 @@ export default React.memo(function OperacionItem({ item, onPress, onBorrar, onMu
             <Text style={styles.enviadoBadgeText}>ENVIADO</Text>
           </View>
         )}
+        {/* ✅ En modo consulta se puede entrar a ver muestras/lotes */}
         <Button
           title="Muestras"
-          onPress={handleMuestras}
+          onPress={onMuestras}
         />
       </View>
     </TouchableOpacity>

@@ -37,6 +37,19 @@ export default function LotesScreen({ route, navigation }) {
   const [lotesSeleccionados, setLotesSeleccionados] = useState(new Set());
   const [enviando, setEnviando] = useState(false);
 
+  // ✅ Modo consulta: producción + al menos un lote enviado de esta operación
+  const modoConsulta = useMemo(
+    () => !MODO_TEST_ENVIO && lotes.some(l => l && l.enviado),
+    [lotes]
+  );
+
+  const alertaConsulta = useCallback(() => {
+    Alert.alert(
+      'Modo consulta',
+      'Esta operación ya fue enviada. Solo podés ver los lotes: no se pueden modificar, agregar, eliminar ni enviar.'
+    );
+  }, []);
+
   // ✅ Ref para verificar si el componente está montado
   const isMountedRef = useRef(true);
 
@@ -153,9 +166,13 @@ export default function LotesScreen({ route, navigation }) {
   }, [cargarLotes]);
 
   const abrirModalEdicion = useCallback((lote) => {
+    if (modoConsulta) {
+      alertaConsulta();
+      return;
+    }
     setLoteSeleccionado(lote);
     setModalVisible(true);
-  }, []);
+  }, [modoConsulta, alertaConsulta]);
 
   const cerrarModal = useCallback(() => {
     setModalVisible(false);
@@ -163,6 +180,10 @@ export default function LotesScreen({ route, navigation }) {
   }, []);
 
   const actualizarLote = useCallback(async (loteActualizado) => {
+    if (modoConsulta) {
+      alertaConsulta();
+      return;
+    }
     try {
       const nuevosLotes = lotes.map(lote =>
         lote.id === loteActualizado.id ? loteActualizado : lote
@@ -178,9 +199,13 @@ export default function LotesScreen({ route, navigation }) {
         Alert.alert('Error', 'No se pudo actualizar el lote');
       }
     }
-  }, [lotes, operacionId, cerrarModal]);
+  }, [lotes, operacionId, cerrarModal, modoConsulta, alertaConsulta]);
 
   const eliminarLote = useCallback(async (loteId) => {
+    if (modoConsulta) {
+      alertaConsulta();
+      return;
+    }
     try {
       const loteAEliminar = lotes.find(l => l.id === loteId);
       if (!loteAEliminar) return;
@@ -218,9 +243,14 @@ export default function LotesScreen({ route, navigation }) {
         Alert.alert('Error', 'No se pudo eliminar el lote');
       }
     }
-  }, [lotes, operacionId]);
+  }, [lotes, operacionId, modoConsulta, alertaConsulta]);
 
   const liberarMuestra = useCallback(async (loteId, muestraId) => {
+    // ✅ Modo consulta: no modificar la composición de los lotes
+    if (modoConsulta) {
+      alertaConsulta();
+      return false;
+    }
     try {
       // Actualizar la muestra
       const muestrasData = await AsyncStorage.getItem(`muestras_${operacionId}`);
@@ -277,7 +307,7 @@ export default function LotesScreen({ route, navigation }) {
       }
       return false;
     }
-  }, [lotes, operacionId]);
+  }, [lotes, operacionId, modoConsulta, alertaConsulta]);
 
   const navegarAMuestras = useCallback(() => {
     if (isNavigatingRef.current) return;
@@ -293,6 +323,11 @@ export default function LotesScreen({ route, navigation }) {
 
   // ✅ Toggle selección de lote (los enviados no se pueden seleccionar)
   const toggleSeleccionLote = useCallback((loteId) => {
+    // ✅ Modo consulta: no se selecciona nada (no hay envío posible)
+    if (modoConsulta) {
+      alertaConsulta();
+      return;
+    }
     setLotesSeleccionados(prev => {
       const nuevas = new Set(prev);
       if (nuevas.has(loteId)) {
@@ -302,7 +337,7 @@ export default function LotesScreen({ route, navigation }) {
       }
       return nuevas;
     });
-  }, []);
+  }, [modoConsulta, alertaConsulta]);
 
   // ✅ Convertir fotos (URIs) de un lote a base64
   const convertirFotosABase64 = useCallback(async (muestrasDelLote) => {
@@ -410,6 +445,11 @@ export default function LotesScreen({ route, navigation }) {
 
   // ✅ Enviar TODOS los lotes seleccionados en un solo JSON
   const enviarLotes = useCallback(async () => {
+    // ✅ Modo consulta: nunca enviar
+    if (modoConsulta) {
+      alertaConsulta();
+      return;
+    }
     const seleccionados = lotes.filter(
       l => lotesSeleccionados.has(l.id) && !esEnviado(l)
     );
@@ -486,10 +526,15 @@ export default function LotesScreen({ route, navigation }) {
         setEnviando(false);
       }
     }
-  }, [lotes, lotesSeleccionados, enviando, construirJsonEnvio, operacionId]);
+  }, [lotes, lotesSeleccionados, enviando, construirJsonEnvio, operacionId, modoConsulta, alertaConsulta]);
 
   // ✅ Confirmar envío con alerta que enumera los lotes
   const confirmarEnvio = useCallback(() => {
+    // ✅ Modo consulta: nunca enviar
+    if (modoConsulta) {
+      alertaConsulta();
+      return;
+    }
     const seleccionados = lotes.filter(
       l => lotesSeleccionados.has(l.id) && !esEnviado(l)
     );
@@ -506,9 +551,9 @@ export default function LotesScreen({ route, navigation }) {
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Enviar', style: 'default', onPress: enviarLotes },
       ],
-      { cancelable: true }
+      {cancelable: true }
     );
-  }, [lotes, lotesSeleccionados, enviarLotes]);
+  }, [lotes, lotesSeleccionados, enviarLotes, modoConsulta, alertaConsulta]);
 
   // ✅ Memoizar totalHectareas (sembradas/aseg.)
   const totalHasSembradas = useMemo(() => {
@@ -597,8 +642,8 @@ export default function LotesScreen({ route, navigation }) {
         ListEmptyComponent={EmptyComponent}
       />
 
-      {/* 📤 Botón inferior: Enviar Lotes */}
-      {seleccionadosPendientes.length > 0 && (
+      {/* 📤 Botón inferior: Enviar Lotes (oculto en modo consulta) */}
+      {!modoConsulta && seleccionadosPendientes.length > 0 && (
         <View style={styles.footerEnviar}>
           <TouchableOpacity
             style={[styles.enviarBtn, enviando && styles.enviarBtnDisabled]}
