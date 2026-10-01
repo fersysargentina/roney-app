@@ -16,7 +16,9 @@ import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PhotoCapture from '../PhotoCapture';
+import { CoordenadasDmsInput, CoordenadasDmsOverlay } from '../../components/CoordenadasDms';
 import { formatearCoordenadasDMS } from '../../utils/coordenadas';
+import { obtenerEstadosFenologicos } from '../../utils/fenologicosConfig';
 
 // --- CONFIGURACIÓN DE LOS 6 CAMPOS DE DATOS PARA MAÍZ TIPO 2 (V9-R6) ---
 const DATOS_COUNT = 6;
@@ -52,6 +54,7 @@ export default function MuestraMaizModalTipo2({
   const [coordenada, setCoordenada] = useState(formatearCoordenadasDMS(valoresIniciales.coordenada) || '');
   const [fotos, setFotos] = useState(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
   const [loadingGPS, setLoadingGPS] = useState(false);
+  const [editCoordDms, setEditCoordDms] = useState(false);
   const [loading, setLoading] = useState(false);
   const insets = useSafeAreaInsets();
 
@@ -136,7 +139,6 @@ export default function MuestraMaizModalTipo2({
 
       const coords = formatearCoordenadasDMS(location.coords.latitude, location.coords.longitude);
       setCoordenada(coords);
-      Alert.alert('Éxito', 'Coordenadas GPS actualizadas');
     } catch (error) {
       if (!visibleRef.current) return;
       console.error('Error obteniendo coordenadas:', error);
@@ -150,34 +152,11 @@ export default function MuestraMaizModalTipo2({
   };
 
   const getTituloEstado = () => {
-    const estados = {
-      '9': 'V9',
-      '10': 'V10',
-      '11': 'V11',
-      '12': 'V12',
-      '13': 'V13',
-      '12': 'V14',
-      '13': 'V15',
-      '14': 'V16',
-      '17': 'Inicio Florac.Fem (R1-)',
-      '18': 'Flor Fem.Plena Barba Blanca (R1)',
-      '19': 'Fin Flor Fem. Barba Marrón (R1+)',
-      '20': 'Ampolla (R2)',
-      '21': 'Lechoso Temprano (R3)',
-      '22': 'Lechoso Tardío (R3+)',
-      '23': 'Pastoso Temprano (R4)',
-      '24': 'Pastoso Tardío (R4+)',
-      '25': 'Identación/Líneas Leche (R5)',
-      '24': 'Madurez Fisiológica (R6)',
-      '29': 'Madurez Comercial (R6+)',
-      '30': 'V12',
-      '31': 'V13',
-      '32': 'V14',
-      '33': 'V15',
-      '34': 'V16',
-    };
-    const estado = estados[estadoFenologico] || '';
-    return `${cultivo} ${estado ? `- ${estado}` : ''}`;
+    const estados = obtenerEstadosFenologicos(cultivo);
+    const estado = estados.find(e => String(e.value) === String(estadoFenologico));
+    const label = estado?.label || '';
+    const prefijo = esEdicion ? 'Editar Muestra' : 'Nueva Muestra';
+    return label ? `${prefijo} - ${label}` : prefijo;
   };
 
   // Renderizar los 6 inputs
@@ -221,11 +200,7 @@ export default function MuestraMaizModalTipo2({
         >
           <View style={styles.modalContainer}>
             <View style={styles.header}>
-              <Text style={styles.titulo}>
-                {esEdicion
-                  ? `Editar Muestra - ${getTituloEstado()}`
-                  : `Nueva Muestra - ${getTituloEstado()}`}
-              </Text>
+              <Text style={styles.titulo}>{getTituloEstado()}</Text>
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={handleCerrar}
@@ -244,17 +219,15 @@ export default function MuestraMaizModalTipo2({
                   <ActivityIndicator style={styles.loadingCoords} />
                 ) : (
                   <>
-                    <TextInput
+                    <CoordenadasDmsInput
                       style={[
                         styles.input,
                         styles.coordsInput,
                         esEdicion && styles.coordsInputDisabled
                       ]}
-                      placeholder="Coordenadas GPS (grados, min, seg)"
-                      placeholderTextColor="#444444"
                       value={coordenada}
-                      onChangeText={setCoordenada}
                       editable={!esEdicion}
+                      onEdit={() => setEditCoordDms(true)}
                     />
 
                     {!esEdicion && (
@@ -273,6 +246,8 @@ export default function MuestraMaizModalTipo2({
                   </>
                 )}
               </View>
+
+              <Text style={styles.gpsEjemplo}>Ejemplo: 34° 36' 13.4" S, 58° 22' 53.7" O</Text>
 
               {/* Campos de datos dinámicos */}
               {renderDataInputs()}
@@ -307,6 +282,12 @@ export default function MuestraMaizModalTipo2({
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
+        <CoordenadasDmsOverlay
+          visible={editCoordDms}
+          value={coordenada}
+          onClose={() => setEditCoordDms(false)}
+          onSave={(v) => { setCoordenada(v); setEditCoordDms(false); }}
+        />
       </View>
     </Modal>
   );
@@ -379,6 +360,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 14,
+  },
+  gpsEjemplo: {
+    fontSize: 12,
+    color: '#6c757d',
+    marginTop: 4,
+    marginBottom: 8,
   },
   gpsButton: {
     backgroundColor: '#007bff',

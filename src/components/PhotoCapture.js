@@ -69,6 +69,12 @@ export default function PhotoCapture({
       return;
     }
 
+    const coord = (coordenada || '').trim();
+    if (!coord || coord.includes('Error')) {
+      Alert.alert('Coordenada GPS requerida', 'Cargá la coordenada GPS antes de tomar fotos.');
+      return;
+    }
+
     const perm = cameraPermission?.granted
       ? cameraPermission
       : await requestCameraPermission();
@@ -85,7 +91,7 @@ export default function PhotoCapture({
     setPreviewPhoto(null);
     setCurrentScreen(SCREEN_CAMERA);
     setCameraVisible(true);
-  }, [fotos.length, cameraPermission, requestCameraPermission]);
+  }, [coordenada, fotos.length, cameraPermission, requestCameraPermission]);
 
   const takePhoto = useCallback(async () => {
     if (!cameraRef.current || !cameraReady || isSaving) return;

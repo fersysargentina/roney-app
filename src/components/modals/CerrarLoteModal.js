@@ -12,6 +12,15 @@ import {
   ScrollView
 } from 'react-native';
 
+// Limita un campo hectáreas: solo números con hasta 2 decimales (coma → punto)
+const limitarHectareas = (txt) => {
+  const limpio = String(txt).replace(/,/g, '.');
+  const m = limpio.match(/^\d*\.?\d{0,2}/);
+  return m ? m[0] : '';
+};
+
+// Parsea un número aceptando coma o punto como separador decimal (siempre → punto)
+const parseNum = (txt) => parseFloat(String(txt).replace(/,/g, '.'));
 
 export default function CerrarLoteModal({ 
   visible, 
@@ -30,7 +39,7 @@ export default function CerrarLoteModal({
     if (muestrasSeleccionadas.length === 0) return 0;
     
     const sumaDaños = muestrasSeleccionadas.reduce((sum, muestra) => {
-      const porcentaje = parseFloat(muestra.datos?.porcentajeDaño) || 0;
+      const porcentaje = parseNum(muestra.datos?.porcentajeDaño) || 0;
       return sum + porcentaje;
     }, 0);
     
@@ -45,8 +54,8 @@ export default function CerrarLoteModal({
   // ✅ Validación de campos memoizada
   const camposValidos = useMemo(() => {
     const nombreValido = nombreLote.trim().length > 0;
-    const sembNum = parseFloat(hasSembradas);
-    const dañNum = parseFloat(hasDañadas);
+    const sembNum = parseNum(hasSembradas);
+    const dañNum = parseNum(hasDañadas);
     const sembValidas = !isNaN(sembNum) && sembNum > 0;
     const dañValidas = !isNaN(dañNum) && dañNum >= 0 && dañNum <= sembNum;
     
@@ -61,13 +70,13 @@ export default function CerrarLoteModal({
       return;
     }
 
-    const sembNum = parseFloat(hasSembradas);
+    const sembNum = parseNum(hasSembradas);
     if (isNaN(sembNum) || sembNum <= 0) {
       Alert.alert('Error', 'Las Has. Sembradas/Aseg. deben ser un número mayor a 0');
       return;
     }
 
-    const dañNum = parseFloat(hasDañadas);
+    const dañNum = parseNum(hasDañadas);
     if (isNaN(dañNum) || dañNum < 0) {
       Alert.alert('Error', 'Las Has. Dañadas deben ser un número mayor o igual a 0');
       return;
@@ -75,6 +84,11 @@ export default function CerrarLoteModal({
 
     if (dañNum > sembNum) {
       Alert.alert('Error', 'Las Has. Dañadas no pueden superar las Has. Sembradas/Aseg.');
+      return;
+    }
+
+    if (dañoRealCalculado > 100) {
+      Alert.alert('Error', 'El Daño Real calculado supera el 100%. Revisá el porcentaje de daño de las muestras.');
       return;
     }
 
@@ -192,7 +206,7 @@ export default function CerrarLoteModal({
                   placeholder="Ej: 100"
                   placeholderTextColor="#444444"
                   value={hasSembradas}
-                  onChangeText={setHasSembradas}
+                  onChangeText={(t) => setHasSembradas(limitarHectareas(t))}
                   keyboardType="numeric"
                   maxLength={10}
                 />
@@ -203,18 +217,18 @@ export default function CerrarLoteModal({
                 <TextInput
                   style={[
                     styles.input,
-                    hasDañadas !== '' && parseFloat(hasDañadas) > parseFloat(hasSembradas)
+                    hasDañadas !== '' && parseNum(hasDañadas) > parseNum(hasSembradas)
                       ? styles.inputError
                       : null
                   ]}
                   placeholder="Ej: 60"
                   placeholderTextColor="#444444"
                   value={hasDañadas}
-                  onChangeText={setHasDañadas}
+                  onChangeText={(t) => setHasDañadas(limitarHectareas(t))}
                   keyboardType="numeric"
                   maxLength={10}
                 />
-                {hasDañadas !== '' && parseFloat(hasDañadas) > parseFloat(hasSembradas) && (
+                {hasDañadas !== '' && parseNum(hasDañadas) > parseNum(hasSembradas) && (
                   <Text style={styles.errorText}>No puede superar las Has. Sembradas/Aseg.</Text>
                 )}
               </View>

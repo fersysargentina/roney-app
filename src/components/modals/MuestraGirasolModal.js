@@ -16,7 +16,9 @@ import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PhotoCapture from '../PhotoCapture';
+import { CoordenadasDmsInput, CoordenadasDmsOverlay } from '../../components/CoordenadasDms';
 import { formatearCoordenadasDMS } from '../../utils/coordenadas';
+import { obtenerEstadosFenologicos } from '../../utils/fenologicosConfig';
 
 // --- CONFIGURACIÓN DE LOS 6 CAMPOS DE DATOS PARA GIRASOL ---
 const DATOS_COUNT = 5;
@@ -54,6 +56,7 @@ export default function MuestraGirasolModal({
   const [coordenada, setCoordenada] = useState(formatearCoordenadasDMS(valoresIniciales.coordenada) || '');
   const [fotos, setFotos] = useState(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
   const [loadingGPS, setLoadingGPS] = useState(false);
+  const [editCoordDms, setEditCoordDms] = useState(false);
   const [loading, setLoading] = useState(false);
   const insets = useSafeAreaInsets();
 
@@ -139,7 +142,6 @@ export default function MuestraGirasolModal({
 
       const coords = formatearCoordenadasDMS(location.coords.latitude, location.coords.longitude);
       setCoordenada(coords);
-      Alert.alert('Éxito', 'Coordenadas GPS actualizadas');
     } catch (error) {
       if (!visibleRef.current) return;
       console.error('Error obteniendo coordenadas:', error);
@@ -154,32 +156,11 @@ export default function MuestraGirasolModal({
 
   // Obtiene el nombre del estado fenológico para el título
   const getTituloEstado = () => {
-    // Mapea el valor del estado a su nombre legible (valores nuevos 1-21)
-    const estados = {
-      '1': 'V1',
-      '2': 'V2',
-      '3': 'V3',
-      '4': 'V4',
-      '5': 'V5',
-      '6': 'V6',
-      '7': 'V7',
-      '8': 'V8',
-      '9': 'V9',
-      '10': 'V10',
-      '11': 'V11',
-      '12': 'Vn',
-      '13': 'R1 (estrella)',
-      '14': 'R2 (botón a 0,5 - 2 cm)',
-      '15': 'R3 (botón a + de 2 cm)',
-      '16': 'R4 (apertura inflorescencia)',
-      '17': 'R5 (inicio floración)',
-      '18': 'R6 (fin floración)',
-      '19': 'R7 (envés capítulo inicio amarilleo)',
-      '20': 'R8 (envés capítulo amarillo)',
-      '21': 'R9 (brácteas amarillo/marrón)',
-    };
-    const estado = estados[estadoFenologico] || '';
-    return `${cultivo} ${estado ? `- ${estado}` : ''}`;
+    const estados = obtenerEstadosFenologicos(cultivo);
+    const estado = estados.find(e => String(e.value) === String(estadoFenologico));
+    const label = estado?.label || '';
+    const prefijo = esEdicion ? 'Editar Muestra' : 'Nueva Muestra';
+    return label ? `${prefijo} - ${label}` : prefijo;
   };
 
   // Renderiza los 6 inputs
@@ -223,11 +204,7 @@ export default function MuestraGirasolModal({
         >
           <View style={styles.modalContainer}>
             <View style={styles.header}>
-              <Text style={styles.titulo}>
-                {esEdicion
-                  ? `Editar Muestra - ${getTituloEstado()}`
-                  : `Nueva Muestra - ${getTituloEstado()}`}
-              </Text>
+              <Text style={styles.titulo}>{getTituloEstado()}</Text>
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={handleCerrar}
@@ -245,17 +222,15 @@ export default function MuestraGirasolModal({
                   <ActivityIndicator style={styles.loadingCoords} />
                 ) : (
                   <>
-                    <TextInput
+                    <CoordenadasDmsInput
                       style={[
                         styles.input,
                         styles.coordsInput,
                         esEdicion && styles.coordsInputDisabled
                       ]}
-                      placeholder="Coordenadas GPS (grados, min, seg)"
-                      placeholderTextColor="#444444"
                       value={coordenada}
-                      onChangeText={setCoordenada}
                       editable={!esEdicion}
+                      onEdit={() => setEditCoordDms(true)}
                     />
 
                     {!esEdicion && (
@@ -274,6 +249,8 @@ export default function MuestraGirasolModal({
                   </>
                 )}
               </View>
+
+              <Text style={styles.gpsEjemplo}>Ejemplo: 34° 36' 13.4" S, 58° 22' 53.7" O</Text>
 
               {renderDataInputs()}
 
@@ -307,6 +284,12 @@ export default function MuestraGirasolModal({
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
+        <CoordenadasDmsOverlay
+          visible={editCoordDms}
+          value={coordenada}
+          onClose={() => setEditCoordDms(false)}
+          onSave={(v) => { setCoordenada(v); setEditCoordDms(false); }}
+        />
       </View>
     </Modal>
   );
@@ -379,6 +362,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 14,
+  },
+  gpsEjemplo: {
+    fontSize: 12,
+    color: '#6c757d',
+    marginTop: 4,
+    marginBottom: 8,
   },
   gpsButton: {
     backgroundColor: '#007bff',

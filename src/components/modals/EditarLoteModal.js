@@ -17,6 +17,16 @@ import { ErrorHandler } from '../../utils/ErrorHandler';
 import VerMuestraModal from './VerMuestraModal';
 import { formatearCoordenadasDMS } from '../../utils/coordenadas';
 
+// Limita un campo hectáreas: solo números con hasta 2 decimales (coma → punto)
+const limitarHectareas = (txt) => {
+  const limpio = String(txt).replace(/,/g, '.');
+  const m = limpio.match(/^\d*\.?\d{0,2}/);
+  return m ? m[0] : '';
+};
+
+// Parsea un número aceptando coma o punto como separador decimal (siempre → punto)
+const parseNum = (txt) => parseFloat(String(txt).replace(/,/g, '.'));
+
 export default function EditarLoteModal({ 
   visible, 
   lote, 
@@ -52,10 +62,11 @@ export default function EditarLoteModal({
     if (visible && lote) {
       setNombreLote(lote.nombreLote);
       // Backward compat: lotes viejos tienen hectareas, nuevos tienen hasSembradas
-      setHasSembradas((lote.hasSembradas ?? lote.hectareas ?? '').toString());
-      setHasDañadas((lote.hasDañadas ?? '').toString());
+      // (siempre normalizar coma → punto: los lotes viejos podían guardar "0,01")
+      setHasSembradas((lote.hasSembradas ?? lote.hectareas ?? '').toString().replace(/,/g, '.'));
+      setHasDañadas((lote.hasDañadas ?? '').toString().replace(/,/g, '.'));
       // Daño final: usar el valor ya editado si existe, si no = daño calculado
-      setDañoFinal(((lote.dañoFinal ?? lote.dañoReal) ?? 0).toString());
+      setDañoFinal(((lote.dañoFinal ?? lote.dañoReal) ?? 0).toString().replace(/,/g, '.'));
       cargarMuestrasDelLote();
     }
   }, [visible, lote?.id, lote?.nombreLote, lote?.hasSembradas, lote?.hectareas, lote?.hasDañadas, lote?.dañoReal, lote?.dañoFinal]);
@@ -104,13 +115,13 @@ export default function EditarLoteModal({
       return;
     }
 
-    const sembNum = parseFloat(hasSembradas);
+    const sembNum = parseNum(hasSembradas);
     if (isNaN(sembNum) || sembNum <= 0) {
       Alert.alert('Error', 'Las Has. Sembradas/Aseg. deben ser un número mayor a 0');
       return;
     }
 
-    const dañNum = parseFloat(hasDañadas);
+    const dañNum = parseNum(hasDañadas);
     if (isNaN(dañNum) || dañNum < 0) {
       Alert.alert('Error', 'Las Has. Dañadas deben ser un número mayor o igual a 0');
       return;
@@ -121,9 +132,14 @@ export default function EditarLoteModal({
       return;
     }
 
-    const dañoFinalNum = parseFloat(dañoFinal);
+    const dañoFinalNum = parseNum(dañoFinal);
     if (isNaN(dañoFinalNum) || dañoFinalNum < 0) {
       Alert.alert('Error', 'El Daño Final debe ser un número mayor o igual a 0');
+      return;
+    }
+
+    if (dañoFinalNum > 100) {
+      Alert.alert('Error', 'El Daño Final es un porcentaje y no puede superar el 100%');
       return;
     }
 
@@ -247,6 +263,16 @@ export default function EditarLoteModal({
     </Text>
   ), []);
 
+  const cambiarDañoFinal = useCallback((txt) => {
+    const limpio = String(txt).replace(/,/g, '.');
+    const m = limpio.match(/^\d*\.?\d{0,2}/);
+    const v = m ? m[0] : '';
+    // El daño es un porcentaje: nunca permitir más de 100
+    if (v === '' || parseNum(v) <= 100) {
+      setDañoFinal(v);
+    }
+  }, []);
+
   if (!lote) return null;
 
   return (
@@ -295,7 +321,7 @@ export default function EditarLoteModal({
                   <TextInput
                     style={styles.input}
                     value={hasSembradas}
-                    onChangeText={setHasSembradas}
+                    onChangeText={(t) => setHasSembradas(limitarHectareas(t))}
                     keyboardType="numeric"
                     maxLength={10}
                   />
@@ -306,16 +332,16 @@ export default function EditarLoteModal({
                   <TextInput
                     style={[
                       styles.input,
-                      hasDañadas !== '' && parseFloat(hasDañadas) > parseFloat(hasSembradas)
+                      hasDañadas !== '' && parseNum(hasDañadas) > parseNum(hasSembradas)
                         ? styles.inputError
                         : null
                     ]}
                     value={hasDañadas}
-                    onChangeText={setHasDañadas}
+                    onChangeText={(t) => setHasDañadas(limitarHectareas(t))}
                     keyboardType="numeric"
                     maxLength={10}
                   />
-                  {hasDañadas !== '' && parseFloat(hasDañadas) > parseFloat(hasSembradas) && (
+                  {hasDañadas !== '' && parseNum(hasDañadas) > parseNum(hasSembradas) && (
                     <Text style={styles.errorText}>No puede superar las Has. Sembradas/Aseg.</Text>
                   )}
                 </View>
@@ -343,7 +369,7 @@ export default function EditarLoteModal({
                       <TextInput
                         style={styles.dañoFinalInput}
                         value={dañoFinal}
-                        onChangeText={setDañoFinal}
+                        onChangeText={cambiarDañoFinal}
                         keyboardType="decimal-pad"
                         maxLength={6}
                       />

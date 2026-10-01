@@ -16,7 +16,9 @@ import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import PhotoCapture from '../PhotoCapture';
+import { CoordenadasDmsInput, CoordenadasDmsOverlay } from '../../components/CoordenadasDms';
 import { formatearCoordenadasDMS } from '../../utils/coordenadas';
+import { obtenerEstadosFenologicos } from '../../utils/fenologicosConfig';
 
 // --- CONFIGURACIÓN DE LOS 21 CAMPOS DE DATOS ---
 const DATOS_COUNT = 21;
@@ -40,6 +42,7 @@ export default function MuestraTipo4Modal({
   valoresIniciales = {}, 
   esEdicion = false,
   estadoFenologico = '',
+  cultivo = '',
 }) {
   
   // ✅ Función de inicialización memoizada
@@ -54,6 +57,7 @@ export default function MuestraTipo4Modal({
   const [coordenada, setCoordenada] = useState(formatearCoordenadasDMS(valoresIniciales.coordenada) || '');
   const [fotos, setFotos] = useState(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
   const [loadingGPS, setLoadingGPS] = useState(false);
+  const [editCoordDms, setEditCoordDms] = useState(false);
   const [loading, setLoading] = useState(false);  const insets = useSafeAreaInsets();
   // ✅ Ref para verificar si está montado
   const isMountedRef = useRef(true);
@@ -130,7 +134,6 @@ export default function MuestraTipo4Modal({
       
       if (isMountedRef.current && visibleRef.current) {
         setCoordenada(coords);
-        Alert.alert('Éxito', 'Coordenadas GPS actualizadas');
       }
     } catch (error) {
       if (!isMountedRef.current || !visibleRef.current) return;
@@ -196,10 +199,14 @@ export default function MuestraTipo4Modal({
     });
   }, [data, handleDataChange]);
 
-  // ✅ Título memoizado
+  // ✅ Título memoizado: siempre "Nueva Muestra" o "Editar Muestra" + estado fenológico seleccionado
   const titulo = useMemo(() => {
-    return esEdicion ? 'Editar Muestra R8' : 'Nueva Muestra R8';
-  }, [esEdicion]);
+    const estados = obtenerEstadosFenologicos(cultivo);
+    const estado = estados.find(e => String(e.value) === String(estadoFenologico));
+    const label = estado?.label || '';
+    const prefijo = esEdicion ? 'Editar Muestra' : 'Nueva Muestra';
+    return label ? `${prefijo} - ${label}` : prefijo;
+  }, [esEdicion, estadoFenologico, cultivo]);
 
   // ✅ Estilos dinámicos memoizados
   const coordsInputStyle = useMemo(() => [
@@ -244,25 +251,17 @@ export default function MuestraTipo4Modal({
               </View>
               
               <ScrollView keyboardShouldPersistTaps="handled">
-                {estadoFenologico && (
-                  <View style={styles.fenologicoContainer}>
-                    <Text style={styles.label}>Est. Fenológico al momento del Siniestro:</Text>
-                    <Text style={styles.fenologicoValue}>{estadoFenologico}</Text>
-                  </View>
-                )}
                 <Text style={styles.label}>Coordenadas GPS:</Text>
                 <View style={styles.gpsContainer}>
                   {loading ? (
                     <ActivityIndicator style={styles.loadingCoords} />
                   ) : (
                     <>
-                      <TextInput
+                      <CoordenadasDmsInput
                         style={coordsInputStyle}
-                        placeholder="Coordenadas GPS (grados, min, seg)"
-                        placeholderTextColor="#444444"
                         value={coordenada}
-                        onChangeText={setCoordenada}
                         editable={!esEdicion}
+                        onEdit={() => setEditCoordDms(true)}
                       />
                       
                       {!esEdicion && (
@@ -281,6 +280,8 @@ export default function MuestraTipo4Modal({
                     </>
                   )}
                 </View>
+
+                <Text style={styles.gpsEjemplo}>Ejemplo: 34° 36' 13.4" S, 58° 22' 53.7" O</Text>
 
                 {renderDataInputs}
                 
@@ -311,6 +312,12 @@ export default function MuestraTipo4Modal({
             </View>
           </KeyboardAvoidingView>
         </View>
+        <CoordenadasDmsOverlay
+          visible={editCoordDms}
+          value={coordenada}
+          onClose={() => setEditCoordDms(false)}
+          onSave={(v) => { setCoordenada(v); setEditCoordDms(false); }}
+        />
       </SafeAreaView>
     </Modal>
   );
@@ -364,19 +371,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 5,
   },
-  fenologicoContainer: {
-    marginBottom: 14,
-    padding: 12,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  fenologicoValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#007bff',
-  },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -400,6 +394,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 14,
+  },
+  gpsEjemplo: {
+    fontSize: 12,
+    color: '#6c757d',
+    marginTop: 4,
+    marginBottom: 8,
   },
   gpsButton: {
     backgroundColor: '#007bff',

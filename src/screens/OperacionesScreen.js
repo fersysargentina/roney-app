@@ -5,12 +5,13 @@ import CrearOperacionModal from '../components/modals/CrearOperacionModal';
 import PerfilModal from '../components/modals/PerfilModal';
 import OperacionItem from '../components/OperacionItem';
 import { ErrorHandler } from '../utils/ErrorHandler';
-import { getDeviceInfo } from '../services/AuthService';
+import { getDeviceInfo, getUserSession } from '../services/AuthService';
 import { MODO_TEST_ENVIO } from '../utils/modoConfig';
 import logo from '../../assets/roney.png';
 
 // ✅ Constantes fuera del componente
 const OPERACION_ITEM_HEIGHT = 100;
+const SYNCAPP_URL = 'https://fersystest.com/roney/syncapp.php';
 
 export default function OperacionesScreen({ navigation, userSession, onLogout, onDeleteAccount }) {
   const [operaciones, setOperaciones] = useState([]);
@@ -170,27 +171,35 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
     }
   }, [modoEdicion, operacionSeleccionada, operaciones, guardarOperaciones, enviadasMap]);
 
-  // ✅ Sincronizar con el backend sincroniza.php (con fallback a mock data)
-  const handleSincronizar = useCallback(async () => {
+  // ✅ Sincronizar con el microservicio syncapp.php (operaciones del ingeniero en la BD)
+  //    Parámetro: silencioso=true no muestra alerts (para el auto-sync al abrir la app)
+  const handleSincronizar = useCallback(async (silencioso) => {
+    const enSilencio = silencioso === true;
     if (sincronizando) return;
     setSincronizando(true);
 
     try {
-      const { iddispositivo } = await getDeviceInfo();
-      const deviceIdToSend = iddispositivo || userSession?.iddispositivo || 'unknown-device';
+      // ✅ Datos de usuario/dispositivo que espera syncapp.php
+      const sesion = await getUserSession();
+      const info = await getDeviceInfo();
 
       let ordenesParaProcesar = [];
 
       try {
-        const formData = new FormData();
-        formData.append('iddispositivo', deviceIdToSend);
-
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-        const response = await fetch('http://gestionroney.com/sincroniza.php', {
+        const response = await fetch(SYNCAPP_URL, {
           method: 'POST',
-          body: formData,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            usuario: {
+              nombre: sesion?.nombre || '',
+              email: sesion?.email || '',
+              iddispositivo: sesion?.iddispositivo || info.iddispositivo || '',
+              sistema: sesion?.sistema || info.sistema || '',
+            },
+          }),
           signal: controller.signal,
         });
 
@@ -202,51 +211,35 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
           try {
             data = JSON.parse(text);
           } catch (pe) {
-            console.log('Respuesta no JSON de sincroniza.php:', text);
+            console.log('Respuesta no JSON de syncapp.php:', text);
+          }
+
+          // ✅ Rechazo del microservicio (ej: cuenta inactiva)
+          if (data && data.ok === false) {
+            if (!enSilencio) {
+              Alert.alert('Sincronización', data.message || data.error || 'No se pudo sincronizar.');
+            }
+            return;
           }
 
           if (Array.isArray(data)) {
             ordenesParaProcesar = data;
           } else if (data && typeof data === 'object') {
-            if (Array.isArray(data.operaciones)) ordenesParaProcesar = data.operaciones;
+            if (Array.isArray(data.array_ops)) ordenesParaProcesar = data.array_ops;
+            else if (Array.isArray(data.operaciones)) ordenesParaProcesar = data.operaciones;
             else if (Array.isArray(data.ordenes)) ordenesParaProcesar = data.ordenes;
             else if (Array.isArray(data.data)) ordenesParaProcesar = data.data;
             else if (data.nombre || data.roney_op) ordenesParaProcesar = [data];
           }
+        } else {
+          console.log('syncapp.php respondió HTTP', response.status);
         }
       } catch (netErr) {
-        console.log('sincroniza.php no disponible aún, usando mock de datos:', netErr.message);
-      }
-
-      // Si el servidor no devolvió órdenes (endpoint aún en construcción), generar datos mock
-      if (ordenesParaProcesar.length === 0) {
-        const generarCodigo = () => {
-          const prefijo = Math.random() > 0.5 ? 'RU' : 'ZU';
-          const num = Math.floor(1000 + Math.random() * 9000);
-          return `${prefijo}${num}`;
-        };
-
-        const nombreAleatorio = Math.random() > 0.4
-          ? `${generarCodigo()} / ${generarCodigo()}`
-          : generarCodigo();
-
-        const esFina = Math.random() > 0.5;
-        const mockCampana = esFina ? 'Fina' : 'Gruesa';
-        const mockCultivo = esFina
-          ? ['Trigo', 'Cebada', 'Avena', 'Centeno'][Math.floor(Math.random() * 4)]
-          : ['Soja de 1.a', 'Soja de 2.a', 'Maíz', 'Maíz Tardío', 'Girasol'][Math.floor(Math.random() * 5)];
-
-        const camposMock = ['La Esperanza', 'San Pedro', 'El Ombú', 'La Huella', 'Don Julián'];
-        const mockCampo = camposMock[Math.floor(Math.random() * camposMock.length)];
-
-        ordenesParaProcesar = [
-          {
-            nombre: nombreAleatorio,
-            campo: mockCampo,
-            campana: mockCampana,
-            cultivo: mockCultivo,
-          }
-        ];
+        console.log('syncapp.php no disponible:', netErr.message);
+        if (!enSilencio) {
+          Alert.alert('Error', 'No se pudo conectar con el servidor de sincronización.');
+        }
+        return;
       }
 
       // Obtener operaciones actuales frescas del storage
@@ -261,7 +254,7 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
         const nombreOp = (item.roney_op || item.nombre || item.operacion || item.nombre_operacion || '').trim();
         if (!nombreOp) continue;
 
-        // Verificar por nombre de operación que no exista ya en el dispositivo
+        // ✅ Dedupe por roney_op: si ya tengo esa operación, no la agrego
         const yaExiste = listaActualizada.some(
           op => op.roney_op?.trim().toLowerCase() === nombreOp.toLowerCase()
         );
@@ -284,30 +277,39 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
 
       if (nuevasAgregadas > 0) {
         await guardarOperaciones(listaActualizada);
-        Alert.alert(
-          'Sincronización Exitosa',
-          `Se agregaron ${nuevasAgregadas} nueva(s) operación(es) desde el servidor.${yaExistentes > 0 ? ` (${yaExistentes} ya existían)` : ''}`
-        );
-      } else if (yaExistentes > 0) {
-        Alert.alert(
-          'Sincronización',
-          'La(s) orden(es) recibida(s) ya existen en el dispositivo.'
-        );
-      } else {
+        if (!enSilencio) {
+          Alert.alert(
+            'Sincronización Exitosa',
+            `Se agregaron ${nuevasAgregadas} nueva(s) operación(es) desde el servidor.${yaExistentes > 0 ? ` (${yaExistentes} ya existían)` : ''}`
+          );
+        }
+      } else if (!enSilencio) {
         Alert.alert(
           'Sincronización',
-          'No se encontraron nuevas órdenes para este dispositivo.'
+          yaExistentes > 0
+            ? 'La(s) orden(es) recibida(s) ya existen en el dispositivo.'
+            : 'No se encontraron nuevas órdenes para este dispositivo.'
         );
       }
     } catch (e) {
       console.error('Error durante sincronización:', e);
-      Alert.alert('Error', 'Ocurrió un error al sincronizar las operaciones.');
+      if (!enSilencio) {
+        Alert.alert('Error', 'Ocurrió un error al sincronizar las operaciones.');
+      }
     } finally {
       if (isMountedRef.current) {
         setSincronizando(false);
       }
     }
-  }, [sincronizando, userSession, operaciones, guardarOperaciones]);
+  }, [sincronizando, operaciones, guardarOperaciones]);
+
+  // ✅ Auto-sincronizar al abrir la app (una sola vez por sesión de la pantalla)
+  const autoSyncRealizadoRef = useRef(false);
+  useEffect(() => {
+    if (autoSyncRealizadoRef.current) return;
+    autoSyncRealizadoRef.current = true;
+    handleSincronizar(true);
+  }, [handleSincronizar]);
 
   // ✅ Memoizar handleBorrarOperacion
   const handleBorrarOperacion = useCallback((id) => {
@@ -484,7 +486,7 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
 
         <TouchableOpacity
           style={[styles.sincronizarBtn, sincronizando && styles.sincronizarBtnDisabled]}
-          onPress={handleSincronizar}
+          onPress={() => handleSincronizar(false)}
           disabled={sincronizando}
         >
           {sincronizando ? (

@@ -17,7 +17,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DraftService } from '../../services/DraftService';
 import PhotoCapture from '../PhotoCapture';
+import { CoordenadasDmsInput, CoordenadasDmsOverlay } from '../../components/CoordenadasDms';
 import { formatearCoordenadasDMS } from '../../utils/coordenadas';
+import { obtenerEstadosFenologicos } from '../../utils/fenologicosConfig';
 
 const DRAFT_KEY = 'muestra_trigo_draft';
 
@@ -74,6 +76,7 @@ export default function MuestraTrigoModal({
   const [coordenada, setCoordenada] = useState(formatearCoordenadasDMS(valoresIniciales.coordenada) || '');
   const [fotos, setFotos] = useState(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
   const [loadingGPS, setLoadingGPS] = useState(false);
+  const [editCoordDms, setEditCoordDms] = useState(false);
   const [loading, setLoading] = useState(false);
   const insets = useSafeAreaInsets();
 
@@ -184,7 +187,6 @@ export default function MuestraTrigoModal({
 
       const coords = formatearCoordenadasDMS(location.coords.latitude, location.coords.longitude);
       setCoordenada(coords);
-      Alert.alert('Éxito', 'Coordenadas GPS actualizadas');
     } catch (error) {
       if (!visibleRef.current) return;
       console.error('Error obteniendo coordenadas:', error);
@@ -198,15 +200,11 @@ export default function MuestraTrigoModal({
   };
 
   const getTituloEstado = () => {
-    const estados = {
-      '1': 'Espigamiento (Z.50/59)',
-      '2': 'Floración (Z.60/69)',
-      '3': 'Lechoso (Z.70/79)',
-      '4': 'Pastoso blando (Z.80/84)',
-      '5': 'Pastoso duro (Z.85/89)',
-      '6': 'Próx. a mudurez (Z.90/99)',
-    };
-    return `${cultivo} - ${estados[estadoFenologico] || ''}`;
+    const estados = obtenerEstadosFenologicos(cultivo);
+    const estado = estados.find(e => String(e.value) === String(estadoFenologico));
+    const label = estado?.label || '';
+    const prefijo = esEdicion ? 'Editar Muestra' : 'Nueva Muestra';
+    return label ? `${prefijo} - ${label}` : prefijo;
   };
 
   const renderDataInputs = () => {
@@ -252,11 +250,7 @@ export default function MuestraTrigoModal({
           >
             <View style={styles.modalContainer}>
               <View style={styles.header}>
-                <Text style={styles.titulo}>
-                  {esEdicion
-                    ? `Editar Muestra - ${getTituloEstado()}`
-                    : `Nueva Muestra - ${getTituloEstado()}`}
-                </Text>
+                <Text style={styles.titulo}>{getTituloEstado()}</Text>
                 <TouchableOpacity
                   style={styles.closeButton}
                   onPress={handleCerrar}
@@ -274,17 +268,15 @@ export default function MuestraTrigoModal({
                     <ActivityIndicator style={styles.loadingCoords} />
                   ) : (
                     <>
-                      <TextInput
+                      <CoordenadasDmsInput
                         style={[
                           styles.input,
                           styles.coordsInput,
                           esEdicion && styles.coordsInputDisabled
                         ]}
-                        placeholder="Coordenadas GPS (grados, min, seg)"
-                        placeholderTextColor="#444444"
                         value={coordenada}
-                        onChangeText={setCoordenada}
                         editable={!esEdicion}
+                        onEdit={() => setEditCoordDms(true)}
                       />
 
                       {!esEdicion && (
@@ -303,6 +295,8 @@ export default function MuestraTrigoModal({
                     </>
                   )}
                 </View>
+
+                <Text style={styles.gpsEjemplo}>Ejemplo: 34° 36' 13.4" S, 58° 22' 53.7" O</Text>
 
                 {renderDataInputs()}
 
@@ -337,6 +331,12 @@ export default function MuestraTrigoModal({
             </View>
           </KeyboardAvoidingView>
         </View>
+        <CoordenadasDmsOverlay
+          visible={editCoordDms}
+          value={coordenada}
+          onClose={() => setEditCoordDms(false)}
+          onSave={(v) => { setCoordenada(v); setEditCoordDms(false); }}
+        />
       </SafeAreaView>
     </Modal>
   );
@@ -413,6 +413,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 14,
+  },
+  gpsEjemplo: {
+    fontSize: 12,
+    color: '#6c757d',
+    marginTop: 4,
+    marginBottom: 8,
   },
   gpsButton: {
     backgroundColor: '#007bff',
