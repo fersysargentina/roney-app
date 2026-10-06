@@ -20,6 +20,7 @@ import PhotoCapture from '../PhotoCapture';
 import { CoordenadasDmsInput, CoordenadasDmsOverlay } from '../../components/CoordenadasDms';
 import { formatearCoordenadasDMS } from '../../utils/coordenadas';
 import { obtenerEstadosFenologicos } from '../../utils/fenologicosConfig';
+import SelectorEstadoMuestra from '../SelectorEstadoMuestra';
 
 const DRAFT_KEY = 'muestra_tipo3_draft';
 
@@ -31,6 +32,9 @@ export default function MuestraTipo3Modal({
   esEdicion = false,
   estadoFenologico = '',
   cultivo = '',
+  estadoMuestra,
+  estadosPermitidos,
+  onCambiarEstado,
 }) {
   // DEFINICIÓN DE ESTADOS LOCALES (12 DATOS + GPS)
   const [dato_1, setDato_1] = useState(valoresIniciales.dato_1 || '');
@@ -50,6 +54,7 @@ export default function MuestraTipo3Modal({
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [editCoordDms, setEditCoordDms] = useState(false);
   const [loading] = useState(false);
+  const [estadoSel, setEstadoSel] = useState('');
   const insets = useSafeAreaInsets();
 
   const isMountedRef = useRef(true);
@@ -62,6 +67,7 @@ export default function MuestraTipo3Modal({
 
   useEffect(() => {
     if (visible) {
+      setEstadoSel(estadoMuestra ?? '');
       if (!esEdicion) {
         DraftService.getDraft(DRAFT_KEY).then(draft => {
           if (draft && isMountedRef.current) {
@@ -212,13 +218,13 @@ export default function MuestraTipo3Modal({
       coordenada: coordenada,
       fotos: fotos,
       fotoUri: fotos[0] || null,
-      estadoFenologico: estadoFenologico,
+      estadoFenologico: estadoSel,
     };
 
     DraftService.clearDraft(DRAFT_KEY);
     onGuardar(datosMuestra);
     onClose();
-  }, [camposValidos, dato_1, dato_2, dato_3, dato_4, dato_5, dato_6, dato_7, dato_8, dato_9, dato_10, dato_11, dato_12, coordenada, fotos, onGuardar, onClose]);
+  }, [camposValidos, dato_1, dato_2, dato_3, dato_4, dato_5, dato_6, dato_7, dato_8, dato_9, dato_10, dato_11, dato_12, coordenada, fotos, estadoSel, onGuardar, onClose]);
 
   // ✅ Cerrar memoizado con reset de valores
   const handleCerrar = useCallback(() => {
@@ -240,14 +246,18 @@ export default function MuestraTipo3Modal({
     onClose();
   }, [valoresIniciales, onClose]);
 
-  // ✅ Título memoizado: siempre "Nueva Muestra" o "Editar Muestra" + estado fenológico seleccionado
+  // ✅ Título memoizado: "Nueva/Editar Muestra" + estado fenológico (en edición usa el selector)
   const titulo = useMemo(() => {
-    const estados = obtenerEstadosFenologicos(cultivo);
-    const estado = estados.find(e => String(e.value) === String(estadoFenologico));
-    const label = estado?.label || '';
     const prefijo = esEdicion ? 'Editar Muestra' : 'Nueva Muestra';
+    const valorTitulo = esEdicion ? estadoSel : estadoFenologico;
+    let label = (estadosPermitidos || []).find(e => String(e.value) === String(valorTitulo))?.label || '';
+    if (!label) {
+      const estados = obtenerEstadosFenologicos(cultivo);
+      const estado = estados.find(e => String(e.value) === String(estadoFenologico));
+      label = estado?.label || '';
+    }
     return label ? `${prefijo} - ${label}` : prefijo;
-  }, [esEdicion, estadoFenologico, cultivo]);
+  }, [esEdicion, estadoSel, estadoFenologico, cultivo, estadosPermitidos]);
 
   // ✅ Estilos dinámicos memoizados
   const coordsInputStyle = useMemo(() => [
@@ -291,6 +301,17 @@ export default function MuestraTipo3Modal({
             </View>
             
             <ScrollView keyboardShouldPersistTaps="handled">
+              {esEdicion && (
+                <View style={styles.estadoGroup}>
+                  <Text style={styles.label}>Estado fenológico</Text>
+                  <SelectorEstadoMuestra
+                    estadoActual={estadoSel}
+                    estados={estadosPermitidos || []}
+                    onSeleccionar={(v) => { setEstadoSel(v); onCambiarEstado && onCambiarEstado(v); }}
+                  />
+                </View>
+              )}
+
               <Text style={styles.label}>Coordenadas GPS:</Text>
               <View style={styles.gpsContainer}>
                 {loading ? (
@@ -535,6 +556,9 @@ const styles = StyleSheet.create({
     color: '#333',
     marginTop: 10,
     marginBottom: 5,
+  },
+  estadoGroup: {
+    marginBottom: 14,
   },
   input: {
     borderWidth: 1,

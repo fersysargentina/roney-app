@@ -33,6 +33,7 @@ export default function CerrarLoteModal({
   const [nombreLote, setNombreLote] = useState('');
   const [hasSembradas, setHasSembradas] = useState('');
   const [hasDañadas, setHasDañadas] = useState('');
+  const [conMuestras, setConMuestras] = useState('');
 
   // ✅ Calcular daño real memoizado
   const dañoRealCalculado = useMemo(() => {
@@ -92,6 +93,11 @@ export default function CerrarLoteModal({
       return;
     }
 
+    if (!conMuestras) {
+      Alert.alert('Error', 'Debe indicar si el lote está tasado con testigos');
+      return;
+    }
+
     const datosLote = {
       nombreLote: nombreLote.trim(),
       hasSembradas: sembNum,
@@ -99,17 +105,19 @@ export default function CerrarLoteModal({
       dañoReal: Math.round(dañoRealCalculado * 100) / 100,
       muestrasIds: muestrasSeleccionadas.map(m => m.id),
       tipoFenologico: tipoFenologicoSeleccionado,
+      conMuestras,
     };
 
     onConfirmar(datosLote);
     handleClose();
-  }, [nombreLote, hasSembradas, hasDañadas, dañoRealCalculado, muestrasSeleccionadas, tipoFenologicoSeleccionado, onConfirmar]);
+  }, [nombreLote, hasSembradas, hasDañadas, conMuestras, dañoRealCalculado, muestrasSeleccionadas, tipoFenologicoSeleccionado, onConfirmar]);
 
   // ✅ Cierre memoizado
   const handleClose = useCallback(() => {
     setNombreLote('');
     setHasSembradas('');
     setHasDañadas('');
+    setConMuestras('');
     onClose();
   }, [onClose]);
 
@@ -241,6 +249,30 @@ export default function CerrarLoteModal({
                 </View>
               </View>
 
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Tasado con testigos *</Text>
+                <View style={styles.muestrasRow}>
+                  <TouchableOpacity
+                    style={[styles.muestrasBtn, conMuestras === 'S' && styles.muestrasBtnSelected]}
+                    onPress={() => setConMuestras('S')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.muestrasBtnText, conMuestras === 'S' && styles.muestrasBtnTextSelected]}>
+                      SI
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.muestrasBtn, conMuestras === 'N' && styles.muestrasBtnSelected]}
+                    onPress={() => setConMuestras('N')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.muestrasBtnText, conMuestras === 'N' && styles.muestrasBtnTextSelected]}>
+                      NO
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
             </View>
 
             <View style={styles.buttonContainer}>
@@ -360,6 +392,30 @@ const styles = StyleSheet.create({
   inputError: {
     borderColor: '#dc3545',
     borderWidth: 2,
+  },
+  muestrasRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  muestrasBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#007bff',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+  },
+  muestrasBtnSelected: {
+    backgroundColor: '#007bff',
+  },
+  muestrasBtnText: {
+    color: '#007bff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  muestrasBtnTextSelected: {
+    color: '#fff',
   },
   errorText: {
     fontSize: 12,

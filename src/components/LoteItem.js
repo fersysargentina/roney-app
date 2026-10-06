@@ -47,11 +47,15 @@ export default React.memo(function LoteItem({ lote, onPress, onDelete, isSelecte
     return lote.hasDañadas != null ? `${lote.hasDañadas} ha` : '-';
   }, [lote.hasDañadas]);
 
-  // ✅ Texto de daño memoizado (final editado si existe, si no el calculado)
-  const dañoRealText = useMemo(() => {
+  // ✅ Daño final (naranja) y daño real (verde)
+  const dañoFinalText = useMemo(() => {
     const valor = lote.dañoFinal ?? lote.dañoReal;
     return `${valor}%`;
   }, [lote.dañoFinal, lote.dañoReal]);
+
+  const dañoRealText = useMemo(() => {
+    return `${lote.dañoReal}%`;
+  }, [lote.dañoReal]);
 
   // ✅ Eliminar memoizado
   const handleDelete = useCallback(() => {
@@ -143,7 +147,10 @@ export default React.memo(function LoteItem({ lote, onPress, onDelete, isSelecte
 
           <View style={styles.statItem}>
             <Text style={styles.statLabel}>Daño</Text>
-            <Text style={[styles.statValue, styles.dañoReal]}>
+            <Text style={[styles.statValue, styles.dañoFinal]}>
+              {dañoFinalText}
+            </Text>
+            <Text style={styles.dañoReal}>
               {dañoRealText}
             </Text>
           </View>
@@ -293,7 +300,13 @@ const styles = StyleSheet.create({
     color: '#333',
     textAlign: 'center',
   },
+  dañoFinal: {
+    color: '#fd7e14',
+  },
   dañoReal: {
-    color: '#dc3545',
+    color: '#28a745',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
   },
 });

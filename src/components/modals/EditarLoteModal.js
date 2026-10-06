@@ -41,6 +41,7 @@ export default function EditarLoteModal({
   const [hasSembradas, setHasSembradas] = useState('');
   const [hasDañadas, setHasDañadas] = useState('');
   const [dañoFinal, setDañoFinal] = useState('');
+  const [conMuestras, setConMuestras] = useState('');
   const [muestras, setMuestras] = useState([]);
   const [loading, setLoading] = useState(false);
   const [primeraMuestraCoordenada, setPrimeraMuestraCoordenada] = useState('');
@@ -67,9 +68,10 @@ export default function EditarLoteModal({
       setHasDañadas((lote.hasDañadas ?? '').toString().replace(/,/g, '.'));
       // Daño final: usar el valor ya editado si existe, si no = daño calculado
       setDañoFinal(((lote.dañoFinal ?? lote.dañoReal) ?? 0).toString().replace(/,/g, '.'));
+      setConMuestras(lote.conMuestras || '');
       cargarMuestrasDelLote();
     }
-  }, [visible, lote?.id, lote?.nombreLote, lote?.hasSembradas, lote?.hectareas, lote?.hasDañadas, lote?.dañoReal, lote?.dañoFinal]);
+  }, [visible, lote?.id, lote?.nombreLote, lote?.hasSembradas, lote?.hectareas, lote?.hasDañadas, lote?.dañoReal, lote?.dañoFinal, lote?.conMuestras]);
 
   // ✅ Cargar muestras con verificación de montaje
   const cargarMuestrasDelLote = useCallback(async () => {
@@ -143,16 +145,22 @@ export default function EditarLoteModal({
       return;
     }
 
+    if (!conMuestras) {
+      Alert.alert('Error', 'Debe indicar si el lote está tasado con testigos');
+      return;
+    }
+
     const loteActualizado = {
       ...lote,
       nombreLote: nombreLote.trim(),
       hasSembradas: sembNum,
       hasDañadas: dañNum,
       dañoFinal: dañoFinalNum,
+      conMuestras,
     };
 
     onActualizar(loteActualizado);
-  }, [nombreLote, hasSembradas, hasDañadas, dañoFinal, lote, onActualizar]);
+  }, [nombreLote, hasSembradas, hasDañadas, dañoFinal, conMuestras, lote, onActualizar]);
 
   // ✅ Liberar muestra memoizada
   const handleLiberarMuestra = useCallback((muestraId) => {
@@ -374,6 +382,30 @@ export default function EditarLoteModal({
                         maxLength={6}
                       />
                     </View>
+                  </View>
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Tasado con testigos *</Text>
+                  <View style={styles.muestrasRow}>
+                    <TouchableOpacity
+                      style={[styles.muestrasBtn, conMuestras === 'S' && styles.muestrasBtnSelected]}
+                      onPress={() => setConMuestras('S')}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.muestrasBtnText, conMuestras === 'S' && styles.muestrasBtnTextSelected]}>
+                        SI
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.muestrasBtn, conMuestras === 'N' && styles.muestrasBtnSelected]}
+                      onPress={() => setConMuestras('N')}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.muestrasBtnText, conMuestras === 'N' && styles.muestrasBtnTextSelected]}>
+                        NO
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               </View>
@@ -605,6 +637,30 @@ const styles = StyleSheet.create({
     borderColor: '#ffcc80',
     borderRadius: 6,
     paddingVertical: 8,
+  },
+  muestrasRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  muestrasBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#007bff',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+  },
+  muestrasBtnSelected: {
+    backgroundColor: '#007bff',
+  },
+  muestrasBtnText: {
+    color: '#007bff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  muestrasBtnTextSelected: {
+    color: '#fff',
   },
   muestraItem: {
     flexDirection: 'row',

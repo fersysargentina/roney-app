@@ -5,4 +5,4 @@
 //           bloquean modificar/agregar/crear lotes y muestras)
 //
 // La usan: LotesScreen.js (reenvío de lotes) y OperacionItem.js (badge + bloqueo)
-export const MODO_TEST_ENVIO = false;
+export const MODO_TEST_ENVIO = true;

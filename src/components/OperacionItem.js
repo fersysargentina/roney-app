@@ -18,7 +18,7 @@ export default React.memo(function OperacionItem({ item, onPress, onBorrar, onMu
     );
   }, []);
 
-  // Título en una sola línea: Nombre de la operación - nombre del campo - cultivo
+  // Título en una sola línea: Nombre de la operación - nombre de asegurado - cultivo
   const titulo = useMemo(() => {
     const partes = [item.roney_op, item.campo, item.cultivo].filter(
       p => p && String(p).trim().length > 0

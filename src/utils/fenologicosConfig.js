@@ -90,6 +90,34 @@ export const ESTADOS_FENOLOGICOS = {
   ]
 };
 
+export const CULTIVOS_FINA = [
+  'Trigo',
+  'Cebada',
+  'Avena',
+  'Centeno'
+];
+
+export const CULTIVOS_GRUESA = [
+  'Soja de 1.a',
+  'Soja de 2.a',
+  'Maíz',
+  'Maíz Tardío',
+  'Girasol'
+];
+
+/**
+ * Determina la campaña a partir del valor del cultivo (listas del selector)
+ * @param {string} cultivo - Valor de cultivo de la app
+ * @returns {'Fina'|'Gruesa'|''} Campaña, o '' si el cultivo está vacío o no se reconoce
+ */
+export const campanaDesdeCultivo = (cultivo) => {
+  const c = (cultivo || '').trim();
+  if (c === '') return '';
+  if (CULTIVOS_GRUESA.includes(c)) return 'Gruesa';
+  if (CULTIVOS_FINA.includes(c)) return 'Fina';
+  return '';
+};
+
 /**
  * Normaliza el nombre del cultivo a las claves base del sistema: 'soja', 'maiz', 'trigo', 'girasol'
  */
@@ -100,6 +128,18 @@ export const normalizarCultivo = (cultivo) => {
   if (c.includes('trigo') || c.includes('cebada') || c.includes('avena') || c.includes('centeno')) return 'trigo';
   if (c.includes('girasol')) return 'girasol';
   return 'soja';
+};
+
+/**
+ * Mapea el cultivo que viene de la sincronización web a los valores del selector de la app
+ * @param {string} cultivo - Cultivo crudo recibido desde syncapp
+ * @returns {string} Valor válido para el selector (o el original si no hay mapeo)
+ */
+export const mapearCultivoWeb = (cultivo) => {
+  const c = (cultivo || '').trim();
+  if (c === 'Soja') return 'Soja de 1.a';
+  if (c === 'Maíz 2da') return 'Maíz Tardío';
+  return c;
 };
 
 /**
@@ -173,4 +213,18 @@ export const mapearEstadoATipoModal = (cultivo, valorSeleccion) => {
 
   // Por defecto retornar tipo '4' si no encuentra
   return '4';
+};
+
+/**
+ * Obtiene los estados fenológicos que comparten tipo de modal para un cultivo
+ * (mismo cálculo y mismos datos capturados)
+ * @param {string} cultivo - Tipo de cultivo
+ * @param {string} tipo - Tipo de modal ('1', '2', '3', '4', 'trigo', etc.)
+ * @returns {Array} Array de objetos con label y value
+ */
+export const obtenerEstadosPorTipo = (cultivo, tipo) => {
+  const normalizado = normalizarCultivo(cultivo);
+  return obtenerEstadosFenologicos(normalizado).filter(
+    e => mapearEstadoATipoModal(normalizado, e.value) === tipo
+  );
 };

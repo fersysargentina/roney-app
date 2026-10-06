@@ -7,6 +7,7 @@ import OperacionItem from '../components/OperacionItem';
 import { ErrorHandler } from '../utils/ErrorHandler';
 import { getDeviceInfo, getUserSession } from '../services/AuthService';
 import { MODO_TEST_ENVIO } from '../utils/modoConfig';
+import { mapearCultivoWeb, campanaDesdeCultivo } from '../utils/fenologicosConfig';
 import logo from '../../assets/roney.png';
 
 // ✅ Constantes fuera del componente
@@ -102,6 +103,7 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
       const cultivo = typeof datosOp === 'object' ? datosOp.cultivo : arguments[1];
       const campo = typeof datosOp === 'object' ? datosOp.campo : (arguments[2] || '');
       const campana = typeof datosOp === 'object' ? datosOp.campana : (arguments[3] || '');
+      const coaseguros = typeof datosOp === 'object' ? datosOp.coaseguros : (arguments[4] || '');
 
       const nombreLimpio = (roney_op || '').trim();
 
@@ -131,7 +133,7 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
 
         // Editar operación existente
         const nuevasOperaciones = operaciones.map(op =>
-          op.id === operacionSeleccionada.id ? { ...op, roney_op: nombreLimpio, cultivo, campo: (campo || '').trim(), campana: campana || '' } : op
+          op.id === operacionSeleccionada.id ? { ...op, roney_op: nombreLimpio, cultivo, campo: (campo || '').trim(), campana: campana || '', coaseguros: coaseguros || '' } : op
         );
         guardarOperaciones(nuevasOperaciones);
       } else {
@@ -151,6 +153,8 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
           campo: (campo || '').trim(),
           campana: campana || '',
           cultivo,
+          web: 'N',
+          coaseguros: coaseguros || '',
           fecha: new Date().toISOString(),
         };
         const nuevasOperaciones = [nuevaOperacion, ...operaciones];
@@ -248,6 +252,7 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
 
       let nuevasAgregadas = 0;
       let yaExistentes = 0;
+      let webActualizadas = 0;
       let listaActualizada = [...opsActuales];
 
       for (const item of ordenesParaProcesar) {
@@ -255,19 +260,33 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
         if (!nombreOp) continue;
 
         // ✅ Dedupe por roney_op: si ya tengo esa operación, no la agrego
-        const yaExiste = listaActualizada.some(
+        //    pero la marco como origen web (llegó desde el servidor)
+        const indiceExistente = listaActualizada.findIndex(
           op => op.roney_op?.trim().toLowerCase() === nombreOp.toLowerCase()
         );
 
-        if (yaExiste) {
+        if (indiceExistente >= 0) {
           yaExistentes++;
+          const existente = listaActualizada[indiceExistente];
+          const coasegurosNuevo = (item.coaseguros || '').trim();
+          const cambiaCoaseguros = Boolean(coasegurosNuevo) && coasegurosNuevo !== (existente.coaseguros || '');
+          if (existente.web !== 'S' || cambiaCoaseguros) {
+            listaActualizada = listaActualizada.map((op, i) =>
+              i === indiceExistente
+                ? { ...op, web: 'S', ...(cambiaCoaseguros ? { coaseguros: coasegurosNuevo } : {}) }
+                : op
+            );
+            webActualizadas++;
+          }
         } else {
           const nuevaOp = {
             id: item.id?.toString() || Date.now().toString() + '_' + Math.random().toString(36).substr(2, 4),
             roney_op: nombreOp,
             campo: (item.campo || item.nombre_campo || '').trim(),
             campana: item.campana || item.campaña || 'Fina',
-            cultivo: item.cultivo || 'Trigo',
+            cultivo: mapearCultivoWeb(item.cultivo) || 'Trigo',
+            web: 'S',
+            coaseguros: (item.coaseguros || ''),
             fecha: item.fecha || new Date().toISOString(),
           };
           listaActualizada = [nuevaOp, ...listaActualizada];
@@ -275,13 +294,20 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
         }
       }
 
-      if (nuevasAgregadas > 0) {
+      if (nuevasAgregadas > 0 || webActualizadas > 0) {
         await guardarOperaciones(listaActualizada);
         if (!enSilencio) {
-          Alert.alert(
-            'Sincronización Exitosa',
-            `Se agregaron ${nuevasAgregadas} nueva(s) operación(es) desde el servidor.${yaExistentes > 0 ? ` (${yaExistentes} ya existían)` : ''}`
-          );
+          if (nuevasAgregadas > 0) {
+            Alert.alert(
+              'Sincronización Exitosa',
+              `Se agregaron ${nuevasAgregadas} nueva(s) operación(es) desde el servidor.${yaExistentes > 0 ? ` (${yaExistentes} ya existían)` : ''}`
+            );
+          } else {
+            Alert.alert(
+              'Sincronización',
+              `Se marcaron ${webActualizadas} operación(es) existente(s) como origen web.`
+            );
+          }
         }
       } else if (!enSilencio) {
         Alert.alert(
@@ -413,9 +439,11 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
         campo: operacionSeleccionada.campo || '',
         campana: operacionSeleccionada.campana || '',
         cultivo: operacionSeleccionada.cultivo || '',
+        web: operacionSeleccionada.web || 'N',
+        coaseguros: operacionSeleccionada.coaseguros || '',
       };
     }
-    return { roney_op: '', campo: '', campana: '', cultivo: '' };
+    return { roney_op: '', campo: '', campana: '', cultivo: '', coaseguros: '' };
   }, [modoEdicion, operacionSeleccionada]);
 
   // ✅ Normalizar texto (sin tildes, minúsculas) para comparar
@@ -566,6 +594,8 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
         onGuardar={handleGuardarOperacion}
         valoresIniciales={valoresInicialesModal}
         modoEdicion={modoEdicion}
+        web={valoresInicialesModal.web}
+        coaseguros={valoresInicialesModal.coaseguros}
       />
 
       <PerfilModal

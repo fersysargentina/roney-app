@@ -1,30 +1,17 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { 
-  Modal, 
-  View, 
-  Text, 
-  TextInput, 
-  StyleSheet, 
-  TouchableOpacity, 
-  KeyboardAvoidingView, 
-  Platform, 
-  FlatList 
+import {
+  Modal,
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  FlatList,
+  ScrollView
 } from 'react-native';
-
-const CULTIVOS_FINA = [
-  'Trigo',
-  'Cebada',
-  'Avena',
-  'Centeno'
-];
-
-const CULTIVOS_GRUESA = [
-  'Soja de 1.a',
-  'Soja de 2.a',
-  'Maíz',
-  'Maíz Tardío',
-  'Girasol'
-];
+import { CULTIVOS_FINA, CULTIVOS_GRUESA, campanaDesdeCultivo } from '../../utils/fenologicosConfig';
 
 export default function CrearOperacionModal({
   visible,
@@ -32,11 +19,14 @@ export default function CrearOperacionModal({
   onGuardar,
   valoresIniciales = { roney_op: '', campo: '', campana: '', cultivo: '' },
   modoEdicion = false,
+  web,
+  coaseguros,
 }) {
   const [roneyOp, setRoneyOp] = useState(valoresIniciales.roney_op || '');
   const [campo, setCampo] = useState(valoresIniciales.campo || '');
-  const [campana, setCampana] = useState(valoresIniciales.campana || ''); // 'Fina' | 'Gruesa' | ''
+  const [campana, setCampana] = useState(campanaDesdeCultivo(valoresIniciales.cultivo) || valoresIniciales.campana || ''); // 'Fina' | 'Gruesa' | ''
   const [cultivo, setCultivo] = useState(valoresIniciales.cultivo || '');
+  const [coasegurosValor, setCoasegurosValor] = useState(coaseguros || valoresIniciales.coaseguros || '');
   const [cultivoModalVisible, setCultivoModalVisible] = useState(false);
 
   // Sincronizar con valoresIniciales cuando visible cambia
@@ -44,10 +34,11 @@ export default function CrearOperacionModal({
     if (visible) {
       setRoneyOp(valoresIniciales.roney_op || '');
       setCampo(valoresIniciales.campo || '');
-      setCampana(valoresIniciales.campana || '');
+      setCampana(campanaDesdeCultivo(valoresIniciales.cultivo) || valoresIniciales.campana || '');
       setCultivo(valoresIniciales.cultivo || '');
+      setCoasegurosValor(coaseguros || valoresIniciales.coaseguros || '');
     }
-  }, [valoresIniciales, visible]);
+  }, [valoresIniciales, coaseguros, visible]);
 
   // Manejar cambio de campaña: si el cultivo actual no pertenece a la nueva campaña, resetearlo
   const handleSeleccionarCampana = useCallback((tipo) => {
@@ -96,11 +87,12 @@ export default function CrearOperacionModal({
       roney_op: roneyOp.trim(),
       campo: campo.trim(),
       campana,
-      cultivo
+      cultivo,
+      coaseguros: coasegurosValor
     });
 
     handleCerrar();
-  }, [camposCompletos, roneyOp, campo, campana, cultivo, onGuardar]);
+  }, [camposCompletos, roneyOp, campo, campana, cultivo, coasegurosValor, onGuardar]);
 
   // Cerrar y resetear
   const handleCerrar = useCallback(() => {
@@ -108,8 +100,9 @@ export default function CrearOperacionModal({
     setCampo(valoresIniciales.campo || '');
     setCampana(valoresIniciales.campana || '');
     setCultivo(valoresIniciales.cultivo || '');
+    setCoasegurosValor(coaseguros || valoresIniciales.coaseguros || '');
     onClose();
-  }, [valoresIniciales, onClose]);
+  }, [valoresIniciales, coaseguros, onClose]);
 
   return (
     <Modal
@@ -128,16 +121,16 @@ export default function CrearOperacionModal({
           <View style={styles.modalContainer}>
             <View style={styles.header}>
               <Text style={styles.titulo}>{titulo}</Text>
-              <TouchableOpacity 
-                onPress={handleCerrar} 
-                accessibilityRole="button" 
+              <TouchableOpacity
+                onPress={handleCerrar}
+                accessibilityRole="button"
                 accessibilityLabel="Cerrar"
               >
                 <Text style={styles.cerrar}>✕</Text>
               </TouchableOpacity>
             </View>
 
-            <View>
+            <ScrollView keyboardShouldPersistTaps="handled">
               {/* 1. Nombre de la operación */}
               <Text style={styles.fieldLabel}>Nombre de la operación</Text>
               <TextInput
@@ -146,22 +139,35 @@ export default function CrearOperacionModal({
                 placeholderTextColor="#888"
                 value={roneyOp}
                 onChangeText={setRoneyOp}
+                editable={web !== 'S'}
                 autoFocus={!modoEdicion}
                 returnKeyType="next"
               />
 
-              {/* 2. Campo */}
-              <Text style={styles.fieldLabel}>Campo</Text>
+              {/* 2. Coaseguros */}
+              <Text style={styles.fieldLabel}>Coaseguros</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Ej: La Esperanza"
+                placeholder="-"
                 placeholderTextColor="#888"
-                value={campo}
-                onChangeText={setCampo}
+                value={coasegurosValor}
+                onChangeText={setCoasegurosValor}
                 returnKeyType="next"
               />
 
-              {/* 3. Campaña (Fina / Gruesa) */}
+              {/* 3. Nombre de asegurado */}
+              <Text style={styles.fieldLabel}>Nombre de asegurado</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ej: Juan Pérez"
+                placeholderTextColor="#888"
+                value={campo}
+                onChangeText={setCampo}
+                editable={web !== 'S'}
+                returnKeyType="next"
+              />
+
+              {/* 4. Campaña (Fina / Gruesa) */}
               <Text style={styles.fieldLabel}>Campaña</Text>
               <View style={styles.campanaButtonsContainer}>
                 <TouchableOpacity
@@ -203,7 +209,7 @@ export default function CrearOperacionModal({
                 </TouchableOpacity>
               </View>
 
-              {/* 4. Cultivo (dependiente de Campaña) */}
+              {/* 5. Cultivo (dependiente de Campaña) */}
               <Text style={styles.fieldLabel}>Cultivo</Text>
               <TouchableOpacity
                 style={[
@@ -214,11 +220,11 @@ export default function CrearOperacionModal({
                 onPress={() => {
                   if (campana) setCultivoModalVisible(true);
                 }}
-                disabled={!campana}
+                disabled={!campana || web === 'S'}
               >
                 <Text style={cultivo ? styles.cultivoTexto : styles.cultivoPlaceholder}>
-                  {!campana 
-                    ? '⚠️ Primero presione Fina o Gruesa' 
+                  {!campana
+                    ? '⚠️ Primero presione Fina o Gruesa'
                     : (cultivo ? `🌾 ${cultivo}` : `Seleccionar cultivo (${campana})...`)
                   }
                 </Text>
@@ -270,28 +276,29 @@ export default function CrearOperacionModal({
                 </View>
               </Modal>
 
-              {/* Botones inferiores */}
-              <View style={styles.botones}>
-                <TouchableOpacity 
-                  style={styles.cancelButton}
-                  onPress={handleCerrar}
-                >
-                  <Text style={styles.cancelButtonText}>Cancelar</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={[
-                    styles.saveButton,
-                    !camposCompletos && styles.saveButtonDisabled
-                  ]}
-                  onPress={handleGuardar}
-                  disabled={!camposCompletos}
-                >
-                  <Text style={styles.saveButtonText}>
-                    {textoBotonGuardar}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+            </ScrollView>
+
+            {/* Botones inferiores */}
+            <View style={styles.botones}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleCerrar}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.saveButton,
+                  !camposCompletos && styles.saveButtonDisabled
+                ]}
+                onPress={handleGuardar}
+                disabled={!camposCompletos}
+              >
+                <Text style={styles.saveButtonText}>
+                  {textoBotonGuardar}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -314,6 +321,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: '100%',
+    maxHeight: '100%',
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 24,

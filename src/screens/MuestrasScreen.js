@@ -13,7 +13,8 @@ import {
   obtenerEstadosFenologicos, 
   esEstadoValido,
   mapearEstadoATipoModal,
-  normalizarCultivo 
+  normalizarCultivo,
+  obtenerEstadosPorTipo
 } from '../utils/fenologicosConfig';
 import MuestraTrigoModal from '../components/modals/MuestraTrigoModal';
 import MuestraMaizModal from '../components/modals/MuestraMaizModal';
@@ -33,8 +34,13 @@ export default function MuestrasScreen({ route, navigation }) {
   const [cultivo, setCultivo] = useState('soja');
   const [estadosFenologicos, setEstadosFenologicos] = useState([]);
   const [muestras, setMuestras] = useState([]);
-  const [fenologicoSeleccionado, setFenologicoSeleccionado] = useState('');
-  
+  const [fenologicoSeleccionado, setFenologicoSeleccionado] = useState('todos');
+
+  // ✅ Propósito del selector fenológico: 'header' (cambio de vista) | 'crear' (flujo "+" en "Ver todos")
+  const [selectorProposito, setSelectorProposito] = useState('header');
+  // ✅ Estado para el modal nativo del selector fenológico
+  const [fenologicoModalVisible, setFenologicoModalVisible] = useState(false);
+
   const [modalTipo, setModalTipo] = useState(null);
   const [muestraEnEdicion, setMuestraEnEdicion] = useState(null);
   const [muestrasSeleccionadas, setMuestrasSeleccionadas] = useState(new Set());
@@ -52,7 +58,7 @@ export default function MuestrasScreen({ route, navigation }) {
     );
   }, []);
 
-  // ✅ Modo "Ver todos": solo visualización (no permite agregar muestras ni crear lotes)
+  // ✅ Modo "Ver todos": muestra todas las muestras; el "+" abre el selector de estado y crear lote sigue bloqueado
   const esVerTodos = fenologicoSeleccionado === 'todos';
 
   // ✅ Ref para verificar si el componente está montado
@@ -99,7 +105,8 @@ export default function MuestrasScreen({ route, navigation }) {
     setMuestrasSeleccionadas(new Set());
     setMuestraEnEdicion(null);
     setModalTipo(null);
-    setFenologicoSeleccionado('');
+    setFenologicoSeleccionado('todos');
+    setSelectorProposito('header');
     isNavigatingRef.current = false;
     cargarDatosOperacion();
     cargarLotes();
@@ -250,13 +257,12 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
       return;
     }
     if (esVerTodos) {
-      Alert.alert(
-        'Modo visualización',
-        'Con "Ver todos" solo podés ver las muestras. Seleccioná un estado fenológico para agregar una nueva.'
-      );
+      // ✅ En "Ver todos" el "+" abre el selector de estado; al elegir uno se abre el modal de creación
+      setSelectorProposito('crear');
+      setFenologicoModalVisible(true);
       return;
     }
-    if (!fenologicoSeleccionado) {
+    if (!fenologicoSeleccionado || fenologicoSeleccionado === 'vacio') {
       Alert.alert(
         'Estado fenológico requerido',
         'Por favor, selecciona un estado fenológico antes de agregar una muestra.'
@@ -314,19 +320,28 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
       return;
     }
     try {
-      const porcentajeDaño = calculoDeDaño(datosCompletos, fenologicoSeleccionado, cultivo);
-    
-      
-      const datosConDaño = { ...datosCompletos, porcentajeDaño };
-    
       if (muestraEnEdicion) {
+        // ✅ Edición: se persiste y recalcula con el estado PROPIO de la muestra, nunca con fenologicoSeleccionado
+        const estadoPropio = obtenerFenologicoDeMuestra(muestraEnEdicion) || muestraEnEdicion.estadoFenologico || '';
+        const esEstadoMeta = !estadoPropio || estadoPropio === 'todos' || estadoPropio === 'vacio';
+        const estadoEdicion = esEstadoMeta ? '' : estadoPropio;
+        const estadoCalculo = (!esEstadoMeta && esEstadoValido(cultivo, estadoPropio)) ? estadoPropio : '';
+        // ✅ Si el estado resuelto no es válido no se recalcula (evita NaN) y se conserva el daño anterior
+        const porcentajeDaño = estadoCalculo
+          ? calculoDeDaño(datosCompletos, estadoCalculo, cultivo)
+          : (muestraEnEdicion.datos?.porcentajeDaño ?? datosCompletos.porcentajeDaño ?? '0');
+        const datosConDaño = { ...datosCompletos, porcentajeDaño, estadoFenologico: estadoEdicion };
+
         const nuevasMuestras = muestras.map((m) =>
           m.id === muestraEnEdicion.id
-            ? { ...m, estadoFenologico: fenologicoSeleccionado, datos: { ...datosConDaño, coordenada: m.datos?.coordenada } }
+            ? { ...m, estadoFenologico: estadoEdicion, datos: { ...datosConDaño, coordenada: m.datos?.coordenada } }
             : m
         );
         await guardarMuestras(nuevasMuestras);
       } else {
+        const porcentajeDaño = calculoDeDaño(datosCompletos, fenologicoSeleccionado, cultivo);
+        const datosConDaño = { ...datosCompletos, porcentajeDaño };
+
         const numeroMuestra = await obtenerSiguienteNumeroMuestra(operacionId, tipo);
         
         const nuevaMuestra = {
@@ -353,11 +368,49 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
   const handleCambioFenologico = useCallback(async (nuevoFenologico) => {
     setFenologicoSeleccionado(nuevoFenologico);
     setMuestrasSeleccionadas(new Set());
-    // ✅ En modo consulta no se recalcula (recalcular escribe en storage)
-    if (nuevoFenologico && nuevoFenologico !== 'todos' && !modoConsulta) {
+    // ✅ En modo consulta no se recalcula (recalcular escribe en storage); 'todos'/'vacio' no son estados de cálculo
+    if (nuevoFenologico && nuevoFenologico !== 'todos' && nuevoFenologico !== 'vacio' && !modoConsulta) {
       await recalcularDañoMuestrasActuales(nuevoFenologico);
     }
-  }, [recalcularDañoMuestrasActuales, modoConsulta]);
+    // ✅ Flujo "+": tras elegir un estado se cierra el selector y se abre el modal de creación
+    if (selectorProposito === 'crear') {
+      setFenologicoModalVisible(false);
+      setSelectorProposito('header');
+      if (nuevoFenologico && nuevoFenologico !== 'todos' && nuevoFenologico !== 'vacio' && !modoConsulta) {
+        setMuestraEnEdicion(null);
+        // ✅ Se usa el valor elegido (el estado async aún no se reflejó en fenologicoSeleccionado)
+        setModalTipo(mapSeleccionToTipo(nuevoFenologico));
+      }
+    }
+  }, [recalcularDañoMuestrasActuales, modoConsulta, selectorProposito, mapSeleccionToTipo]);
+
+  // ✅ Cambio inmediato del estado fenológico de la muestra en edición (el lote no se toca)
+  const cambiarEstadoMuestra = useCallback(async (nuevoEstado) => {
+    if (modoConsulta) {
+      alertaConsulta();
+      return;
+    }
+    if (!muestraEnEdicion) return;
+    if (!nuevoEstado || nuevoEstado === 'todos' || nuevoEstado === 'vacio' || !esEstadoValido(cultivo, nuevoEstado)) return;
+    try {
+      const nuevasMuestras = muestras.map((m) => {
+        if (m.id !== muestraEnEdicion.id) return m;
+        const nuevoPorcentajeDaño = calculoDeDaño(m.datos, nuevoEstado, cultivo);
+        return {
+          ...m,
+          estadoFenologico: nuevoEstado,
+          datos: { ...m.datos, estadoFenologico: nuevoEstado, porcentajeDaño: nuevoPorcentajeDaño }
+        };
+      });
+      await guardarMuestras(nuevasMuestras);
+      const muestraActualizada = nuevasMuestras.find((m) => m.id === muestraEnEdicion.id);
+      if (isMountedRef.current && muestraActualizada) {
+        setMuestraEnEdicion(muestraActualizada);
+      }
+    } catch (e) {
+      console.error('Error cambiando estado fenológico:', e);
+    }
+  }, [muestraEnEdicion, muestras, cultivo, guardarMuestras, modoConsulta, alertaConsulta]);
 
   // ✅ Borrar muestra memoizado
   const borrarMuestra = useCallback((id) => {
@@ -460,6 +513,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
         fecha: new Date().toISOString(),
         tipoFenologico: fenologicoSeleccionado,
         tipoFenologicoLabel: fenologicoLabel,
+        conMuestras: datosLote.conMuestras || '',
       };
 
       const lotesData = await AsyncStorage.getItem(`lotes_${operacionId}`);
@@ -587,9 +641,6 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
     index,
   }), []);
 
-  // Estado para el modal nativo del selector fenológico
-  const [fenologicoModalVisible, setFenologicoModalVisible] = useState(false);
-
   const opcionesFenologicas = useMemo(() => {
     return [
       { label: 'Vacío', value: 'vacio' },
@@ -634,7 +685,10 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
         {estadosFenologicos && estadosFenologicos.length > 0 ? (
           <TouchableOpacity
             style={styles.selectorBtn}
-            onPress={() => setFenologicoModalVisible(true)}
+            onPress={() => {
+              setSelectorProposito('header');
+              setFenologicoModalVisible(true);
+            }}
           >
             <Text 
               style={[
@@ -678,7 +732,10 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
         visible={fenologicoModalVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setFenologicoModalVisible(false)}
+        onRequestClose={() => {
+          setSelectorProposito('header');
+          setFenologicoModalVisible(false);
+        }}
       >
         <View style={styles.modalBg}>
           <View style={styles.modalContainer}>
@@ -693,6 +750,9 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
                     setFenologicoModalVisible(false);
                     if (item.value !== fenologicoSeleccionado) {
                       handleCambioFenologico(item.value);
+                    } else if (selectorProposito === 'crear') {
+                      // ✅ Mismo valor elegido: se cancela el flujo "+" sin abrir creación
+                      setSelectorProposito('header');
                     }
                   }}
                 >
@@ -710,7 +770,10 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
             />
             <TouchableOpacity
               style={styles.modalCloseBtn}
-              onPress={() => setFenologicoModalVisible(false)}
+              onPress={() => {
+                setSelectorProposito('header');
+                setFenologicoModalVisible(false);
+              }}
             >
               <Text style={styles.modalCloseBtnText}>Cancelar</Text>
             </TouchableOpacity>
@@ -747,6 +810,9 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
         }}
         esEdicion={!!muestraEnEdicion}
         estadoFenologico={fenologicoSeleccionado}
+        estadoMuestra={muestraEnEdicion ? (muestraEnEdicion.estadoFenologico || fenologicoSeleccionado) : fenologicoSeleccionado}
+        estadosPermitidos={obtenerEstadosPorTipo(cultivo, modalTipo)}
+        onCambiarEstado={cambiarEstadoMuestra}
       />
 
       <CerrarLoteModal
@@ -779,7 +845,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
 }
 
 // Componente para manejar los diferentes modales
-function ModalesSegunTipo({ tipo, cultivo, visible, onCerrar, onGuardar, valoresIniciales, esEdicion, estadoFenologico }) {
+function ModalesSegunTipo({ tipo, cultivo, visible, onCerrar, onGuardar, valoresIniciales, esEdicion, estadoFenologico, estadoMuestra, estadosPermitidos, onCambiarEstado }) {
   if (!visible || !tipo) return null;
 
   const cultivoNormalizado = normalizarCultivo(cultivo);
@@ -796,6 +862,9 @@ function ModalesSegunTipo({ tipo, cultivo, visible, onCerrar, onGuardar, valores
       coordenada: '' 
     },
     estadoFenologico,
+    estadoMuestra,
+    estadosPermitidos,
+    onCambiarEstado,
     esEdicion: esEdicion,
     cultivo
   };

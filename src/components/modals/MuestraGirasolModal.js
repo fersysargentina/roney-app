@@ -19,6 +19,7 @@ import PhotoCapture from '../PhotoCapture';
 import { CoordenadasDmsInput, CoordenadasDmsOverlay } from '../../components/CoordenadasDms';
 import { formatearCoordenadasDMS } from '../../utils/coordenadas';
 import { obtenerEstadosFenologicos } from '../../utils/fenologicosConfig';
+import SelectorEstadoMuestra from '../SelectorEstadoMuestra';
 
 // --- CONFIGURACIÓN DE LOS 6 CAMPOS DE DATOS PARA GIRASOL ---
 const DATOS_COUNT = 5;
@@ -41,7 +42,10 @@ export default function MuestraGirasolModal({
   valoresIniciales = {},
   estadoFenologico = '',
   esEdicion = false,
-  cultivo = 'Girasol'
+  cultivo = 'Girasol',
+  estadoMuestra,
+  estadosPermitidos,
+  onCambiarEstado,
 }) {
 
   // Función para inicializar el estado de los datos (dato_1 a dato_23)
@@ -58,6 +62,7 @@ export default function MuestraGirasolModal({
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [editCoordDms, setEditCoordDms] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [estadoSel, setEstadoSel] = useState('');
   const insets = useSafeAreaInsets();
 
   // Sincronizar estado al cambiar valoresIniciales
@@ -65,7 +70,8 @@ export default function MuestraGirasolModal({
     setData(initializeDataState(valoresIniciales));
     setCoordenada(formatearCoordenadasDMS(valoresIniciales.coordenada) || '');
     setFotos(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
-  }, [valoresIniciales]);
+    setEstadoSel(estadoMuestra ?? '');
+  }, [valoresIniciales, estadoMuestra]);
 
   // Obtener GPS solo en creación
   useEffect(() => {
@@ -156,10 +162,14 @@ export default function MuestraGirasolModal({
 
   // Obtiene el nombre del estado fenológico para el título
   const getTituloEstado = () => {
-    const estados = obtenerEstadosFenologicos(cultivo);
-    const estado = estados.find(e => String(e.value) === String(estadoFenologico));
-    const label = estado?.label || '';
     const prefijo = esEdicion ? 'Editar Muestra' : 'Nueva Muestra';
+    const valorTitulo = esEdicion ? estadoSel : estadoFenologico;
+    let label = (estadosPermitidos || []).find(e => String(e.value) === String(valorTitulo))?.label || '';
+    if (!label) {
+      const estados = obtenerEstadosFenologicos(cultivo);
+      const estado = estados.find(e => String(e.value) === String(estadoFenologico));
+      label = estado?.label || '';
+    }
     return label ? `${prefijo} - ${label}` : prefijo;
   };
 
@@ -216,6 +226,17 @@ export default function MuestraGirasolModal({
             </View>
 
             <ScrollView keyboardShouldPersistTaps="handled">
+              {esEdicion && (
+                <View style={styles.estadoGroup}>
+                  <Text style={styles.label}>Estado fenológico</Text>
+                  <SelectorEstadoMuestra
+                    estadoActual={estadoSel}
+                    estados={estadosPermitidos || []}
+                    onSeleccionar={(v) => { setEstadoSel(v); onCambiarEstado && onCambiarEstado(v); }}
+                  />
+                </View>
+              )}
+
               <Text style={styles.label}>Coordenadas GPS:</Text>
               <View style={styles.gpsContainer}>
                 {loading ? (
@@ -338,6 +359,9 @@ const styles = StyleSheet.create({
     color: '#333',
     marginTop: 10,
     marginBottom: 5,
+  },
+  estadoGroup: {
+    marginBottom: 14,
   },
   input: {
     borderWidth: 1,

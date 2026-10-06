@@ -19,6 +19,7 @@ import PhotoCapture from '../PhotoCapture';
 import { CoordenadasDmsInput, CoordenadasDmsOverlay } from '../../components/CoordenadasDms';
 import { formatearCoordenadasDMS } from '../../utils/coordenadas';
 import { obtenerEstadosFenologicos } from '../../utils/fenologicosConfig';
+import SelectorEstadoMuestra from '../SelectorEstadoMuestra';
 
 // --- CONFIGURACIÓN DE LOS 21 CAMPOS DE DATOS ---
 const DATOS_COUNT = 21;
@@ -43,6 +44,9 @@ export default function MuestraTipo4Modal({
   esEdicion = false,
   estadoFenologico = '',
   cultivo = '',
+  estadoMuestra,
+  estadosPermitidos,
+  onCambiarEstado,
 }) {
   
   // ✅ Función de inicialización memoizada
@@ -58,7 +62,9 @@ export default function MuestraTipo4Modal({
   const [fotos, setFotos] = useState(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [editCoordDms, setEditCoordDms] = useState(false);
-  const [loading, setLoading] = useState(false);  const insets = useSafeAreaInsets();
+  const [loading, setLoading] = useState(false);
+  const [estadoSel, setEstadoSel] = useState('');
+  const insets = useSafeAreaInsets();
   // ✅ Ref para verificar si está montado
   const isMountedRef = useRef(true);
 
@@ -80,11 +86,12 @@ export default function MuestraTipo4Modal({
   // ✅ Sincroniza estado al cambiar valoresIniciales
   useEffect(() => {
     if (visible) {
+      setEstadoSel(estadoMuestra ?? '');
       setData(initializeDataState(valoresIniciales));
       setCoordenada(formatearCoordenadasDMS(valoresIniciales.coordenada) || '');
       setFotos(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
     }
-  }, [visible, valoresIniciales, initializeDataState]);
+  }, [visible, valoresIniciales, initializeDataState, estadoMuestra]);
 
   // ✅ Obtiene GPS solo en creación y si es visible
   useEffect(() => {
@@ -164,10 +171,10 @@ export default function MuestraTipo4Modal({
       coordenada,
       fotos,
       fotoUri: fotos[0] || null,
-      estadoFenologico: estadoFenologico,
+      estadoFenologico: estadoSel,
     };
     onGuardar(datosCompletos);
-  }, [camposValidos, data, coordenada, fotos, onGuardar]);
+  }, [camposValidos, data, coordenada, fotos, estadoSel, onGuardar]);
 
   // ✅ Cerrar memoizado
   const handleCerrar = useCallback(() => {
@@ -199,14 +206,18 @@ export default function MuestraTipo4Modal({
     });
   }, [data, handleDataChange]);
 
-  // ✅ Título memoizado: siempre "Nueva Muestra" o "Editar Muestra" + estado fenológico seleccionado
+  // ✅ Título memoizado: "Nueva/Editar Muestra" + estado fenológico (en edición usa el selector)
   const titulo = useMemo(() => {
-    const estados = obtenerEstadosFenologicos(cultivo);
-    const estado = estados.find(e => String(e.value) === String(estadoFenologico));
-    const label = estado?.label || '';
     const prefijo = esEdicion ? 'Editar Muestra' : 'Nueva Muestra';
+    const valorTitulo = esEdicion ? estadoSel : estadoFenologico;
+    let label = (estadosPermitidos || []).find(e => String(e.value) === String(valorTitulo))?.label || '';
+    if (!label) {
+      const estados = obtenerEstadosFenologicos(cultivo);
+      const estado = estados.find(e => String(e.value) === String(estadoFenologico));
+      label = estado?.label || '';
+    }
     return label ? `${prefijo} - ${label}` : prefijo;
-  }, [esEdicion, estadoFenologico, cultivo]);
+  }, [esEdicion, estadoSel, estadoFenologico, cultivo, estadosPermitidos]);
 
   // ✅ Estilos dinámicos memoizados
   const coordsInputStyle = useMemo(() => [
@@ -251,6 +262,17 @@ export default function MuestraTipo4Modal({
               </View>
               
               <ScrollView keyboardShouldPersistTaps="handled">
+                {esEdicion && (
+                  <View style={styles.estadoGroup}>
+                    <Text style={styles.label}>Estado fenológico</Text>
+                    <SelectorEstadoMuestra
+                      estadoActual={estadoSel}
+                      estados={estadosPermitidos || []}
+                      onSeleccionar={(v) => { setEstadoSel(v); onCambiarEstado && onCambiarEstado(v); }}
+                    />
+                  </View>
+                )}
+
                 <Text style={styles.label}>Coordenadas GPS:</Text>
                 <View style={styles.gpsContainer}>
                   {loading ? (
@@ -370,6 +392,9 @@ const styles = StyleSheet.create({
     color: '#333',
     marginTop: 10,
     marginBottom: 5,
+  },
+  estadoGroup: {
+    marginBottom: 14,
   },
   input: {
     borderWidth: 1,

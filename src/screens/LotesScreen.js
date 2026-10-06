@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import LoteItem from '../components/LoteItem';
 import EditarLoteModal from '../components/modals/EditarLoteModal';
+import ComentariosModal from '../components/modals/ComentariosModal';
 import { ErrorHandler } from '../utils/ErrorHandler';
 import { getUserSession, getDeviceInfo } from '../services/AuthService';
 import { MODO_TEST_ENVIO } from '../utils/modoConfig';
@@ -34,7 +35,11 @@ export default function LotesScreen({ route, navigation }) {
   const [loteSeleccionado, setLoteSeleccionado] = useState(null);
   const [cultivo, setCultivo] = useState('soja');
   const [campoNombre, setCampoNombre] = useState('');
+  const [web, setWeb] = useState('N');
+  const [coaseguros, setCoaseguros] = useState('');
   const [lotesSeleccionados, setLotesSeleccionados] = useState(new Set());
+  const [comentarios, setComentarios] = useState('');
+  const [modalComentariosVisible, setModalComentariosVisible] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
   // ✅ Modo consulta: producción + al menos un lote enviado de esta operación
@@ -90,6 +95,9 @@ export default function LotesScreen({ route, navigation }) {
         if (operacionActual && isMountedRef.current) {
           setCultivo(operacionActual.cultivo || 'soja');
           setCampoNombre(operacionActual.campo || '');
+          setWeb(operacionActual.web || 'N');
+          setCoaseguros(operacionActual.coaseguros || '');
+          setComentarios(operacionActual.comentarios || '');
         }
       }
     } catch (e) {
@@ -178,6 +186,36 @@ export default function LotesScreen({ route, navigation }) {
     setModalVisible(false);
     setLoteSeleccionado(null);
   }, []);
+
+  // ✅ Abrir modal de comentarios (con el valor guardado)
+  const abrirModalComentarios = useCallback(() => {
+    setModalComentariosVisible(true);
+  }, []);
+
+  // ✅ Cerrar modal de comentarios
+  const cerrarModalComentarios = useCallback(() => {
+    setModalComentariosVisible(false);
+  }, []);
+
+  // ✅ Guardar comentarios en la operación (AsyncStorage)
+  const guardarComentarios = useCallback(async (textoGuardado) => {
+    const texto = (textoGuardado ?? '').trim();
+    try {
+      const data = await AsyncStorage.getItem('operaciones');
+      const operaciones = ErrorHandler.safeJsonParse(data, []);
+      if (Array.isArray(operaciones)) {
+        const idx = operaciones.findIndex(op => op && op.id === operacionId);
+        if (idx >= 0) {
+          operaciones[idx] = { ...operaciones[idx], comentarios: texto };
+          await AsyncStorage.setItem('operaciones', JSON.stringify(operaciones));
+        }
+      }
+      setComentarios(texto);
+      setModalComentariosVisible(false);
+    } catch (e) {
+      Alert.alert('Error', 'No se pudieron guardar los comentarios');
+    }
+  }, [operacionId]);
 
   const actualizarLote = useCallback(async (loteActualizado) => {
     if (modoConsulta) {
@@ -401,6 +439,7 @@ export default function LotesScreen({ route, navigation }) {
         danPactado: lote.dañoFinal ?? lote.dañoReal ?? 0,
         tipoFenologico: lote.tipoFenologico ?? '',
         tipoFenologicoLabel: lote.tipoFenologicoLabel || '',
+        conMuestras: lote.conMuestras || '',
         fecha: lote.fecha || '',
       },
       muestras: muestrasConFotos.map(m => ({
@@ -437,11 +476,15 @@ export default function LotesScreen({ route, navigation }) {
         operacionId,
         roney_op: roney_op || '',
         campo: campoNombre || '',
+        asegunom: campoNombre || '',
         cultivo: cultivo || '',
+        web: web || 'N',
+        coaseguros: coaseguros || '',
+        comentarios: comentarios || '',
       },
       lotes,
     };
-  }, [operacionId, roney_op, campoNombre, cultivo, construirDatosLote]);
+  }, [operacionId, roney_op, campoNombre, cultivo, web, coaseguros, comentarios, construirDatosLote]);
 
   // ✅ Enviar TODOS los lotes seleccionados en un solo JSON
   const enviarLotes = useCallback(async () => {
@@ -613,13 +656,24 @@ export default function LotesScreen({ route, navigation }) {
     <View style={styles.container}>
       {lotes.length > 0 && (
         <View style={styles.statsContainer}>
-          <Text style={styles.statsFieldName}>{campoNombre || 'Campo'}</Text>
+          <Text style={styles.statsFieldName}>{campoNombre || 'Nombre de asegurado'}</Text>
           <Text style={styles.statLine}>
             Total Has. Sembradas/Aseg.: <Text style={styles.statValueInline}>{totalHasSembradas.toFixed(1)} ha</Text>
           </Text>
           <Text style={styles.statLine}>
             Total Has. Dañadas: <Text style={[styles.statValueInline, styles.statValueDamage]}>{totalHasDañadas.toFixed(1)} ha</Text>
           </Text>
+          {!modoConsulta && (
+            <TouchableOpacity
+              style={styles.comentariosBtn}
+              onPress={abrirModalComentarios}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.comentariosBtnText}>
+                Comentarios{comentarios ? ' ✓' : ''}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -671,6 +725,13 @@ export default function LotesScreen({ route, navigation }) {
         onLiberarMuestra={liberarMuestra}
         onEliminarLote={eliminarLote}
       />
+
+      <ComentariosModal
+        visible={modalComentariosVisible}
+        valor={comentarios}
+        onClose={cerrarModalComentarios}
+        onGuardar={guardarComentarios}
+      />
     </View>
   );
 }
@@ -712,6 +773,21 @@ const styles = StyleSheet.create({
   },
   statValueDamage: {
     color: '#dc3545',
+  },
+  comentariosBtn: {
+    marginTop: 12,
+    paddingVertical: 9,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#007bff',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+  },
+  comentariosBtnText: {
+    color: '#007bff',
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   emptyContainer: {
     flex: 1,
