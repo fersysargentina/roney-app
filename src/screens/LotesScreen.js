@@ -17,7 +17,7 @@ import EditarLoteModal from '../components/modals/EditarLoteModal';
 import ComentariosModal from '../components/modals/ComentariosModal';
 import { ErrorHandler } from '../utils/ErrorHandler';
 import { getUserSession, getDeviceInfo } from '../services/AuthService';
-import { MODO_TEST_ENVIO } from '../utils/modoConfig';
+import { MODO_TEST_ENVIO, DEV } from '../utils/modoConfig';
 
 // ✅ Constantes fuera del componente
 const LOTE_ITEM_HEIGHT = 200; // Ajusta según tu LoteItem real
@@ -486,6 +486,102 @@ export default function LotesScreen({ route, navigation }) {
     };
   }, [operacionId, roney_op, campoNombre, cultivo, web, coaseguros, comentarios, construirDatosLote]);
 
+  // ✅ Marcar los lotes seleccionados como fallidos cuando el envío no llega
+  const marcarFalloEnvio = useCallback(async () => {
+    const nuevosLotes = lotes.map(l =>
+      lotesSeleccionados.has(l.id) && !l.enviado
+        ? { ...l, envioFallido: true }
+        : l
+    );
+    await AsyncStorage.setItem(`lotes_${operacionId}`, JSON.stringify(nuevosLotes));
+    if (isMountedRef.current) setLotes(nuevosLotes);
+  }, [lotes, lotesSeleccionados, operacionId]);
+
+  // ✅ Registrar en forma persistente qué se envió (sin fotos) — lo usa el sync para no re-importar
+  const registrarEnvio = useCallback(async (lotesEnviados) => {
+    try {
+      const clave = (roney_op || '').trim().toLowerCase();
+      if (!clave) return;
+      const data = await AsyncStorage.getItem('envios_registrados');
+      const registros = ErrorHandler.safeJsonParse(data, []);
+      const lista = Array.isArray(registros) ? registros : [];
+      const idx = lista.findIndex(r => r && String(r.roney_op || '').trim().toLowerCase() === clave);
+      const previo = idx >= 0 ? lista[idx] : {};
+      const lotesPrevios = Array.isArray(previo.lotes) ? previo.lotes : [];
+      const lotesNuevos = lotesPrevios.slice();
+      (Array.isArray(lotesEnviados) ? lotesEnviados : []).forEach(l => {
+        if (l && !lotesNuevos.some(x => x && x.id === l.id)) {
+          lotesNuevos.push({ id: l.id, nombreLote: l.nombreLote || '' });
+        }
+      });
+      const registro = {
+        roney_op: roney_op || '',
+        operacionId,
+        asegunom: campoNombre || '',
+        cultivo: cultivo || '',
+        fechaEnvio: new Date().toISOString(),
+        lotes: lotesNuevos,
+      };
+      if (idx >= 0) lista[idx] = registro;
+      else lista.push(registro);
+      await AsyncStorage.setItem('envios_registrados', JSON.stringify(lista));
+    } catch (e) {
+      console.warn('No se pudo registrar el envío:', e && e.message);
+    }
+  }, [roney_op, operacionId, campoNombre, cultivo]);
+
+  // ✅ DEV=false: al quedar la operación totalmente enviada, borrar sus datos del dispositivo
+  const borrarDatosOperacion = useCallback(async () => {
+    try {
+      // 1) Recolectar las fotos de las muestras (archivos en documentDirectory)
+      const muestrasData = await ErrorHandler.getStorageData(`muestras_${operacionId}`);
+      const muestras = ErrorHandler.safeJsonParse(muestrasData, []);
+      const uris = [];
+      if (Array.isArray(muestras)) {
+        muestras.forEach(m => {
+          if (!m) return;
+          const listas = [m.datos?.fotos, m.fotos];
+          listas.forEach(lista => {
+            if (Array.isArray(lista)) {
+              lista.forEach(u => { if (typeof u === 'string' && u) uris.push(u); });
+            }
+          });
+          const simples = [m.datos?.fotoUri, m.fotoUri];
+          simples.forEach(u => { if (typeof u === 'string' && u) uris.push(u); });
+        });
+      }
+
+      // 2) Borrar los archivos de disco (idempotente por si ya no existen)
+      const unicas = [];
+      uris.forEach(u => { if (unicas.indexOf(u) === -1) unicas.push(u); });
+      await Promise.all(
+        unicas.map(u => FileSystem.deleteAsync(u, { idempotent: true }).catch(() => {}))
+      );
+
+      // 3) Quitar las claves de la operación
+      await AsyncStorage.removeItem(`lotes_${operacionId}`);
+      await AsyncStorage.removeItem(`muestras_${operacionId}`);
+
+      // 4) Quitar la operación de la lista general
+      const opsData = await AsyncStorage.getItem('operaciones');
+      const operaciones = ErrorHandler.safeJsonParse(opsData, []);
+      if (Array.isArray(operaciones)) {
+        const restantes = operaciones.filter(op => !(op && String(op.id) === String(operacionId)));
+        await AsyncStorage.setItem('operaciones', JSON.stringify(restantes));
+      }
+
+      // 5) Limpiar el estado local
+      if (isMountedRef.current) {
+        setLotes([]);
+        setLotesSeleccionados(new Set());
+      }
+      return true;
+    } catch (e) {
+      console.warn('No se pudieron borrar los datos de la operación:', e && e.message);
+      return false;
+    }
+  }, [operacionId]);
+
   // ✅ Enviar TODOS los lotes seleccionados en un solo JSON
   const enviarLotes = useCallback(async () => {
     // ✅ Modo consulta: nunca enviar
@@ -500,6 +596,8 @@ export default function LotesScreen({ route, navigation }) {
 
     if (enviando) return;
     setEnviando(true);
+
+    let borradoOk = false;
 
     try {
       const jsonEnvio = await construirJsonEnvio(seleccionados);
@@ -530,7 +628,7 @@ export default function LotesScreen({ route, navigation }) {
         // ✅ Marcar todos los lotes enviados
         const nuevosLotes = lotes.map(l =>
           lotesSeleccionados.has(l.id) && !l.enviado
-            ? { ...l, enviado: true, fechaEnvio: new Date().toISOString() }
+            ? { ...l, enviado: true, fechaEnvio: new Date().toISOString(), envioFallido: false }
             : l
         );
         await AsyncStorage.setItem(`lotes_${operacionId}`, JSON.stringify(nuevosLotes));
@@ -538,16 +636,33 @@ export default function LotesScreen({ route, navigation }) {
           setLotes(nuevosLotes);
           setLotesSeleccionados(new Set());
         }
+
+        await registrarEnvio(seleccionados);
+
+        // ✅ Operación 100% enviada → borrar sus datos del dispositivo (salvo en DEV)
+        const todosEnviados = nuevosLotes.every(l => l && l.enviado);
+        if (todosEnviados && !DEV) {
+          borradoOk = await borrarDatosOperacion();
+        }
       } else {
         console.warn(
           '⚠️ Servidor rechazó el envío',
           resp ? (resp.message || resp.error || 'desconocido') : `HTTP ${response.status}`
         );
+        try { await marcarFalloEnvio(); } catch (_) {}
       }
 
       if (isMountedRef.current) {
         if (ok) {
-          Alert.alert('✔ Lotes Enviados', `Se enviaron ${seleccionados.length} lote(s) correctamente.`);
+          const mensajeOk = `Se enviaron ${seleccionados.length} lote(s) correctamente.`
+            + (borradoOk ? '\n\nLos datos de la operación se borraron del dispositivo.' : '');
+          if (navigation.canGoBack()) {
+            Alert.alert('✔ Lotes Enviados', mensajeOk, [
+              { text: 'OK', onPress: () => navigation.goBack() },
+            ]);
+          } else {
+            Alert.alert('✔ Lotes Enviados', mensajeOk);
+          }
         } else {
           // ✅ Mostrar el mensaje del servidor si lo envía (ej: cuenta inactiva)
           const mensajeServidor = resp ? (resp.message || resp.error) : null;
@@ -561,6 +676,7 @@ export default function LotesScreen({ route, navigation }) {
       }
     } catch (err) {
       console.warn('⚠️ Error en el envío:', err.message);
+      try { await marcarFalloEnvio(); } catch (_) {}
       if (isMountedRef.current) {
         Alert.alert('Error al enviar', 'No se pudieron enviar los lotes.\n\nRevisá la conexión e intentá nuevamente.');
       }
@@ -569,7 +685,7 @@ export default function LotesScreen({ route, navigation }) {
         setEnviando(false);
       }
     }
-  }, [lotes, lotesSeleccionados, enviando, construirJsonEnvio, operacionId, modoConsulta, alertaConsulta]);
+  }, [lotes, lotesSeleccionados, enviando, construirJsonEnvio, operacionId, modoConsulta, alertaConsulta, marcarFalloEnvio, registrarEnvio, borrarDatosOperacion, navigation]);
 
   // ✅ Confirmar envío con alerta que enumera los lotes
   const confirmarEnvio = useCallback(() => {

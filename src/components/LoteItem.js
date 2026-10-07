@@ -95,6 +95,11 @@ export default React.memo(function LoteItem({ lote, onPress, onDelete, isSelecte
         <View style={styles.headerLeft}>
           <Text style={[styles.nombreLote, enviado && styles.textoEnviado]}>{lote.nombreLote}</Text>
           <Text style={styles.fecha}>{fechaFormateada}</Text>
+          {!enviado && lote.envioFallido && (
+            <View style={styles.noEnviadoBadge}>
+              <Text style={styles.noEnviadoBadgeText}>NO ENVIADO</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.headerActions}>
@@ -227,6 +232,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: 'bold',
     color: '#fff',
+  },
+  noEnviadoBadge: {
+    backgroundColor: '#dc3545',
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  noEnviadoBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 1,
   },
   selectionIndicator: {
     marginTop: 10,

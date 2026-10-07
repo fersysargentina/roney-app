@@ -17,6 +17,7 @@ const SYNCAPP_URL = 'https://fersystest.com/roney/syncapp.php';
 export default function OperacionesScreen({ navigation, userSession, onLogout, onDeleteAccount }) {
   const [operaciones, setOperaciones] = useState([]);
   const [enviadasMap, setEnviadasMap] = useState({}); // { [opId]: true } si tiene lotes enviados
+  const [fallidosMap, setFallidosMap] = useState({}); // { [opId]: true } si el último envío falló
   const [modalVisible, setModalVisible] = useState(false);
   const [perfilModalVisible, setPerfilModalVisible] = useState(false);
   const [operacionSeleccionada, setOperacionSeleccionada] = useState(null);
@@ -59,19 +60,24 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
         try {
           const dataLotes = await AsyncStorage.getItem(`lotes_${op.id}`);
           const lotes = dataLotes ? JSON.parse(dataLotes) : [];
-          return [op.id, Array.isArray(lotes) && lotes.some(l => l && l.enviado)];
+          const hayEnviados = Array.isArray(lotes) && lotes.some(l => l && l.enviado);
+          const hayFallidos = Array.isArray(lotes) && lotes.some(l => l && l.envioFallido);
+          return [op.id, hayEnviados, hayFallidos];
         } catch (_) {
-          return [op.id, false];
+          return [op.id, false, false];
         }
       }));
       const nuevoEnviadasMap = {};
-      estadosEnvio.forEach(([id, estaEnviado]) => {
+      const nuevoFallidosMap = {};
+      estadosEnvio.forEach(([id, estaEnviado, estaFallido]) => {
         if (estaEnviado) nuevoEnviadasMap[id] = true;
+        if (estaFallido && !estaEnviado) nuevoFallidosMap[id] = true;
       });
 
       if (isMountedRef.current) {
         setOperaciones(operacionesOrdenadas);
         setEnviadasMap(nuevoEnviadasMap);
+        setFallidosMap(nuevoFallidosMap);
       }
     } catch (e) {
       console.error('❌ OperacionesScreen: Error cargando operaciones:', e);
@@ -253,7 +259,18 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
       let nuevasAgregadas = 0;
       let yaExistentes = 0;
       let webActualizadas = 0;
+      let omitidasEnvio = 0;
       let listaActualizada = [...opsActuales];
+
+      // ✅ Registro local de envíos: no re-importar operaciones que ya se enviaron desde este dispositivo
+      const regData = await ErrorHandler.getStorageData('envios_registrados');
+      const registrosEnvio = ErrorHandler.safeJsonParse(regData, []);
+      const enviadasReg = new Set();
+      if (Array.isArray(registrosEnvio)) {
+        registrosEnvio.forEach(r => {
+          if (r && r.roney_op) enviadasReg.add(String(r.roney_op).trim().toLowerCase());
+        });
+      }
 
       for (const item of ordenesParaProcesar) {
         const nombreOp = (item.roney_op || item.nombre || item.operacion || item.nombre_operacion || '').trim();
@@ -278,6 +295,9 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
             );
             webActualizadas++;
           }
+        } else if (enviadasReg.has(nombreOp.toLowerCase())) {
+          // ✅ Ya enviada desde este dispositivo y borrada: no re-importar
+          omitidasEnvio++;
         } else {
           const nuevaOp = {
             id: item.id?.toString() || Date.now().toString() + '_' + Math.random().toString(36).substr(2, 4),
@@ -300,7 +320,7 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
           if (nuevasAgregadas > 0) {
             Alert.alert(
               'Sincronización Exitosa',
-              `Se agregaron ${nuevasAgregadas} nueva(s) operación(es) desde el servidor.${yaExistentes > 0 ? ` (${yaExistentes} ya existían)` : ''}`
+              `Se agregaron ${nuevasAgregadas} nueva(s) operación(es) desde el servidor.${yaExistentes > 0 ? ` (${yaExistentes} ya existían)` : ''}${omitidasEnvio > 0 ? ` ${omitidasEnvio} orden(es) ya enviadas fueron omitidas` : ''}`
             );
           } else {
             Alert.alert(
@@ -310,12 +330,16 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
           }
         }
       } else if (!enSilencio) {
-        Alert.alert(
-          'Sincronización',
-          yaExistentes > 0
-            ? 'La(s) orden(es) recibida(s) ya existen en el dispositivo.'
-            : 'No se encontraron nuevas órdenes para este dispositivo.'
-        );
+        if (omitidasEnvio > 0) {
+          Alert.alert('Sincronización', `${omitidasEnvio} orden(es) ya enviadas desde este dispositivo: no se volvieron a importar.`);
+        } else {
+          Alert.alert(
+            'Sincronización',
+            yaExistentes > 0
+              ? 'La(s) orden(es) recibida(s) ya existen en el dispositivo.'
+              : 'No se encontraron nuevas órdenes para este dispositivo.'
+          );
+        }
       }
     } catch (e) {
       console.error('Error durante sincronización:', e);
@@ -392,11 +416,12 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
     <OperacionItem
       item={item}
       enviado={Boolean(enviadasMap[item.id])}
+      envioFallido={Boolean(fallidosMap[item.id])}
       onPress={() => abrirModalEdicion(item)}
       onBorrar={() => handleBorrarOperacion(item.id)}
       onMuestras={() => navegarAMuestras(item.roney_op, item.id)}
     />
-  ), [enviadasMap, abrirModalEdicion, handleBorrarOperacion, navegarAMuestras]);
+  ), [enviadasMap, fallidosMap, abrirModalEdicion, handleBorrarOperacion, navegarAMuestras]);
 
   // ✅ Memoizar keyExtractor
   const keyExtractor = useCallback((item) => item.id, []);

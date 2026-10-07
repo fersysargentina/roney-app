@@ -43,6 +43,7 @@ export default function MuestrasScreen({ route, navigation }) {
 
   const [modalTipo, setModalTipo] = useState(null);
   const [muestraEnEdicion, setMuestraEnEdicion] = useState(null);
+  const [huboCambioEstado, setHuboCambioEstado] = useState(false);
   const [muestrasSeleccionadas, setMuestrasSeleccionadas] = useState(new Set());
   const [cerrarLoteModalVisible, setCerrarLoteModalVisible] = useState(false);
   const [cantidadLotes, setCantidadLotes] = useState(0);
@@ -277,6 +278,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
   const cerrarModal = useCallback(() => {
     setModalTipo(null);
     setMuestraEnEdicion(null);
+    setHuboCambioEstado(false);
   }, []);
 
   // ✅ Navegación a Lotes con debounce para evitar crash por doble tap / back rápido
@@ -338,6 +340,10 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
             : m
         );
         await guardarMuestras(nuevasMuestras);
+        // ✅ Si se cambió el estado fenológico, el filtro de la lista vuelve a "Ver todos"
+        if (huboCambioEstado) {
+          setFenologicoSeleccionado('todos');
+        }
       } else {
         const porcentajeDaño = calculoDeDaño(datosCompletos, fenologicoSeleccionado, cultivo);
         const datosConDaño = { ...datosCompletos, porcentajeDaño };
@@ -363,7 +369,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
     } finally {
       cerrarModal();
     }
-  }, [muestraEnEdicion, muestras, fenologicoSeleccionado, cultivo, operacionId, guardarMuestras, cerrarModal, obtenerSiguienteNumeroMuestra, modoConsulta, alertaConsulta]);
+  }, [muestraEnEdicion, muestras, fenologicoSeleccionado, cultivo, operacionId, guardarMuestras, cerrarModal, obtenerSiguienteNumeroMuestra, modoConsulta, alertaConsulta, huboCambioEstado]);
 
   const handleCambioFenologico = useCallback(async (nuevoFenologico) => {
     setFenologicoSeleccionado(nuevoFenologico);
@@ -406,6 +412,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
       const muestraActualizada = nuevasMuestras.find((m) => m.id === muestraEnEdicion.id);
       if (isMountedRef.current && muestraActualizada) {
         setMuestraEnEdicion(muestraActualizada);
+        setHuboCambioEstado(true);
       }
     } catch (e) {
       console.error('Error cambiando estado fenológico:', e);
@@ -811,7 +818,11 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
         esEdicion={!!muestraEnEdicion}
         estadoFenologico={fenologicoSeleccionado}
         estadoMuestra={muestraEnEdicion ? (muestraEnEdicion.estadoFenologico || fenologicoSeleccionado) : fenologicoSeleccionado}
-        estadosPermitidos={obtenerEstadosPorTipo(cultivo, modalTipo)}
+        estadosPermitidos={
+          normalizarCultivo(cultivo) === 'girasol'
+            ? obtenerEstadosFenologicos(cultivo)
+            : obtenerEstadosPorTipo(cultivo, modalTipo)
+        }
         onCambiarEstado={cambiarEstadoMuestra}
       />
 

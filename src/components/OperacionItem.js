@@ -2,7 +2,7 @@ import React, { useCallback, useMemo } from 'react';
 import { View, Text, Button, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { MODO_TEST_ENVIO } from '../utils/modoConfig';
 
-export default React.memo(function OperacionItem({ item, onPress, onBorrar, onMuestras, enviado }) {
+export default React.memo(function OperacionItem({ item, onPress, onBorrar, onMuestras, enviado, envioFallido }) {
 
   // ✅ true si la operación tiene al menos un lote enviado (lo calcula OperacionesScreen)
   const tieneLotesEnviados = Boolean(enviado);
@@ -47,11 +47,15 @@ export default React.memo(function OperacionItem({ item, onPress, onBorrar, onMu
           onPress={handleBorrar}
         />
         {/* ✅ Cartel de estado entre los botones */}
-        {tieneLotesEnviados && (
+        {tieneLotesEnviados ? (
           <View style={styles.enviadoBadge}>
             <Text style={styles.enviadoBadgeText}>ENVIADO</Text>
           </View>
-        )}
+        ) : envioFallido ? (
+          <View style={styles.noEnviadoBadge}>
+            <Text style={styles.noEnviadoBadgeText}>NO ENVIADO</Text>
+          </View>
+        ) : null}
         {/* ✅ En modo consulta se puede entrar a ver muestras/lotes */}
         <Button
           title="Muestras"
@@ -91,6 +95,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   enviadoBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  noEnviadoBadge: {
+    flex: 1,
+    alignSelf: 'center',
+    backgroundColor: '#dc3545',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignItems: 'center',
+  },
+  noEnviadoBadgeText: {
     color: '#fff',
     fontSize: 11,
     fontWeight: 'bold',
