@@ -18,8 +18,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DraftService } from '../../services/DraftService';
 import PhotoCapture from '../PhotoCapture';
 import { CoordenadasDmsInput, CoordenadasDmsOverlay } from '../../components/CoordenadasDms';
+import { parseInputNumber } from '../../utils/calculoDeDano';
 import { formatearCoordenadasDMS } from '../../utils/coordenadas';
 import { obtenerEstadosFenologicos } from '../../utils/fenologicosConfig';
+import { validarDatosMuestra, normalizarConteos } from '../../utils/validacionMuestras';
 import SelectorEstadoMuestra from '../SelectorEstadoMuestra';
 
 const DRAFT_KEY = 'muestra_tipo2_draft';
@@ -60,7 +62,6 @@ export default function MuestraTipo2Modal({
   const [fotos, setFotos] = useState(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [editCoordDms, setEditCoordDms] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [estadoSel, setEstadoSel] = useState('');
   const insets = useSafeAreaInsets();
 
@@ -159,7 +160,7 @@ export default function MuestraTipo2Modal({
       if (status !== 'granted') {
         if (isMountedRef.current && visibleRef.current) {
           Alert.alert('Error', 'Se necesita permiso de ubicación para obtener las coordenadas GPS');
-          setCoordenada('Error: Sin permisos de ubicación');
+          setCoordenada('');
         }
         return;
       }
@@ -184,7 +185,7 @@ export default function MuestraTipo2Modal({
       if (!isMountedRef.current || !visibleRef.current) return;
       console.error('Error obteniendo coordenadas:', error);
       Alert.alert('Error', 'No se pudieron obtener las coordenadas GPS');
-      setCoordenada('Error obteniendo coordenadas');
+      setCoordenada('');
     } finally {
       if (isMountedRef.current && visibleRef.current) {
         setLoadingGPS(false);
@@ -192,40 +193,35 @@ export default function MuestraTipo2Modal({
     }
   }, [esEdicion]);
 
-  // ✅ Validación de campos memoizada (todos los 9 datos + coordenada)
+  // ✅ Validación de campos memoizada (los datos ahora son opcionales; la coordenada sigue siendo obligatoria)
   const camposValidos = useMemo(() => {
-    const validos = dato_1.trim() &&
-      dato_2.trim() &&
-      dato_3.trim() &&
-      dato_4.trim() &&
-      dato_5.trim() &&
-      dato_6.trim() &&
-      dato_7.trim() &&
-      dato_8.trim() &&
-      dato_9.trim() &&
-      coordenada.trim();
-    if (!validos) return false;
-    // Nacidas en D debe ser mayor o igual a Remanentes en D
-    const nacidas = parseFloat(dato_1);
-    const remanentes = parseFloat(dato_2);
-    return !isNaN(nacidas) && !isNaN(remanentes) && nacidas >= remanentes;
-  }, [dato_1, dato_2, dato_3, dato_4, dato_5, dato_6, dato_7, dato_8, dato_9, coordenada]);
+    return coordenada.trim();
+  }, [coordenada]);
 
   // ✅ Guardar memoizado
   const handleGuardar = useCallback(() => {
-    if (!dato_1.trim() || !dato_2.trim() || !dato_3.trim() || !dato_4.trim() || !dato_5.trim() || !dato_6.trim() || !dato_7.trim() || !dato_8.trim() || !dato_9.trim() || !coordenada.trim()) {
-      Alert.alert('Error', 'Todos los campos de datos y la coordenada son obligatorios');
+    const validacion = validarDatosMuestra('tipo2', {
+      dato_1, dato_2, dato_3, dato_4, dato_5, dato_6, dato_7, dato_8, dato_9,
+    });
+    if (!validacion.ok) {
+      Alert.alert('Error', validacion.mensaje);
       return;
     }
-    // Validación: Nacidas en D >= Remanentes en D
-    const nacidas = parseFloat(dato_1);
-    const remanentes = parseFloat(dato_2);
-    if (isNaN(nacidas) || isNaN(remanentes) || nacidas < remanentes) {
-      Alert.alert('Error', 'Nacidas en D debe ser mayor o igual a Remanentes en D');
+    if (!coordenada.trim()) {
+      Alert.alert('Error', 'La coordenada es obligatoria');
       return;
+    }
+    // Validación: Nacidas en D >= Remanentes en D (solo si el grupo está completo)
+    if (dato_1.trim() && dato_2.trim()) {
+      const nacidas = parseFloat(dato_1);
+      const remanentes = parseFloat(dato_2);
+      if (isNaN(nacidas) || isNaN(remanentes) || nacidas < remanentes) {
+        Alert.alert('Error', 'Plantas Nacidas en D debe ser mayor o igual a Plantas restantes en pie en D');
+        return;
+      }
     }
 
-    const datosMuestra = {
+    const datosMuestra = normalizarConteos('tipo2', {
       dato_1: dato_1,
       dato_2: dato_2,
       dato_3: dato_3,
@@ -239,7 +235,7 @@ export default function MuestraTipo2Modal({
       fotos: fotos,
       fotoUri: fotos[0] || null,
       estadoFenologico: estadoSel,
-    };
+    });
 
     DraftService.clearDraft(DRAFT_KEY);
     onGuardar(datosMuestra);
@@ -289,6 +285,11 @@ export default function MuestraTipo2Modal({
     !camposValidos && styles.saveButtonDisabled
   ], [camposValidos]);
 
+  const perdidasEnD = Math.max(
+    0,
+    parseInputNumber(dato_1) - parseInputNumber(dato_2)
+  );
+
   return (
     <Modal
       visible={visible}
@@ -331,7 +332,7 @@ export default function MuestraTipo2Modal({
 
               <Text style={styles.label}>Coordenadas GPS:</Text>
               <View style={styles.gpsContainer}>
-                {loading ? (
+                {loadingGPS ? (
                   <ActivityIndicator style={styles.loadingCoords} />
                 ) : (
                   <>
@@ -359,12 +360,12 @@ export default function MuestraTipo2Modal({
                 )}
               </View>
 
-              <Text style={styles.gpsEjemplo}>Ejemplo: 34° 36' 13.4" S, 58° 22' 53.7" O</Text>
+              <Text style={styles.gpsEjemplo}>D : Distancia/Plantas de Muestreo</Text>
 
-              <Text style={styles.label}>Nacidas en D:</Text>
+              <Text style={styles.label}>Plantas Nacidas en D:</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Nacidas en D"
+                placeholder="Plantas Nacidas en D"
                 placeholderTextColor="#444444"
                 value={dato_1}
                 onChangeText={setDato_1}
@@ -372,16 +373,22 @@ export default function MuestraTipo2Modal({
                 returnKeyType="next"
               />
 
-              <Text style={styles.label}>Remanentes en D:</Text>
+              <Text style={styles.label}>Plantas restantes en pie en D:</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Remanentes en D"
+                placeholder="Plantas restantes en pie en D"
                 placeholderTextColor="#444444"
                 value={dato_2}
                 onChangeText={setDato_2}
                 keyboardType="numeric"
                 returnKeyType="next"
               />
+
+              {((dato_1 || '').trim() !== '' || (dato_2 || '').trim() !== '') && (
+                <Text style={styles.perdidasText}>
+                  Pérdidas en D: {String(Number(perdidasEnD.toFixed(2)))}
+                </Text>
+              )}
 
               <Text style={styles.label}>Nudos originales por Planta:</Text>
               <TextInput
@@ -539,18 +546,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    marginTop: 10,
+    marginTop: 5,
     marginBottom: 5,
   },
   estadoGroup: {
-    marginBottom: 14,
+    marginBottom: 7,
   },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
-    marginBottom: 14,
+    marginBottom: 7,
     fontSize: 16,
     color: '#000000',
   },
@@ -567,11 +574,12 @@ const styles = StyleSheet.create({
   gpsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 7,
   },
   gpsEjemplo: {
-    fontSize: 12,
-    color: '#6c757d',
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
     marginTop: 4,
     marginBottom: 8,
   },
@@ -617,5 +625,12 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  perdidasText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginTop: 4,
+    marginBottom: 8,
   },
 });

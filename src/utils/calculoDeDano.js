@@ -126,8 +126,8 @@ function calcularDañoSoja(datos, fenologico) {
       fenologicoLabel = 'r6';              // R6
     } else if (fenologicoNum === 20) {
       fenologicoLabel = 'r6.5';            // R6,5
-    } else if (fenologicoNum === 21) {
-      fenologicoLabel = 'r8';              // R8
+    } else if (fenologicoNum === 21 || fenologicoNum === 23) {
+      fenologicoLabel = 'r8';              // R8, R7
     } else if (fenologicoNum === 22) {
       fenologicoLabel = 'v1-v5';           // Vc (equivale a V1)
     }
@@ -266,13 +266,16 @@ function calcularDañoReproductivo(datos, fenologicoLabel) {
   const B = Math.max(0, 100 - A);
 
   // Nudos: calcular % nudos perdidos
-  const nudosRemanentes = [d4, d5, d6, d7, d8].filter(n => n > 0);
+  const nudosInputs = [datos?.dato_4, datos?.dato_5, datos?.dato_6, datos?.dato_7, datos?.dato_8];
+  const nudosRemanentes = nudosInputs
+    .filter(val => val !== undefined && val !== null && String(val).trim() !== '')
+    .map(val => parseInputNumber(val));
   const promedioNudosRemanentes = nudosRemanentes.length > 0
     ? nudosRemanentes.reduce((a, b) => a + b, 0) / nudosRemanentes.length
     : 0;
 
   const porcentajeNudosPerdidos = d3 > 0 ? Math.max(0, (100 - ((promedioNudosRemanentes / d3) * 100))) : 0;
-  const indiceNudos = Math.max(0, Math.min(100, Math.round(porcentajeNudosPerdidos)));
+  const indiceNudos = Math.max(0, Math.min(100, Math.floor(porcentajeNudosPerdidos)));
 
   let coefi4 = {};
   let coefi5 = {};
@@ -292,7 +295,7 @@ function calcularDañoReproductivo(datos, fenologicoLabel) {
   const F = Math.max(0, 100 - A - E);
 
   // G: % DAÑO por defoliación (tabla danPorDesfoR1)
-  const indiceDefoliacion = Math.max(0, Math.min(100, Math.round(d9)));
+  const indiceDefoliacion = Math.max(0, Math.min(100, Math.floor(d9)));
   const G = parseInputNumber(coefi5?.[indiceDefoliacion] ?? 0);
 
   // H: % DAÑO NETO defoliación = (G * F) / 100
@@ -331,7 +334,7 @@ function calcularReproductivo47(datos, fenologicoLabel) {
   const danA = vainasTotales > 0 ? (vainasDañadas / vainasTotales) * 100 : 0;
   const cprb = Math.max(0, 100 - danA);
 
-  const idxDef = Math.max(0, Math.min(100, Math.round(d12)));
+  const idxDef = Math.max(0, Math.min(100, Math.floor(d12)));
   const indiceDefoliacion = String(idxDef);
 
   let coefiDefoliacion = {};

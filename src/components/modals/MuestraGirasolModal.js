@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Modal,
   View,
@@ -17,8 +17,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PhotoCapture from '../PhotoCapture';
 import { CoordenadasDmsInput, CoordenadasDmsOverlay } from '../../components/CoordenadasDms';
+import { parseInputNumber } from '../../utils/calculoDeDano';
 import { formatearCoordenadasDMS } from '../../utils/coordenadas';
 import { obtenerEstadosFenologicos } from '../../utils/fenologicosConfig';
+import { validarDatosMuestra, normalizarConteos } from '../../utils/validacionMuestras';
 import SelectorEstadoMuestra from '../SelectorEstadoMuestra';
 
 // --- CONFIGURACIÓN DE LOS 6 CAMPOS DE DATOS PARA GIRASOL ---
@@ -27,9 +29,9 @@ const DATOS_FIELDS = Array.from({ length: DATOS_COUNT }, (_, i) => `dato_${i + 1
 
 // Etiquetas específicas para trigo (ajusta según tus necesidades)
 const LABELS = [
-  'Nacidas en D',
-  'Improduct en D',
-  'Restante en D',
+  'Plantas Nacidas en D',
+  'Plantas Improduct en D',
+  'Plantas restantes en pie en D',
   '% promedio daño capít.',
   '% defoliacion'
 ];
@@ -61,9 +63,18 @@ export default function MuestraGirasolModal({
   const [fotos, setFotos] = useState(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [editCoordDms, setEditCoordDms] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [estadoSel, setEstadoSel] = useState('');
   const insets = useSafeAreaInsets();
+
+  // ✅ Ref para verificar si está montado
+  const isMountedRef = useRef(true);
+
+  // ✅ Cleanup al desmontar
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Sincronizar estado al cambiar valoresIniciales
   useEffect(() => {
@@ -78,7 +89,7 @@ export default function MuestraGirasolModal({
     if (!esEdicion && visible && !valoresIniciales.coordenada) {
       actualizarCoordenada();
     }
-  }, [visible, esEdicion]);
+  }, [visible, esEdicion, valoresIniciales.coordenada]);
 
   // Función para actualizar un campo específico
   const handleDataChange = (key, text) => {
@@ -86,20 +97,19 @@ export default function MuestraGirasolModal({
   };
 
   const handleGuardar = () => {
-    // Valida que todos los 23 campos estén completos
-    const allFieldsValid = DATOS_FIELDS.every(key => data[key].trim());
+    const validacion = validarDatosMuestra('girasol', data);
 
-    if (!allFieldsValid) {
-      Alert.alert('Error', 'Todos los campos de datos son obligatorios');
+    if (!validacion.ok) {
+      Alert.alert('Error', validacion.mensaje);
       return;
     }
 
-    const datosCompletos = {
+    const datosCompletos = normalizarConteos('girasol', {
       ...data,
       coordenada,
       fotos,
       fotoUri: fotos[0] || null,
-    };
+    });
 
     onGuardar(datosCompletos);
   };
@@ -116,49 +126,54 @@ export default function MuestraGirasolModal({
     visibleRef.current = visible;
   }, [visible]);
 
-  const actualizarCoordenada = async () => {
+  // ✅ Actualizar coordenada memoizada
+  const actualizarCoordenada = useCallback(async () => {
     if (esEdicion || !visibleRef.current) return;
 
-    setLoadingGPS(true);
+    if (isMountedRef.current && visibleRef.current) {
+      setLoadingGPS(true);
+    }
 
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
 
-      if (!visibleRef.current) return;
+      if (!isMountedRef.current || !visibleRef.current) return;
 
       if (status !== 'granted') {
-        if (visibleRef.current) {
+        if (isMountedRef.current && visibleRef.current) {
           Alert.alert('Error', 'Se necesita permiso de ubicación para obtener las coordenadas GPS');
-          setCoordenada('Error: Sin permisos de ubicación');
-          setLoadingGPS(false);
+          setCoordenada('');
         }
         return;
       }
 
       const location = await Promise.race([
         Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
+          accuracy: Location.Accuracy.Balanced,
         }),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('GPS timeout')), 10000)
+          setTimeout(() => reject(new Error('GPS timeout')), 8000)
         )
       ]);
 
-      if (!visibleRef.current) return;
+      if (!isMountedRef.current || !visibleRef.current) return;
 
       const coords = formatearCoordenadasDMS(location.coords.latitude, location.coords.longitude);
-      setCoordenada(coords);
+
+      if (isMountedRef.current && visibleRef.current) {
+        setCoordenada(coords);
+      }
     } catch (error) {
-      if (!visibleRef.current) return;
+      if (!isMountedRef.current || !visibleRef.current) return;
       console.error('Error obteniendo coordenadas:', error);
       Alert.alert('Error', 'No se pudieron obtener las coordenadas GPS');
-      setCoordenada('Error obteniendo coordenadas');
+      setCoordenada('');
     } finally {
-      if (visibleRef.current) {
+      if (isMountedRef.current && visibleRef.current) {
         setLoadingGPS(false);
       }
     }
-  };
+  }, [esEdicion]);
 
   // Obtiene el nombre del estado fenológico para el título
   const getTituloEstado = () => {
@@ -172,6 +187,16 @@ export default function MuestraGirasolModal({
     }
     return label ? `${prefijo} - ${label}` : prefijo;
   };
+
+  const perdidasEnD = Math.max(
+    0,
+    parseInputNumber(data.dato_1) - parseInputNumber(data.dato_2) - parseInputNumber(data.dato_3)
+  );
+
+  const mostrarPerdidas =
+    String(data.dato_1 ?? '').trim() !== '' ||
+    String(data.dato_2 ?? '').trim() !== '' ||
+    String(data.dato_3 ?? '').trim() !== '';
 
   // Renderiza los 6 inputs
   const renderDataInputs = () => {
@@ -190,12 +215,18 @@ export default function MuestraGirasolModal({
             keyboardType="numeric"
             returnKeyType={index === DATOS_COUNT - 1 ? 'done' : 'next'}
           />
+          {index === 2 && mostrarPerdidas && (
+            <Text style={styles.perdidasText}>
+              Pérdidas en D: {String(Number(perdidasEnD.toFixed(2)))}
+            </Text>
+          )}
         </React.Fragment>
       );
     });
   };
 
-  const isSaveDisabled = !DATOS_FIELDS.every(key => data[key].trim());
+  const isSaveDisabled = !coordenada.trim() ||
+    coordenada.trim().startsWith('Error');
 
   return (
     <Modal
@@ -239,7 +270,7 @@ export default function MuestraGirasolModal({
 
               <Text style={styles.label}>Coordenadas GPS:</Text>
               <View style={styles.gpsContainer}>
-                {loading ? (
+                {loadingGPS ? (
                   <ActivityIndicator style={styles.loadingCoords} />
                 ) : (
                   <>
@@ -271,7 +302,7 @@ export default function MuestraGirasolModal({
                 )}
               </View>
 
-              <Text style={styles.gpsEjemplo}>Ejemplo: 34° 36' 13.4" S, 58° 22' 53.7" O</Text>
+              <Text style={styles.gpsEjemplo}>D : Distancia/Plantas de Muestreo</Text>
 
               {renderDataInputs()}
 
@@ -357,18 +388,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    marginTop: 10,
+    marginTop: 5,
     marginBottom: 5,
   },
   estadoGroup: {
-    marginBottom: 14,
+    marginBottom: 7,
   },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
-    marginBottom: 14,
+    marginBottom: 7,
     fontSize: 16,
     color: '#000000',
   },
@@ -385,11 +416,12 @@ const styles = StyleSheet.create({
   gpsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 7,
   },
   gpsEjemplo: {
-    fontSize: 12,
-    color: '#6c757d',
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
     marginTop: 4,
     marginBottom: 8,
   },
@@ -435,5 +467,12 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  perdidasText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginTop: 4,
+    marginBottom: 8,
   },
 });

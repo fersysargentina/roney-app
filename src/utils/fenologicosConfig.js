@@ -23,6 +23,7 @@ export const ESTADOS_FENOLOGICOS = {
     { label: "R5,5", value: "18" },
     { label: "R6", value: "19" },
     { label: "R6,5", value: "20" },
+    { label: "R7", value: "23" },
     { label: "R8", value: "21" }
   ],
 

@@ -20,6 +20,7 @@ import PhotoCapture from '../PhotoCapture';
 import { CoordenadasDmsInput, CoordenadasDmsOverlay } from '../../components/CoordenadasDms';
 import { formatearCoordenadasDMS } from '../../utils/coordenadas';
 import { obtenerEstadosFenologicos } from '../../utils/fenologicosConfig';
+import { validarDatosMuestra, normalizarConteos } from '../../utils/validacionMuestras';
 import SelectorEstadoMuestra from '../SelectorEstadoMuestra';
 
 const DRAFT_KEY = 'muestra_tipo3_draft';
@@ -53,7 +54,6 @@ export default function MuestraTipo3Modal({
   const [fotos, setFotos] = useState(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [editCoordDms, setEditCoordDms] = useState(false);
-  const [loading] = useState(false);
   const [estadoSel, setEstadoSel] = useState('');
   const insets = useSafeAreaInsets();
 
@@ -154,7 +154,7 @@ export default function MuestraTipo3Modal({
       if (status !== 'granted') {
         if (isMountedRef.current && visibleRef.current) {
           Alert.alert('Error', 'Se necesita permiso de ubicación para obtener las coordenadas GPS');
-          setCoordenada('Error: Sin permisos de ubicación');
+          setCoordenada('');
         }
         return;
       }
@@ -179,7 +179,7 @@ export default function MuestraTipo3Modal({
       if (!isMountedRef.current || !visibleRef.current) return;
       console.error('Error obteniendo coordenadas:', error);
       Alert.alert('Error', 'No se pudieron obtener las coordenadas GPS');
-      setCoordenada('Error obteniendo coordenadas');
+      setCoordenada('');
     } finally {
       if (isMountedRef.current && visibleRef.current) {
         setLoadingGPS(false);
@@ -187,22 +187,27 @@ export default function MuestraTipo3Modal({
     }
   }, [esEdicion]);
 
-  // ✅ Validación de campos memoizada (12 datos + coordenada)
+  // ✅ Validación de campos memoizada (los datos ahora son opcionales; la coordenada sigue siendo obligatoria)
   const camposValidos = useMemo(() => {
-    return dato_1.trim() && dato_2.trim() && dato_3.trim() && dato_4.trim() &&
-           dato_5.trim() && dato_6.trim() && dato_7.trim() && dato_8.trim() &&
-           dato_9.trim() && dato_10.trim() && dato_11.trim() && dato_12.trim() &&
-           coordenada.trim();
-  }, [dato_1, dato_2, dato_3, dato_4, dato_5, dato_6, dato_7, dato_8, dato_9, dato_10, dato_11, dato_12, coordenada]);
+    return coordenada.trim();
+  }, [coordenada]);
 
   // ✅ Guardar memoizado
   const handleGuardar = useCallback(() => {
-    if (!camposValidos) {
-      Alert.alert('Error', 'Todos los campos de datos y la coordenada son obligatorios');
+    const validacion = validarDatosMuestra('tipo3', {
+      dato_1, dato_2, dato_3, dato_4, dato_5, dato_6,
+      dato_7, dato_8, dato_9, dato_10, dato_11, dato_12,
+    });
+    if (!validacion.ok) {
+      Alert.alert('Error', validacion.mensaje);
+      return;
+    }
+    if (!coordenada.trim()) {
+      Alert.alert('Error', 'La coordenada es obligatoria');
       return;
     }
 
-    const datosMuestra = {
+    const datosMuestra = normalizarConteos('tipo3', {
       dato_1: dato_1,
       dato_2: dato_2,
       dato_3: dato_3,
@@ -219,12 +224,12 @@ export default function MuestraTipo3Modal({
       fotos: fotos,
       fotoUri: fotos[0] || null,
       estadoFenologico: estadoSel,
-    };
+    });
 
     DraftService.clearDraft(DRAFT_KEY);
     onGuardar(datosMuestra);
     onClose();
-  }, [camposValidos, dato_1, dato_2, dato_3, dato_4, dato_5, dato_6, dato_7, dato_8, dato_9, dato_10, dato_11, dato_12, coordenada, fotos, estadoSel, onGuardar, onClose]);
+  }, [dato_1, dato_2, dato_3, dato_4, dato_5, dato_6, dato_7, dato_8, dato_9, dato_10, dato_11, dato_12, coordenada, fotos, estadoSel, onGuardar, onClose]);
 
   // ✅ Cerrar memoizado con reset de valores
   const handleCerrar = useCallback(() => {
@@ -314,7 +319,7 @@ export default function MuestraTipo3Modal({
 
               <Text style={styles.label}>Coordenadas GPS:</Text>
               <View style={styles.gpsContainer}>
-                {loading ? (
+                {loadingGPS ? (
                   <ActivityIndicator style={styles.loadingCoords} />
                 ) : (
                   <>
@@ -342,7 +347,7 @@ export default function MuestraTipo3Modal({
                 )}
               </View>
 
-              <Text style={styles.gpsEjemplo}>Ejemplo: 34° 36' 13.4" S, 58° 22' 53.7" O</Text>
+              <Text style={styles.gpsEjemplo}>D : Distancia/Plantas de Muestreo</Text>
 
               <Text style={styles.label}>Vainas en el suelo:</Text>
               <TextInput
@@ -554,18 +559,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    marginTop: 10,
+    marginTop: 5,
     marginBottom: 5,
   },
   estadoGroup: {
-    marginBottom: 14,
+    marginBottom: 7,
   },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
-    marginBottom: 14,
+    marginBottom: 7,
     fontSize: 16,
     color: '#000000',
   },
@@ -582,11 +587,12 @@ const styles = StyleSheet.create({
   gpsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 7,
   },
   gpsEjemplo: {
-    fontSize: 12,
-    color: '#6c757d',
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
     marginTop: 4,
     marginBottom: 8,
   },

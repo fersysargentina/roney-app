@@ -18,8 +18,10 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { DraftService } from '../../services/DraftService';
 import PhotoCapture from '../PhotoCapture';
 import { CoordenadasDmsInput, CoordenadasDmsOverlay } from '../../components/CoordenadasDms';
+import { parseInputNumber } from '../../utils/calculoDeDano';
 import { formatearCoordenadasDMS } from '../../utils/coordenadas';
 import { obtenerEstadosFenologicos } from '../../utils/fenologicosConfig';
+import { validarDatosMuestra, normalizarConteos } from '../../utils/validacionMuestras';
 import SelectorEstadoMuestra from '../SelectorEstadoMuestra';
 
 const DRAFT_KEY = 'muestra_trigo_draft';
@@ -29,29 +31,29 @@ const DATOS_COUNT = 23;
 const DATOS_FIELDS = Array.from({ length: DATOS_COUNT }, (_, i) => `dato_${i + 1}`);
 
 const LABELS = [
-  'Nacidas en D',  // dato_1
-  'Colgadas en D',  // dato_2
-  'Restantes en D', // dato_3
-  'Espiga 1 P',     // dato_4
-  'Espiga 1 T',     // dato_5
-  'Espiga 2 P',     // dato_6
-  'Espiga 2 T',     // dato_7
-  'Espiga 3 P',     // dato_8
-  'Espiga 3 T',     // dato_9
-  'Espiga 4 P',     // dato_10
-  'Espiga 4 T',     // dato_11
-  'Espiga 5 P',     // dato_12
-  'Espiga 5 T',     // dato_13
-  'Espiga 6 P',     // dato_14
-  'Espiga 6 T',     // dato_15
-  'Espiga 7 P',     // dato_16
-  'Espiga 7 T',     // dato_17
-  'Espiga 8 P',     // dato_18
-  'Espiga 8 T',     // dato_19
-  'Espiga 9 P',     // dato_20
-  'Espiga 9 T',     // dato_21
-  'Espiga 10 P',    // dato_22
-  'Espiga 10 T'   // dato_23
+  'Plantas/Espigas Nacidas en D',  // dato_1
+  'Plantas/Espigas Colgadas en D',  // dato_2
+  'Plantas/Espigas restantes en Pie en D', // dato_3
+  'Espiga 1 - Granos Perdidos',     // dato_4
+  'Espiga 1 - Granos Totales',     // dato_5
+  'Espiga 2 - Granos Perdidos',     // dato_6
+  'Espiga 2 - Granos Totales',     // dato_7
+  'Espiga 3 - Granos Perdidos',     // dato_8
+  'Espiga 3 - Granos Totales',     // dato_9
+  'Espiga 4 - Granos Perdidos',     // dato_10
+  'Espiga 4 - Granos Totales',     // dato_11
+  'Espiga 5 - Granos Perdidos',     // dato_12
+  'Espiga 5 - Granos Totales',     // dato_13
+  'Espiga 6 - Granos Perdidos',     // dato_14
+  'Espiga 6 - Granos Totales',     // dato_15
+  'Espiga 7 - Granos Perdidos',     // dato_16
+  'Espiga 7 - Granos Totales',     // dato_17
+  'Espiga 8 - Granos Perdidos',     // dato_18
+  'Espiga 8 - Granos Totales',     // dato_19
+  'Espiga 9 - Granos Perdidos',     // dato_20
+  'Espiga 9 - Granos Totales',     // dato_21
+  'Espiga 10 - Granos Perdidos',    // dato_22
+  'Espiga 10 - Granos Totales'   // dato_23
 ];
 // ------------------------------------------------
 
@@ -81,7 +83,6 @@ export default function MuestraTrigoModal({
   const [fotos, setFotos] = useState(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [editCoordDms, setEditCoordDms] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [estadoSel, setEstadoSel] = useState('');
   const insets = useSafeAreaInsets();
 
@@ -127,21 +128,20 @@ export default function MuestraTrigoModal({
   };
 
   const handleGuardar = () => {
-    // Valida que todos los 23 campos estén completos
-    const allFieldsValid = DATOS_FIELDS.every(key => data[key].trim());
+    const validacion = validarDatosMuestra('trigo', data);
 
-    if (!allFieldsValid) {
-      Alert.alert('Error', 'Todos los campos de datos son obligatorios');
+    if (!validacion.ok) {
+      Alert.alert('Error', validacion.mensaje);
       return;
     }
 
     // Crea objeto completo con todos los datos
-    const datosCompletos = {
+    const datosCompletos = normalizarConteos('trigo', {
       ...data,
       coordenada,
       fotos,
       fotoUri: fotos[0] || null,
-    };
+    });
 
     DraftService.clearDraft(DRAFT_KEY);
     // Llama a onGuardar pasando el objeto completo
@@ -174,7 +174,7 @@ export default function MuestraTrigoModal({
       if (status !== 'granted') {
         if (visibleRef.current) {
           Alert.alert('Error', 'Se necesita permiso de ubicación para obtener las coordenadas GPS');
-          setCoordenada('Error: Sin permisos de ubicación');
+          setCoordenada('');
           setLoadingGPS(false);
         }
         return;
@@ -197,7 +197,7 @@ export default function MuestraTrigoModal({
       if (!visibleRef.current) return;
       console.error('Error obteniendo coordenadas:', error);
       Alert.alert('Error', 'No se pudieron obtener las coordenadas GPS');
-      setCoordenada('Error obteniendo coordenadas');
+      setCoordenada('');
     } finally {
       if (visibleRef.current) {
         setLoadingGPS(false);
@@ -217,6 +217,16 @@ export default function MuestraTrigoModal({
     return label ? `${prefijo} - ${label}` : prefijo;
   };
 
+  const perdidasEnD = Math.max(
+    0,
+    parseInputNumber(data.dato_1) - parseInputNumber(data.dato_2) - parseInputNumber(data.dato_3)
+  );
+
+  const mostrarPerdidas =
+    String(data.dato_1 ?? '').trim() !== '' ||
+    String(data.dato_2 ?? '').trim() !== '' ||
+    String(data.dato_3 ?? '').trim() !== '';
+
   const renderDataInputs = () => {
     return DATOS_FIELDS.map((key, index) => {
       const labelText = LABELS[index];
@@ -233,12 +243,18 @@ export default function MuestraTrigoModal({
             keyboardType="numeric"
             returnKeyType={index === DATOS_COUNT - 1 ? 'done' : 'next'}
           />
+          {index === 2 && mostrarPerdidas && (
+            <Text style={styles.perdidasText}>
+                Plantas/Espigas Perdidas en D: {String(Number(perdidasEnD.toFixed(2)))}
+            </Text>
+          )}
         </React.Fragment>
       );
     });
   };
 
-  const isSaveDisabled = !DATOS_FIELDS.every(key => data[key].trim());
+  const isSaveDisabled = !coordenada.trim() ||
+    coordenada.trim().startsWith('Error');
 
   return (
     <Modal
@@ -285,7 +301,7 @@ export default function MuestraTrigoModal({
 
                 <Text style={styles.label}>Coordenadas GPS:</Text>
                 <View style={styles.gpsContainer}>
-                  {loading ? (
+                  {loadingGPS ? (
                     <ActivityIndicator style={styles.loadingCoords} />
                   ) : (
                     <>
@@ -317,7 +333,7 @@ export default function MuestraTrigoModal({
                   )}
                 </View>
 
-                <Text style={styles.gpsEjemplo}>Ejemplo: 34° 36' 13.4" S, 58° 22' 53.7" O</Text>
+                <Text style={styles.gpsEjemplo}>D : Distancia/Plantas de Muestreo</Text>
 
                 {renderDataInputs()}
 
@@ -408,18 +424,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    marginTop: 10,
+    marginTop: 5,
     marginBottom: 5,
   },
   estadoGroup: {
-    marginBottom: 14,
+    marginBottom: 7,
   },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
-    marginBottom: 14,
+    marginBottom: 7,
     fontSize: 16,
     color: '#000000',
   },
@@ -436,11 +452,12 @@ const styles = StyleSheet.create({
   gpsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 7,
   },
   gpsEjemplo: {
-    fontSize: 12,
-    color: '#6c757d',
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
     marginTop: 4,
     marginBottom: 8,
   },
@@ -486,5 +503,12 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  perdidasText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginTop: 4,
+    marginBottom: 8,
   },
 });

@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Platform,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -39,6 +40,9 @@ export default function LotesScreen({ route, navigation }) {
   const [coaseguros, setCoaseguros] = useState('');
   const [lotesSeleccionados, setLotesSeleccionados] = useState(new Set());
   const [comentarios, setComentarios] = useState('');
+  const [numSiniestro, setNumSiniestro] = useState('');
+  const [numPoliza, setNumPoliza] = useState('');
+  const [fechaDenuncia, setFechaDenuncia] = useState('');
   const [modalComentariosVisible, setModalComentariosVisible] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
@@ -98,6 +102,9 @@ export default function LotesScreen({ route, navigation }) {
           setWeb(operacionActual.web || 'N');
           setCoaseguros(operacionActual.coaseguros || '');
           setComentarios(operacionActual.comentarios || '');
+          setFechaDenuncia(operacionActual.fecha_denuncia || '');
+          setNumSiniestro((operacionActual.num_siniestro || '').replace(/[^0-9]/g, ''));
+          setNumPoliza((operacionActual.num_poliza || '').replace(/[^0-9]/g, ''));
         }
       }
     } catch (e) {
@@ -214,6 +221,24 @@ export default function LotesScreen({ route, navigation }) {
       setModalComentariosVisible(false);
     } catch (e) {
       Alert.alert('Error', 'No se pudieron guardar los comentarios');
+    }
+  }, [operacionId]);
+
+  // ✅ Guardar campos num_siniestro / num_poliza en la operación (AsyncStorage)
+  const guardarCampoOperacion = useCallback(async (clave, valor) => {
+    const texto = (valor || '').trim();
+    try {
+      const data = await AsyncStorage.getItem('operaciones');
+      const operaciones = ErrorHandler.safeJsonParse(data, []);
+      if (Array.isArray(operaciones)) {
+        const idx = operaciones.findIndex(op => op && op.id === operacionId);
+        if (idx >= 0) {
+          operaciones[idx] = { ...operaciones[idx], [clave]: texto };
+          await AsyncStorage.setItem('operaciones', JSON.stringify(operaciones));
+        }
+      }
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo guardar el campo');
     }
   }, [operacionId]);
 
@@ -481,10 +506,13 @@ export default function LotesScreen({ route, navigation }) {
         web: web || 'N',
         coaseguros: coaseguros || '',
         comentarios: comentarios || '',
+        num_siniestro: numSiniestro || '',
+        num_poliza: numPoliza || '',
+        fecha_denuncia: fechaDenuncia || '',
       },
       lotes,
     };
-  }, [operacionId, roney_op, campoNombre, cultivo, web, coaseguros, comentarios, construirDatosLote]);
+  }, [operacionId, roney_op, campoNombre, cultivo, web, coaseguros, comentarios, numSiniestro, numPoliza, fechaDenuncia, construirDatosLote]);
 
   // ✅ Marcar los lotes seleccionados como fallidos cuando el envío no llega
   const marcarFalloEnvio = useCallback(async () => {
@@ -555,7 +583,7 @@ export default function LotesScreen({ route, navigation }) {
       const unicas = [];
       uris.forEach(u => { if (unicas.indexOf(u) === -1) unicas.push(u); });
       await Promise.all(
-        unicas.map(u => FileSystem.deleteAsync(u, { idempotent: true }).catch(() => {}))
+        unicas.map(u => FileSystem.deleteAsync(u, { idempotent: true }).catch(() => { }))
       );
 
       // 3) Quitar las claves de la operación
@@ -649,7 +677,7 @@ export default function LotesScreen({ route, navigation }) {
           '⚠️ Servidor rechazó el envío',
           resp ? (resp.message || resp.error || 'desconocido') : `HTTP ${response.status}`
         );
-        try { await marcarFalloEnvio(); } catch (_) {}
+        try { await marcarFalloEnvio(); } catch (_) { }
       }
 
       if (isMountedRef.current) {
@@ -676,7 +704,7 @@ export default function LotesScreen({ route, navigation }) {
       }
     } catch (err) {
       console.warn('⚠️ Error en el envío:', err.message);
-      try { await marcarFalloEnvio(); } catch (_) {}
+      try { await marcarFalloEnvio(); } catch (_) { }
       if (isMountedRef.current) {
         Alert.alert('Error al enviar', 'No se pudieron enviar los lotes.\n\nRevisá la conexión e intentá nuevamente.');
       }
@@ -710,7 +738,7 @@ export default function LotesScreen({ route, navigation }) {
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Enviar', style: 'default', onPress: enviarLotes },
       ],
-      {cancelable: true }
+      { cancelable: true }
     );
   }, [lotes, lotesSeleccionados, enviarLotes, modoConsulta, alertaConsulta]);
 
@@ -780,15 +808,47 @@ export default function LotesScreen({ route, navigation }) {
             Total Has. Dañadas: <Text style={[styles.statValueInline, styles.statValueDamage]}>{totalHasDañadas.toFixed(1)} ha</Text>
           </Text>
           {!modoConsulta && (
-            <TouchableOpacity
-              style={styles.comentariosBtn}
-              onPress={abrirModalComentarios}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.comentariosBtnText}>
-                Comentarios{comentarios ? ' ✓' : ''}
-              </Text>
-            </TouchableOpacity>
+            <View>
+              <TouchableOpacity
+                style={styles.comentariosBtn}
+                onPress={abrirModalComentarios}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.comentariosBtnText}>
+                  Comentarios{comentarios ? ' ✓' : ''}
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.numInputsRow}>
+                <View style={styles.numInputCol}>
+                  <Text style={styles.numInputLabel}>Num. Siniestro</Text>
+                  <TextInput
+                    style={styles.numInput}
+                    value={numSiniestro}
+                    onChangeText={(txt) => setNumSiniestro(txt.replace(/[^0-9]/g, ''))}
+                    onBlur={() => guardarCampoOperacion('num_siniestro', numSiniestro)}
+                    placeholder="-"
+                    placeholderTextColor="#888"
+                    keyboardType="numeric"
+                    returnKeyType="next"
+                  />
+                </View>
+
+                <View style={styles.numInputCol}>
+                  <Text style={styles.numInputLabel}>Num. Póliza</Text>
+                  <TextInput
+                    style={styles.numInput}
+                    value={numPoliza}
+                    onChangeText={(txt) => setNumPoliza(txt.replace(/[^0-9]/g, ''))}
+                    onBlur={() => guardarCampoOperacion('num_poliza', numPoliza)}
+                    placeholder="-"
+                    placeholderTextColor="#888"
+                    keyboardType="numeric"
+                    returnKeyType="done"
+                  />
+                </View>
+              </View>
+            </View>
           )}
         </View>
       )}
@@ -904,6 +964,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  numInputsRow: {
+    flexDirection: 'row',
+    marginTop: 12,
+    marginHorizontal: -5,
+  },
+  numInputCol: {
+    flex: 1,
+    marginHorizontal: 5,
+  },
+  numInputLabel: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  numInput: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#dee2e6',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 14,
+    color: '#333',
   },
   emptyContainer: {
     flex: 1,

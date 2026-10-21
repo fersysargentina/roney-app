@@ -11,7 +11,15 @@ import {
   FlatList,
   ScrollView
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { CULTIVOS_FINA, CULTIVOS_GRUESA, campanaDesdeCultivo } from '../../utils/fenologicosConfig';
+
+const formatearFechaISO = (date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
 
 export default function CrearOperacionModal({
   visible,
@@ -27,6 +35,8 @@ export default function CrearOperacionModal({
   const [campana, setCampana] = useState(campanaDesdeCultivo(valoresIniciales.cultivo) || valoresIniciales.campana || ''); // 'Fina' | 'Gruesa' | ''
   const [cultivo, setCultivo] = useState(valoresIniciales.cultivo || '');
   const [coasegurosValor, setCoasegurosValor] = useState(coaseguros || valoresIniciales.coaseguros || '');
+  const [fechaDenuncia, setFechaDenuncia] = useState(valoresIniciales.fecha_denuncia || '');
+  const [pickerVisible, setPickerVisible] = useState(false);
   const [cultivoModalVisible, setCultivoModalVisible] = useState(false);
 
   // Sincronizar con valoresIniciales cuando visible cambia
@@ -37,6 +47,8 @@ export default function CrearOperacionModal({
       setCampana(campanaDesdeCultivo(valoresIniciales.cultivo) || valoresIniciales.campana || '');
       setCultivo(valoresIniciales.cultivo || '');
       setCoasegurosValor(coaseguros || valoresIniciales.coaseguros || '');
+      setFechaDenuncia(valoresIniciales.fecha_denuncia || '');
+      setPickerVisible(false);
     }
   }, [valoresIniciales, coaseguros, visible]);
 
@@ -88,11 +100,12 @@ export default function CrearOperacionModal({
       campo: campo.trim(),
       campana,
       cultivo,
-      coaseguros: coasegurosValor
+      coaseguros: coasegurosValor,
+      fecha_denuncia: fechaDenuncia
     });
 
     handleCerrar();
-  }, [camposCompletos, roneyOp, campo, campana, cultivo, coasegurosValor, onGuardar]);
+  }, [camposCompletos, roneyOp, campo, campana, cultivo, coasegurosValor, fechaDenuncia, onGuardar]);
 
   // Cerrar y resetear
   const handleCerrar = useCallback(() => {
@@ -101,6 +114,8 @@ export default function CrearOperacionModal({
     setCampana(valoresIniciales.campana || '');
     setCultivo(valoresIniciales.cultivo || '');
     setCoasegurosValor(coaseguros || valoresIniciales.coaseguros || '');
+    setFechaDenuncia(valoresIniciales.fecha_denuncia || '');
+    setPickerVisible(false);
     onClose();
   }, [valoresIniciales, coaseguros, onClose]);
 
@@ -152,6 +167,7 @@ export default function CrearOperacionModal({
                 placeholderTextColor="#888"
                 value={coasegurosValor}
                 onChangeText={setCoasegurosValor}
+                editable={web !== 'S'}
                 returnKeyType="next"
               />
 
@@ -167,6 +183,45 @@ export default function CrearOperacionModal({
                 returnKeyType="next"
               />
 
+              {/* 3bis. Fecha de siniestro */}
+              <Text style={styles.fieldLabel}>Fecha de siniestro</Text>
+              {Platform.OS === 'ios' ? (
+                <View style={[styles.input, web === 'S' && styles.selectorDisabled]}>
+                  <DateTimePicker
+                    value={fechaDenuncia ? new Date(fechaDenuncia + 'T00:00:00') : new Date()}
+                    mode="date"
+                    display="compact"
+                    disabled={web === 'S'}
+                    onValueChange={(_, date) => {
+                      if (date) setFechaDenuncia(formatearFechaISO(date));
+                    }}
+                  />
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.input, web === 'S' && styles.selectorDisabled]}
+                  onPress={() => setPickerVisible((v) => !v)}
+                  disabled={web === 'S'}
+                >
+                  <Text style={fechaDenuncia ? styles.fechaSiniestroValor : styles.fechaSiniestroPlaceholder}>
+                    {fechaDenuncia || 'AAAA-MM-DD'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {Platform.OS === 'android' && pickerVisible && web !== 'S' && (
+                <DateTimePicker
+                  value={fechaDenuncia ? new Date(fechaDenuncia + 'T00:00:00') : new Date()}
+                  mode="date"
+                  display="default"
+                  onValueChange={(_, date) => {
+                    if (date) setFechaDenuncia(formatearFechaISO(date));
+                    setPickerVisible(false);
+                  }}
+                  onDismiss={() => setPickerVisible(false)}
+                />
+              )}
+
               {/* 4. Campaña (Fina / Gruesa) */}
               <Text style={styles.fieldLabel}>Campaña</Text>
               <View style={styles.campanaButtonsContainer}>
@@ -177,6 +232,7 @@ export default function CrearOperacionModal({
                     campana === 'Fina' && styles.campanaFinaBtnSelected
                   ]}
                   onPress={() => handleSeleccionarCampana('Fina')}
+                  disabled={web === 'S'}
                 >
                   <Text
                     style={[
@@ -196,6 +252,7 @@ export default function CrearOperacionModal({
                     campana === 'Gruesa' && styles.campanaGruesaBtnSelected
                   ]}
                   onPress={() => handleSeleccionarCampana('Gruesa')}
+                  disabled={web === 'S'}
                 >
                   <Text
                     style={[
@@ -215,7 +272,7 @@ export default function CrearOperacionModal({
                 style={[
                   styles.input,
                   styles.selectorContainer,
-                  !campana && styles.selectorDisabled
+                  (!campana || web === 'S') && styles.selectorDisabled
                 ]}
                 onPress={() => {
                   if (campana) setCultivoModalVisible(true);
@@ -284,7 +341,14 @@ export default function CrearOperacionModal({
                 style={styles.cancelButton}
                 onPress={handleCerrar}
               >
-                <Text style={styles.cancelButtonText}>Cancelar</Text>
+                <Text
+                  style={styles.cancelButtonText}
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                  minimumFontScale={0.7}
+                >
+                  Cancelar
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -295,7 +359,12 @@ export default function CrearOperacionModal({
                 onPress={handleGuardar}
                 disabled={!camposCompletos}
               >
-                <Text style={styles.saveButtonText}>
+                <Text
+                  style={styles.saveButtonText}
+                  adjustsFontSizeToFit
+                  numberOfLines={1}
+                  minimumFontScale={0.7}
+                >
                   {textoBotonGuardar}
                 </Text>
               </TouchableOpacity>
@@ -364,6 +433,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#111',
     backgroundColor: '#fff',
+  },
+  fechaSiniestroValor: {
+    fontSize: 18,
+    color: '#111',
+  },
+  fechaSiniestroPlaceholder: {
+    fontSize: 18,
+    color: '#888',
   },
   campanaButtonsContainer: {
     flexDirection: 'row',
@@ -487,12 +564,14 @@ const styles = StyleSheet.create({
   },
   botones: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     marginTop: 20,
     gap: 14,
   },
   cancelButton: {
     flex: 1,
+    minWidth: 140,
     backgroundColor: '#6c757d',
     paddingVertical: 16,
     borderRadius: 10,
@@ -502,9 +581,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+    flexShrink: 1,
+    textAlign: 'center',
   },
   saveButton: {
     flex: 1,
+    minWidth: 140,
     backgroundColor: '#28a745',
     paddingVertical: 16,
     borderRadius: 10,
@@ -517,5 +599,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+    flexShrink: 1,
+    textAlign: 'center',
   },
 });

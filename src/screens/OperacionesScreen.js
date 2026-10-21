@@ -110,6 +110,7 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
       const campo = typeof datosOp === 'object' ? datosOp.campo : (arguments[2] || '');
       const campana = typeof datosOp === 'object' ? datosOp.campana : (arguments[3] || '');
       const coaseguros = typeof datosOp === 'object' ? datosOp.coaseguros : (arguments[4] || '');
+      const fecha_denuncia = typeof datosOp === 'object' ? (datosOp.fecha_denuncia || '') : '';
 
       const nombreLimpio = (roney_op || '').trim();
 
@@ -139,7 +140,7 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
 
         // Editar operación existente
         const nuevasOperaciones = operaciones.map(op =>
-          op.id === operacionSeleccionada.id ? { ...op, roney_op: nombreLimpio, cultivo, campo: (campo || '').trim(), campana: campana || '', coaseguros: coaseguros || '' } : op
+          op.id === operacionSeleccionada.id ? { ...op, roney_op: nombreLimpio, cultivo, campo: (campo || '').trim(), campana: campana || '', coaseguros: coaseguros || '', fecha_denuncia: fecha_denuncia || '' } : op
         );
         guardarOperaciones(nuevasOperaciones);
       } else {
@@ -161,6 +162,7 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
           cultivo,
           web: 'N',
           coaseguros: coaseguros || '',
+          fecha_denuncia: fecha_denuncia || '',
           fecha: new Date().toISOString(),
         };
         const nuevasOperaciones = [nuevaOperacion, ...operaciones];
@@ -307,6 +309,7 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
             cultivo: mapearCultivoWeb(item.cultivo) || 'Trigo',
             web: 'S',
             coaseguros: (item.coaseguros || ''),
+            fecha_denuncia: (item.fecha_denuncia || '').toString().trim(),
             fecha: item.fecha || new Date().toISOString(),
           };
           listaActualizada = [nuevaOp, ...listaActualizada];
@@ -466,9 +469,10 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
         cultivo: operacionSeleccionada.cultivo || '',
         web: operacionSeleccionada.web || 'N',
         coaseguros: operacionSeleccionada.coaseguros || '',
+        fecha_denuncia: operacionSeleccionada.fecha_denuncia || '',
       };
     }
-    return { roney_op: '', campo: '', campana: '', cultivo: '', coaseguros: '' };
+    return { roney_op: '', campo: '', campana: '', cultivo: '', coaseguros: '', fecha_denuncia: '' };
   }, [modoEdicion, operacionSeleccionada]);
 
   // ✅ Normalizar texto (sin tildes, minúsculas) para comparar
@@ -517,6 +521,8 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
           <Text style={styles.perfilHeaderBtnText}>👤 Mi Perfil</Text>
         </TouchableOpacity>
 
+        <Image source={logo} style={styles.logo} />
+
         {onLogout && (
           <TouchableOpacity
             style={styles.logoutHeaderBtn}
@@ -527,8 +533,6 @@ export default function OperacionesScreen({ navigation, userSession, onLogout, o
         )}
       </View>
 
-      <Image source={logo} style={styles.logo} />
-      
       <View style={styles.actionButtonsRow}>
         <TouchableOpacity
           style={styles.crearBtn}
@@ -681,11 +685,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   logo: {
-    width: 300,
-    height: 120,
+    width: 80,
+    height: 32,
     resizeMode: 'contain',
-    alignSelf: 'center',
-    marginBottom: 16,
   },
   separator: {
     height: 12,

@@ -25,6 +25,8 @@ import { MODO_TEST_ENVIO } from '../utils/modoConfig';
 // ✅ Constantes fuera del componente
 const ITEM_HEIGHT = 100;
 const MAX_SELECTIONS = 500;
+// Label visible del estado 'vacio' (lista sin tasar): el value 'vacio' es clave interna y no cambia
+const LABEL_FENO_VACIO = 'Sin Tasar / Sin daño';
 
 // ✅ Estado fenológico al que pertenece una muestra ('' si es una muestra vieja sin ese dato)
 const obtenerFenologicoDeMuestra = (m) => m?.estadoFenologico || m?.datos?.estadoFenologico || '';
@@ -507,7 +509,9 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
     }
     try {
       const estadoActual = estadosFenologicos.find(e => e.value === fenologicoSeleccionado);
-      const fenologicoLabel = estadoActual?.label || fenologicoSeleccionado;
+      const fenologicoLabel = fenologicoSeleccionado === 'vacio'
+        ? LABEL_FENO_VACIO
+        : (estadoActual?.label || fenologicoSeleccionado);
 
       const nuevoLote = {
         id: Date.now().toString(),
@@ -593,6 +597,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
   // ✅ Memoizar label fenológico
   const tipoFenologicoLabel = useMemo(() => {
     if (!fenologicoSeleccionado) return '';
+    if (fenologicoSeleccionado === 'vacio') return LABEL_FENO_VACIO;
     const estadoActual = estadosFenologicos.find(e => e.value === fenologicoSeleccionado);
     return estadoActual?.label || fenologicoSeleccionado;
   }, [estadosFenologicos, fenologicoSeleccionado]);
@@ -650,7 +655,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
 
   const opcionesFenologicas = useMemo(() => {
     return [
-      { label: 'Vacío', value: 'vacio' },
+      { label: LABEL_FENO_VACIO, value: 'vacio' },
       { label: 'Ver todos', value: 'todos' },
       ...(estadosFenologicos || [])
     ];
@@ -659,6 +664,7 @@ const recalcularDañoMuestrasActuales = useCallback(async (fenologicoParam = nul
   const labelFenologicoActual = useMemo(() => {
     if (!fenologicoSeleccionado) return 'Seleccionar estado';
     if (esVerTodos) return 'Ver todos';
+    if (fenologicoSeleccionado === 'vacio') return LABEL_FENO_VACIO;
     const estado = estadosFenologicos.find(e => e.value === fenologicoSeleccionado);
     return estado?.label || 'Seleccionar estado';
   }, [estadosFenologicos, fenologicoSeleccionado, esVerTodos]);

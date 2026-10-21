@@ -17,35 +17,35 @@ import { mapearEstadoATipoModal, normalizarCultivo, obtenerEstadosFenologicos } 
 // ✅ Configuraciones como constantes (fuera del componente)
 const LABELS_CONFIG = {
   soja: {
-    '1': ['Nacidas en D', 'Remanentes en D', '% nudos perdidos', '% defoliación'],
-    '2': ['Pérdida en D', 'Restante en D', '% nudos perdidos', '% defoliación'],
-    '3': ['Pérdida en D', 'Restante en D', 'Nudos originales por Planta:', 'Nudos remanentes 1', 'Nudos remanentes 2', 'Nudos remanentes 3', 'Nudos remanentes 4', 'Nudos remanentes 5', '% Defoliación'],
-    '4': ['Vainas en el suelo', 'Vainas abiertas (Nudo 1)', 'Vainas Sanas (Nudo 1)', 'Vainas abiertas (Nudo 2)', 'Vainas Sanas (Nudo 2)', 'Vainas abiertas (Nudo 3)', 'Vainas Sanas (Nudo 3)', 'Vainas abiertas (Nudo 4)', 'Vainas Sanas (Nudo 4)', 'Vainas abiertas (Nudo 5)', 'Vainas Sanas (Nudo 5)', '% Defoliación'],
+    '1': ['Plantas Nacidas en D', 'Plantas restantes en pie en D', '% nudos perdidos', '% defoliación'],
+    '2': ['Plantas Nacidas en D', 'Plantas restantes en pie en D', 'Nudos originales por Planta', 'Nudos remanentes 1', 'Nudos remanentes 2', 'Nudos remanentes 3', 'Nudos remanentes 4', 'Nudos remanentes 5', '% Defoliación'],
+    '3': ['Vainas en el suelo', 'Vainas Abiertas (Nudo 1)', 'Vainas Sanas (Nudo 1)', 'Vainas Abiertas (Nudo 2)', 'Vainas Sanas (Nudo 2)', 'Vainas Abiertas (Nudo 3)', 'Vainas Sanas (Nudo 3)', 'Vainas Abiertas (Nudo 4)', 'Vainas Sanas (Nudo 4)', 'Vainas Abiertas (Nudo 5)', 'Vainas Sanas (Nudo 5)', '% Defoliación'],
+    '4': ['Vainas en el suelo', 'Vainas Abiertas 1', 'Vainas Sanas 1', 'Vainas Abiertas 2', 'Vainas Sanas 2', 'Vainas Abiertas 3', 'Vainas Sanas 3', 'Vainas Abiertas 4', 'Vainas Sanas 4', 'Vainas Abiertas 5', 'Vainas Sanas 5', 'Vainas Abiertas 6', 'Vainas Sanas 6', 'Vainas Abiertas 7', 'Vainas Sanas 7', 'Vainas Abiertas 8', 'Vainas Sanas 8', 'Vainas Abiertas 9', 'Vainas Sanas 9', 'Vainas Abiertas 10', 'Vainas Sanas 10'],
   },
   maiz: {
-    '1': ['Nacidas en D', 'Remanentes en D', '% defoliacion'],
-    '2': ['Nacidas en D', 'Remanentes en D', 'N° de hileras promedio', 'Largo hilera promedio', 'Granos perdidos totales', '% defoliacion'],
+    '1': ['Plantas Nacidas en D', 'Plantas restantes en pie en D', '% defoliacion'],
+    '2': ['Plantas Nacidas en D', 'Plantas restantes en pie en D', 'Nº de hileras por Espiga Promedio', 'Nº de granos por hilera Promedio', 'Nº de granos Perdidos Totales', '% defoliacion'],
   },
   trigo: {
-    '1': ['Pérdidas en D', 'Colgadas en D', 'Restantes en D', 'Espiga 1 P', 'Espiga 1 T', 'Espiga 2 P', 'Espiga 2 T', 'Espiga 3 P', 'Espiga 3 T', 'Espiga 4 P', 'Espiga 4 T', 'Espiga 5 P', 'Espiga 5 T', 'Espiga 6 P', 'Espiga 6 T', 'Espiga 7 P', 'Espiga 7 T', 'Espiga 8 P', 'Espiga 8 T', 'Espiga 9 P', 'Espiga 9 T', 'Espiga 10 P', 'Espiga 10 T'],
-    '2': ['Pérdidas en D', 'Colgadas en D', 'Restantes en D', 'Espiga 1 P', 'Espiga 1 T', 'Espiga 2 P', 'Espiga 2 T', 'Espiga 3 P', 'Espiga 3 T', 'Espiga 4 P', 'Espiga 4 T', 'Espiga 5 P', 'Espiga 5 T', 'Espiga 6 P', 'Espiga 6 T', 'Espiga 7 P', 'Espiga 7 T', 'Espiga 8 P', 'Espiga 8 T', 'Espiga 9 P', 'Espiga 9 T', 'Espiga 10 P', 'Espiga 10 T'],
-    '3': ['Pérdidas en D', 'Colgadas en D', 'Restantes en D', 'Espiga 1 P', 'Espiga 1 T', 'Espiga 2 P', 'Espiga 2 T', 'Espiga 3 P', 'Espiga 3 T', 'Espiga 4 P', 'Espiga 4 T', 'Espiga 5 P', 'Espiga 5 T', 'Espiga 6 P', 'Espiga 6 T', 'Espiga 7 P', 'Espiga 7 T', 'Espiga 8 P', 'Espiga 8 T', 'Espiga 9 P', 'Espiga 9 T', 'Espiga 10 P', 'Espiga 10 T'],
-    '4': ['Pérdidas en D', 'Colgadas en D', 'Restantes en D', 'Espiga 1 P', 'Espiga 1 T', 'Espiga 2 P', 'Espiga 2 T', 'Espiga 3 P', 'Espiga 3 T', 'Espiga 4 P', 'Espiga 4 T', 'Espiga 5 P', 'Espiga 5 T', 'Espiga 6 P', 'Espiga 6 T', 'Espiga 7 P', 'Espiga 7 T', 'Espiga 8 P', 'Espiga 8 T', 'Espiga 9 P', 'Espiga 9 T', 'Espiga 10 P', 'Espiga 10 T'],
-    '5': ['Pérdidas en D', 'Colgadas en D', 'Restantes en D', 'Espiga 1 P', 'Espiga 1 T', 'Espiga 2 P', 'Espiga 2 T', 'Espiga 3 P', 'Espiga 3 T', 'Espiga 4 P', 'Espiga 4 T', 'Espiga 5 P', 'Espiga 5 T', 'Espiga 6 P', 'Espiga 6 T', 'Espiga 7 P', 'Espiga 7 T', 'Espiga 8 P', 'Espiga 8 T', 'Espiga 9 P', 'Espiga 9 T', 'Espiga 10 P', 'Espiga 10 T'],
-    '6': ['Pérdidas en D', 'Colgadas en D', 'Restantes en D', 'Espiga 1 P', 'Espiga 1 T', 'Espiga 2 P', 'Espiga 2 T', 'Espiga 3 P', 'Espiga 3 T', 'Espiga 4 P', 'Espiga 4 T', 'Espiga 5 P', 'Espiga 5 T', 'Espiga 6 P', 'Espiga 6 T', 'Espiga 7 P', 'Espiga 7 T', 'Espiga 8 P', 'Espiga 8 T', 'Espiga 9 P', 'Espiga 9 T', 'Espiga 10 P', 'Espiga 10 T']
+    '1': ['Plantas/Espigas Nacidas en D', 'Plantas/Espigas Colgadas en D', 'Plantas/Espigas restantes en pie en D', 'Espiga 1 - Granos Perdidos', 'Espiga 1 - Granos Totales', 'Espiga 2 - Granos Perdidos', 'Espiga 2 - Granos Totales', 'Espiga 3 - Granos Perdidos', 'Espiga 3 - Granos Totales', 'Espiga 4 - Granos Perdidos', 'Espiga 4 - Granos Totales', 'Espiga 5 - Granos Perdidos', 'Espiga 5 - Granos Totales', 'Espiga 6 - Granos Perdidos', 'Espiga 6 - Granos Totales', 'Espiga 7 - Granos Perdidos', 'Espiga 7 - Granos Totales', 'Espiga 8 - Granos Perdidos', 'Espiga 8 - Granos Totales', 'Espiga 9 - Granos Perdidos', 'Espiga 9 - Granos Totales', 'Espiga 10 - Granos Perdidos', 'Espiga 10 - Granos Totales'],
+    '2': ['Plantas/Espigas Nacidas en D', 'Plantas/Espigas Colgadas en D', 'Plantas/Espigas restantes en pie en D', 'Espiga 1 - Granos Perdidos', 'Espiga 1 - Granos Totales', 'Espiga 2 - Granos Perdidos', 'Espiga 2 - Granos Totales', 'Espiga 3 - Granos Perdidos', 'Espiga 3 - Granos Totales', 'Espiga 4 - Granos Perdidos', 'Espiga 4 - Granos Totales', 'Espiga 5 - Granos Perdidos', 'Espiga 5 - Granos Totales', 'Espiga 6 - Granos Perdidos', 'Espiga 6 - Granos Totales', 'Espiga 7 - Granos Perdidos', 'Espiga 7 - Granos Totales', 'Espiga 8 - Granos Perdidos', 'Espiga 8 - Granos Totales', 'Espiga 9 - Granos Perdidos', 'Espiga 9 - Granos Totales', 'Espiga 10 - Granos Perdidos', 'Espiga 10 - Granos Totales'],
+    '3': ['Plantas/Espigas Nacidas en D', 'Plantas/Espigas Colgadas en D', 'Plantas/Espigas restantes en pie en D', 'Espiga 1 - Granos Perdidos', 'Espiga 1 - Granos Totales', 'Espiga 2 - Granos Perdidos', 'Espiga 2 - Granos Totales', 'Espiga 3 - Granos Perdidos', 'Espiga 3 - Granos Totales', 'Espiga 4 - Granos Perdidos', 'Espiga 4 - Granos Totales', 'Espiga 5 - Granos Perdidos', 'Espiga 5 - Granos Totales', 'Espiga 6 - Granos Perdidos', 'Espiga 6 - Granos Totales', 'Espiga 7 - Granos Perdidos', 'Espiga 7 - Granos Totales', 'Espiga 8 - Granos Perdidos', 'Espiga 8 - Granos Totales', 'Espiga 9 - Granos Perdidos', 'Espiga 9 - Granos Totales', 'Espiga 10 - Granos Perdidos', 'Espiga 10 - Granos Totales'],
+    '4': ['Plantas/Espigas Nacidas en D', 'Plantas/Espigas Colgadas en D', 'Plantas/Espigas restantes en pie en D', 'Espiga 1 - Granos Perdidos', 'Espiga 1 - Granos Totales', 'Espiga 2 - Granos Perdidos', 'Espiga 2 - Granos Totales', 'Espiga 3 - Granos Perdidos', 'Espiga 3 - Granos Totales', 'Espiga 4 - Granos Perdidos', 'Espiga 4 - Granos Totales', 'Espiga 5 - Granos Perdidos', 'Espiga 5 - Granos Totales', 'Espiga 6 - Granos Perdidos', 'Espiga 6 - Granos Totales', 'Espiga 7 - Granos Perdidos', 'Espiga 7 - Granos Totales', 'Espiga 8 - Granos Perdidos', 'Espiga 8 - Granos Totales', 'Espiga 9 - Granos Perdidos', 'Espiga 9 - Granos Totales', 'Espiga 10 - Granos Perdidos', 'Espiga 10 - Granos Totales'],
+    '5': ['Plantas/Espigas Nacidas en D', 'Plantas/Espigas Colgadas en D', 'Plantas/Espigas restantes en pie en D', 'Espiga 1 - Granos Perdidos', 'Espiga 1 - Granos Totales', 'Espiga 2 - Granos Perdidos', 'Espiga 2 - Granos Totales', 'Espiga 3 - Granos Perdidos', 'Espiga 3 - Granos Totales', 'Espiga 4 - Granos Perdidos', 'Espiga 4 - Granos Totales', 'Espiga 5 - Granos Perdidos', 'Espiga 5 - Granos Totales', 'Espiga 6 - Granos Perdidos', 'Espiga 6 - Granos Totales', 'Espiga 7 - Granos Perdidos', 'Espiga 7 - Granos Totales', 'Espiga 8 - Granos Perdidos', 'Espiga 8 - Granos Totales', 'Espiga 9 - Granos Perdidos', 'Espiga 9 - Granos Totales', 'Espiga 10 - Granos Perdidos', 'Espiga 10 - Granos Totales'],
+    '6': ['Plantas/Espigas Nacidas en D', 'Plantas/Espigas Colgadas en D', 'Plantas/Espigas restantes en pie en D', 'Espiga 1 - Granos Perdidos', 'Espiga 1 - Granos Totales', 'Espiga 2 - Granos Perdidos', 'Espiga 2 - Granos Totales', 'Espiga 3 - Granos Perdidos', 'Espiga 3 - Granos Totales', 'Espiga 4 - Granos Perdidos', 'Espiga 4 - Granos Totales', 'Espiga 5 - Granos Perdidos', 'Espiga 5 - Granos Totales', 'Espiga 6 - Granos Perdidos', 'Espiga 6 - Granos Totales', 'Espiga 7 - Granos Perdidos', 'Espiga 7 - Granos Totales', 'Espiga 8 - Granos Perdidos', 'Espiga 8 - Granos Totales', 'Espiga 9 - Granos Perdidos', 'Espiga 9 - Granos Totales', 'Espiga 10 - Granos Perdidos', 'Espiga 10 - Granos Totales']
   },
   girasol: {
-    '1': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
-    '2': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
-    '3': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
-    '4': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
-    '5': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
-    '6': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
-    '7': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
-    '8': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
-    '9': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
-    '10': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion'],
-    '11': ['Pérdida en D', 'Improduct en D', 'Restante en D', '% promedio daño capít.', '% defoliacion']
+    '1': ['Plantas Nacidas en D', 'Plantas Improduct en D', 'Plantas restantes en pie en D', '% promedio daño capít.', '% defoliacion'],
+    '2': ['Plantas Nacidas en D', 'Plantas Improduct en D', 'Plantas restantes en pie en D', '% promedio daño capít.', '% defoliacion'],
+    '3': ['Plantas Nacidas en D', 'Plantas Improduct en D', 'Plantas restantes en pie en D', '% promedio daño capít.', '% defoliacion'],
+    '4': ['Plantas Nacidas en D', 'Plantas Improduct en D', 'Plantas restantes en pie en D', '% promedio daño capít.', '% defoliacion'],
+    '5': ['Plantas Nacidas en D', 'Plantas Improduct en D', 'Plantas restantes en pie en D', '% promedio daño capít.', '% defoliacion'],
+    '6': ['Plantas Nacidas en D', 'Plantas Improduct en D', 'Plantas restantes en pie en D', '% promedio daño capít.', '% defoliacion'],
+    '7': ['Plantas Nacidas en D', 'Plantas Improduct en D', 'Plantas restantes en pie en D', '% promedio daño capít.', '% defoliacion'],
+    '8': ['Plantas Nacidas en D', 'Plantas Improduct en D', 'Plantas restantes en pie en D', '% promedio daño capít.', '% defoliacion'],
+    '9': ['Plantas Nacidas en D', 'Plantas Improduct en D', 'Plantas restantes en pie en D', '% promedio daño capít.', '% defoliacion'],
+    '10': ['Plantas Nacidas en D', 'Plantas Improduct en D', 'Plantas restantes en pie en D', '% promedio daño capít.', '% defoliacion'],
+    '11': ['Plantas Nacidas en D', 'Plantas Improduct en D', 'Plantas restantes en pie en D', '% promedio daño capít.', '% defoliacion']
   }
 };
 
@@ -53,8 +53,8 @@ const ESTADOS_NOMBRES = {
   soja: {
     '1': 'V1-Vn',
     '2': 'R1-R3,5',
-    '3': 'R4-R7',
-    '4': 'R8'
+    '3': 'R4-R6,5',
+    '4': 'R7-R8'
   },
   maiz: {
     '1': 'V1-V8',

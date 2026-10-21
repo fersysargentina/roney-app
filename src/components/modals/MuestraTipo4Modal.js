@@ -19,6 +19,7 @@ import PhotoCapture from '../PhotoCapture';
 import { CoordenadasDmsInput, CoordenadasDmsOverlay } from '../../components/CoordenadasDms';
 import { formatearCoordenadasDMS } from '../../utils/coordenadas';
 import { obtenerEstadosFenologicos } from '../../utils/fenologicosConfig';
+import { validarDatosMuestra, normalizarConteos } from '../../utils/validacionMuestras';
 import SelectorEstadoMuestra from '../SelectorEstadoMuestra';
 
 // --- CONFIGURACIÓN DE LOS 21 CAMPOS DE DATOS ---
@@ -27,10 +28,10 @@ const DATOS_FIELDS = Array.from({ length: DATOS_COUNT }, (_, i) => `dato_${i + 1
 
 // ✅ Generar etiquetas una sola vez (constante)
 const LABELS = (() => {
-  const labels = ['En el suelo'];
+  const labels = ['Vainas en el suelo'];
   for (let i = 1; i <= 10; i++) {
-    labels.push(`En vainas abiertas ${i}`);
-    labels.push(`En vainas sanas ${i}`);
+    labels.push(`Vainas Abiertas ${i}`);
+    labels.push(`Vainas Sanas ${i}`);
   }
   return labels;
 })();
@@ -62,7 +63,6 @@ export default function MuestraTipo4Modal({
   const [fotos, setFotos] = useState(valoresIniciales.fotos || (valoresIniciales.fotoUri ? [valoresIniciales.fotoUri] : []));
   const [loadingGPS, setLoadingGPS] = useState(false);
   const [editCoordDms, setEditCoordDms] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [estadoSel, setEstadoSel] = useState('');
   const insets = useSafeAreaInsets();
   // ✅ Ref para verificar si está montado
@@ -121,17 +121,17 @@ export default function MuestraTipo4Modal({
       if (status !== 'granted') {
         if (isMountedRef.current && visibleRef.current) {
           Alert.alert('Error', 'Se necesita permiso de ubicación para obtener las coordenadas GPS');
-          setCoordenada('Error: Sin permisos de ubicación');
+          setCoordenada('');
         }
         return;
       }
 
       const location = await Promise.race([
         Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
+          accuracy: Location.Accuracy.Balanced,
         }),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('GPS timeout')), 10000)
+          setTimeout(() => reject(new Error('GPS timeout')), 8000)
         )
       ]);
 
@@ -146,7 +146,7 @@ export default function MuestraTipo4Modal({
       if (!isMountedRef.current || !visibleRef.current) return;
       console.error('Error obteniendo coordenadas:', error);
       Alert.alert('Error', 'No se pudieron obtener las coordenadas GPS');
-      setCoordenada('Error obteniendo coordenadas');
+      setCoordenada('');
     } finally {
       if (isMountedRef.current && visibleRef.current) {
         setLoadingGPS(false);
@@ -154,27 +154,33 @@ export default function MuestraTipo4Modal({
     }
   }, [esEdicion]);
 
-  // ✅ Validación de campos memoizada
+  // ✅ Validación de campos memoizada (los datos ahora son opcionales; la coordenada sigue siendo obligatoria)
   const camposValidos = useMemo(() => {
-    return DATOS_FIELDS.every(key => data[key]?.trim());
-  }, [data]);
+    return coordenada.trim() &&
+      !coordenada.trim().startsWith('Error');
+  }, [coordenada]);
 
   // ✅ Guardar memoizado
   const handleGuardar = useCallback(() => {
-    if (!camposValidos) {
-      Alert.alert('Error', 'Todos los campos de datos son obligatorios');
+    const validacion = validarDatosMuestra('tipo4', data);
+    if (!validacion.ok) {
+      Alert.alert('Error', validacion.mensaje);
       return;
     }
-    
-    const datosCompletos = { 
+    if (!coordenada.trim() || coordenada.trim().startsWith('Error')) {
+      Alert.alert('Error', 'La coordenada es obligatoria');
+      return;
+    }
+
+    const datosCompletos = normalizarConteos('tipo4', { 
       ...data, 
       coordenada,
       fotos,
       fotoUri: fotos[0] || null,
       estadoFenologico: estadoSel,
-    };
+    });
     onGuardar(datosCompletos);
-  }, [camposValidos, data, coordenada, fotos, estadoSel, onGuardar]);
+  }, [data, coordenada, fotos, estadoSel, onGuardar]);
 
   // ✅ Cerrar memoizado
   const handleCerrar = useCallback(() => {
@@ -275,7 +281,7 @@ export default function MuestraTipo4Modal({
 
                 <Text style={styles.label}>Coordenadas GPS:</Text>
                 <View style={styles.gpsContainer}>
-                  {loading ? (
+                  {loadingGPS ? (
                     <ActivityIndicator style={styles.loadingCoords} />
                   ) : (
                     <>
@@ -303,7 +309,7 @@ export default function MuestraTipo4Modal({
                   )}
                 </View>
 
-                <Text style={styles.gpsEjemplo}>Ejemplo: 34° 36' 13.4" S, 58° 22' 53.7" O</Text>
+                <Text style={styles.gpsEjemplo}>D : Distancia/Plantas de Muestreo</Text>
 
                 {renderDataInputs}
                 
@@ -390,18 +396,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    marginTop: 10,
+    marginTop: 5,
     marginBottom: 5,
   },
   estadoGroup: {
-    marginBottom: 14,
+    marginBottom: 7,
   },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
-    marginBottom: 14,
+    marginBottom: 7,
     fontSize: 16,
     color: '#000000',
   },
@@ -418,11 +424,12 @@ const styles = StyleSheet.create({
   gpsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 7,
   },
   gpsEjemplo: {
-    fontSize: 12,
-    color: '#6c757d',
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
     marginTop: 4,
     marginBottom: 8,
   },
